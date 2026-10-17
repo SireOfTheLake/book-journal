@@ -2,7 +2,18 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 -->
+<!-- merged: r001 r002 r003 r004 r005 -->
+
+## 0.1.6 — 2026-10-17
+
+### Improved
+- A challenge prompt's note now sits under the prompt name as plain text; click it to change it. With a book chosen and no note it shows a faint "Note".
+- Choosing a book for a prompt that asks for a note has a box for it right in the picker.
+- The Setting card's button now reads "+ add" and sits on the right.
+- One time only: reads with one narrator are marked Solo and reads with two are marked Dual. Anything already set, or with other numbers of narrators, is left alone, and adding books or narrators never changes a narration style.
+
+### Fixed
+- Choice boxes (format, point of view, perspective, narration style, narrator rating, and others) now fill completely when one is chosen, with no strip beside it.
 
 ## 0.1.5 — 2026-10-17
 

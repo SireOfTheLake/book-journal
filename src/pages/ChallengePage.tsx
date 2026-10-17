@@ -33,7 +33,7 @@ export default function ChallengePage() {
   const act = useMemo<GridActions>(() => {
     const run = async (fn: () => Promise<unknown>) => { try { await fn(); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
     return {
-      fill: (s, r) => run(() => repo.fillSlot(db, s, r)), clear: (s) => run(() => repo.clearSlot(db, s)),
+      fill: (s, r, note) => run(async () => { await repo.fillSlot(db, s, r); if (note) await repo.setPromptNote(db, s, note); }), clear: (s) => run(() => repo.clearSlot(db, s)),
       search: (q) => repo.searchReads(db, id, q),
       describe: (t) => run(() => repo.setChallengeDescription(db, id, t)), rename: (n) => run(() => repo.renameChallenge(db, id, n)), color: (h) => run(() => repo.setChallengeColor(db, id, h)),
       remove: () => { repo.deleteChallenge(db, id).then(() => nav('/journal/challenges'), (e) => setError(String(e))); },

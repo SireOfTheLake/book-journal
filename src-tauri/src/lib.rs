@@ -118,6 +118,12 @@ pub fn run() {
         description: "prompt notes",
         sql: include_str!("../migrations/0021_prompt_notes.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 22,
+        description: "solo and dual narration, once",
+        sql: include_str!("../migrations/0022_narration_style_once.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

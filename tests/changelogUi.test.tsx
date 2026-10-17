@@ -35,13 +35,13 @@ describe('book picker keys', () => {
     fireEvent.keyDown(box, { key: 'ArrowDown' });
     fireEvent.keyDown(box, { key: 'ArrowUp' });
     fireEvent.keyDown(box, { key: 'Enter' });
-    expect(onPick).toHaveBeenCalledWith('r2');
+    expect(onPick).toHaveBeenCalledWith('r2', undefined);
   });
   it('Enter picks the first book when you have only typed', async () => {
     const onPick = vi.fn();
     render(<ReadPicker prompt="P" search={async () => [cand(1), cand(2)]} onPick={onPick} onClose={() => undefined} />);
     await screen.findByText('Book 2');
     fireEvent.keyDown(screen.getByLabelText('Search books'), { key: 'Enter' });
-    expect(onPick).toHaveBeenCalledWith('r1');
+    expect(onPick).toHaveBeenCalledWith('r1', undefined);
   });
 });

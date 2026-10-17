@@ -33,7 +33,7 @@ export default function LocationEditor({ places, options, onPick, onRemove, onSa
           onPick={(id) => { const o = options.find((x) => x.id === id); if (o) onPick(o.name); }}
           onCreate={(text) => { const known = parseLocationText(text); setDialog(known ? { id: null, initial: known } : { id: null, initial: { city: text }, typed: text }); }} createLabel={(t) => `New location "${t}"...`} />
       ) : (
-        <button type="button" className="ed add plusbtn" aria-label="Add a location" title="Add a location" onClick={() => setAdding(true)}>+</button>
+        <button type="button" className="ed add plusbtn" title="Add a location" onClick={() => setAdding(true)}>+ add</button>
       )}
       {dialog && <LocationDialog title={dialog.id ? 'Edit location' : 'New location'} shared={!!dialog.id} initial={dialog.initial} typed={dialog.typed} onClose={() => setDialog(null)} onSave={(input) => onSave(dialog.id, input)} />}
     </Card>

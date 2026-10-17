@@ -996,4 +996,18 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 /* heat level: the chosen box is filled all the way across, with no strip left beside it */
 .seg.heatseg { gap: 0; }
 .seg.heatseg button.on, .seg.heatseg button:has(+ button.on) { border-right-color: var(--accent); }
-.plusbtn { align-self: flex-start; min-width: 32px; font-size: 18px; line-height: 1; padding: 4px 10px; }
+.plusbtn { align-self: flex-end; }
+
+/* the note under a prompt: plain text until clicked */
+.gnotetext { background: none; border: 0; padding: 0; font: inherit; font-size: 12.5px; color: var(--text); text-align: center; cursor: text; width: 100%; overflow-wrap: anywhere; }
+.gnotetext.empty { color: var(--muted); font-style: italic; }
+.gnotetext:hover { text-decoration: underline dotted; }
+
+/* choice boxes (format, POV, perspective, narration style, narrator rating, heat level...): touching, and the chosen box filled all the way across */
+.seg { gap: 0; }
+.seg.listseg { gap: 4px; }
+.seg button.on, .seg button:has(+ button.on) { border-right-color: var(--accent); }
+.seg.thumbs button.t-up.on, .seg.thumbs button:has(+ button.t-up.on) { border-right-color: #5fae6a; }
+.seg.thumbs button.t-neutral.on, .seg.thumbs button:has(+ button.t-neutral.on) { border-right-color: #d9b94a; }
+.seg.thumbs button.t-down.on, .seg.thumbs button:has(+ button.t-down.on) { border-right-color: #d4574a; }
+.seg.listseg button.on, .seg.listseg button:has(+ button.on) { border-right-color: var(--line2); }

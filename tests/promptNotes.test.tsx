@@ -78,27 +78,40 @@ const challenge = (loose: ch.Slot[], over: Partial<ch.Challenge> = {}): ch.Chall
 const acts = (over: Partial<GridActions> = {}): GridActions => ({ fill: vi.fn(), clear: vi.fn(), search: async () => [], rename: vi.fn(), color: vi.fn(), remove: vi.fn(), addGroup: vi.fn(), renameGroup: vi.fn(), groupColor: vi.fn(), removeGroup: vi.fn(), addPrompt: vi.fn(), renamePrompt: vi.fn(), removePrompt: vi.fn(), cardCols: vi.fn(), moveCard: vi.fn(), shuffleCards: vi.fn(), movePrompt: vi.fn(), shufflePrompts: vi.fn(), ...over });
 const show = (c: ch.Challenge, a: GridActions) => render(<MemoryRouter><GridView challenge={c} covers={{}} act={a} /></MemoryRouter>);
 
-describe('the note box on a prompt', () => {
-  it('shows only under prompts that ask, and only once a book is on them', () => {
+describe('the note under a prompt', () => {
+  it('shows only under prompts that ask, once a book is on them; with no note it says "Note"', () => {
     const a = acts({ note: vi.fn() });
     show(challenge([slot({ id: 'a', label: 'Asks', askNote: true }), slot({ id: 'b', label: 'Follows' }), slot({ id: 'c', label: 'Empty', askNote: true, fill: null })]), a);
-    expect(screen.getAllByLabelText('Character')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Add a note' })).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Add a note' }).textContent).toBe('Note');
   });
   it('every prompt shows it when the challenge asks, unless a prompt says no', () => {
     show(challenge([slot({ id: 'a' }), slot({ id: 'b', askNote: false })], { askNote: true }), acts({ note: vi.fn() }));
-    expect(screen.getAllByLabelText('Character')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Add a note' })).toHaveLength(1);
   });
-  it('saves on Enter and on Escape', async () => {
+  it('is plain text under the prompt name, changed by clicking it', async () => {
     const note = vi.fn();
-    show(challenge([slot({ id: 'a', askNote: true })]), acts({ note }));
-    const box = screen.getByLabelText('Character');
-    fireEvent.change(box, { target: { value: 'Gideon' } });
-    fireEvent.keyDown(box, { key: 'Enter' });
-    expect(note).toHaveBeenCalledWith('a', 'Gideon');
-    note.mockClear();
-    await new Promise((r) => setTimeout(r, 5));
+    show(challenge([slot({ id: 'a', label: 'Prompt', askNote: true, note: 'Gideon' })]), acts({ note }));
+    const text = screen.getByRole('button', { name: /Note: Gideon/ });
+    expect(text.textContent).toBe('Gideon');
+    expect(text.previousElementSibling?.textContent).toBe('Prompt');
+    fireEvent.click(text);
+    const box = screen.getByLabelText('Note');
     fireEvent.change(box, { target: { value: 'Rhys' } });
-    fireEvent.keyDown(box, { key: 'Escape' });
+    fireEvent.keyDown(box, { key: 'Enter' });
+    expect(note).toHaveBeenCalledWith('a', 'Rhys');
+    expect(screen.queryByLabelText('Note')).toBeNull();
+  });
+  it('saves on Escape too, and leaves the old note alone if nothing changed', async () => {
+    const note = vi.fn();
+    show(challenge([slot({ id: 'a', askNote: true, note: 'Gideon' })]), acts({ note }));
+    fireEvent.click(screen.getByRole('button', { name: /Note: Gideon/ }));
+    fireEvent.keyDown(screen.getByLabelText('Note'), { key: 'Escape' });
+    expect(note).not.toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 5));
+    fireEvent.click(screen.getByRole('button', { name: /Note: Gideon/ }));
+    fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'Rhys' } });
+    fireEvent.keyDown(screen.getByLabelText('Note'), { key: 'Escape' });
     expect(note).toHaveBeenCalledWith('a', 'Rhys');
   });
   it('Edit mode has the challenge switch and a choice for each prompt', () => {
@@ -109,5 +122,19 @@ describe('the note box on a prompt', () => {
     expect(askAll).toHaveBeenCalledWith(true, 'Character');
     fireEvent.change(screen.getByLabelText('Note for Prompt'), { target: { value: 'yes' } });
     expect(askPrompt).toHaveBeenCalledWith('a', true);
+  });
+  it('choosing a book has a box for the note when the prompt asks for one', async () => {
+    const fill = vi.fn();
+    show(challenge([slot({ id: 'a', label: 'Prompt', askNote: true, fill: null })]), acts({ note: vi.fn(), fill, search: async () => [{ read_id: 'r1', book_id: 'b1', title: 'Hooks In', authors: 'Au', series: null, status: 'finished', when: null, used_on: null }] }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a book for Prompt' }));
+    fireEvent.change(await screen.findByLabelText('Character (optional)'), { target: { value: 'Gideon' } });
+    fireEvent.click(await screen.findByRole('button', { name: /Hooks In/ }));
+    expect(fill).toHaveBeenCalledWith('a', 'r1', 'Gideon');
+  });
+  it('no note box when picking a book for a prompt that does not ask', async () => {
+    show(challenge([slot({ id: 'a', label: 'Prompt', fill: null })]), acts({ search: async () => [] }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add a book for Prompt' }));
+    await screen.findByLabelText('Search books');
+    expect(screen.queryByLabelText(/optional/)).toBeNull();
   });
 });

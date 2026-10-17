@@ -20,7 +20,7 @@ const show = (path: string) => render(<DbContext.Provider value={db}><MemoryRout
 const settingCard = async () => (await screen.findByText('Setting')).closest('.bcard') as HTMLElement;
 
 async function openNew() {
-  fireEvent.click(await screen.findByRole('button', { name: 'Add a location' }));
+  fireEvent.click(await screen.findByRole('button', { name: '+ add' }));
   const box = await screen.findByLabelText('Search locations');
   fireEvent.focus(box);
   fireEvent.mouseDown(await screen.findByRole('option', { name: '+ New location...' }));
@@ -99,7 +99,7 @@ describe('the Setting card', () => {
   });
   it('asks what a typed, unknown name is, and puts it in that field', async () => {
     show(`/book/${book}/${rid}`);
-    fireEvent.click(await screen.findByRole('button', { name: 'Add a location' }));
+    fireEvent.click(await screen.findByRole('button', { name: '+ add' }));
     const box = await screen.findByLabelText('Search locations');
     fireEvent.focus(box); fireEvent.change(box, { target: { value: 'Narnia' } });
     fireEvent.mouseDown(await screen.findByRole('option', { name: /New location "Narnia"/ }));
@@ -113,12 +113,12 @@ describe('the Setting card', () => {
   it('picks an existing location from the search, and opens the dialog for a new typed one', async () => {
     await db.execute("INSERT INTO place (id, name, city, country, located) VALUES ('p1', 'Rome, Italy', 'Rome', 'Italy', 1)");
     show(`/book/${book}/${rid}`);
-    fireEvent.click(await screen.findByRole('button', { name: 'Add a location' }));
+    fireEvent.click(await screen.findByRole('button', { name: '+ add' }));
     const box = await screen.findByLabelText('Search locations');
     fireEvent.focus(box); fireEvent.change(box, { target: { value: 'rom' } });
     fireEvent.mouseDown(await screen.findByRole('option', { name: /Rome, Italy/ }));
     await waitFor(async () => expect((await getBookLog(db, book))!.places.map((p) => p.name)).toEqual(['Rome, Italy']));
-    fireEvent.click(await screen.findByRole('button', { name: 'Add a location' }));
+    fireEvent.click(await screen.findByRole('button', { name: '+ add' }));
     const b2 = await screen.findByLabelText('Search locations');
     fireEvent.focus(b2); fireEvent.change(b2, { target: { value: 'Lyon, France' } });
     fireEvent.mouseDown(await screen.findByRole('option', { name: /New location "Lyon, France"/ }));
@@ -157,7 +157,7 @@ describe('the Setting card has one plus button', () => {
     await db.execute("INSERT INTO place (id, name, city, country, located) VALUES ('p9', 'Oslo, Norway', 'Oslo', 'Norway', 1)");
     await db.execute("INSERT INTO place (id, name, located) VALUES ('p8', 'Loose text', 0)");
     show(`/book/${book}/${rid}`);
-    const plus = await screen.findByRole('button', { name: 'Add a location' });
+    const plus = await screen.findByRole('button', { name: '+ add' });
     expect(screen.queryByRole('button', { name: 'New location...' })).toBeNull();
     expect(screen.queryByText('Add location')).toBeNull();
     fireEvent.click(plus);

@@ -11,7 +11,7 @@ import TrackerBar from './TrackerBar';
 
 export interface GridActions {
   describe?(text: string): void;
-  fill(slotId: string, readId: string): void;
+  fill(slotId: string, readId: string, note?: string): void;
   clear(slotId: string): void;
   search(query: string): Promise<Candidate[]>;
   rename(name: string): void;
@@ -79,13 +79,15 @@ function FitText({ to, title, className }: { to: string; title: string; classNam
   return <Link ref={ref} className={className} to={to} title={title} style={{ fontSize: size }}>{title}</Link>;
 }
 
-// The short note a prompt asks for. It saves when you leave the box, press Enter, or press Escape.
-export function NoteInput({ value, label, onSave }: { value: string; label: string; onSave(text: string): void }) {
+// The short note a prompt asks for: plain text under the prompt name. Click it to change it; it saves when you leave the box, press Enter, or press Escape.
+export function NoteText({ value, onSave }: { value: string; onSave(text: string): void }) {
+  const [editing, setEditing] = useState(false);
   const [v, setV] = useState(value);
-  useLayoutEffect(() => setV(value), [value]);
   const done = useRef(false);
-  const commit = () => { if (done.current) return; done.current = true; if (v.trim() !== value) onSave(v.trim()); setTimeout(() => { done.current = false; }, 0); };
-  return <input className="field small gnote" aria-label={label} placeholder={label} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); commit(); e.currentTarget.blur(); } }} />;
+  useLayoutEffect(() => setV(value), [value]);
+  const finish = () => { if (done.current) return; done.current = true; setEditing(false); if (v.trim() !== value) onSave(v.trim()); setTimeout(() => { done.current = false; }, 0); };
+  if (editing) return <input autoFocus className="field small gnote" aria-label="Note" placeholder="Note" value={v} onChange={(e) => setV(e.target.value)} onBlur={finish} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); finish(); } }} />;
+  return <button type="button" className={`gnotetext${value ? '' : ' empty'}`} aria-label={value ? `Note: ${value}. Click to change` : 'Add a note'} onClick={() => { done.current = false; setEditing(true); }}>{value || 'Note'}</button>;
 }
 
 function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd, askAll, noteLabel }: { slot: Slot; cover: string | undefined; editing: boolean; sticker?: boolean; onPick(): void; act: GridActions; dnd?: Dnd; askAll: boolean; noteLabel: string }) {
@@ -109,11 +111,11 @@ function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd, askAll, not
       </button>
       {planned && <span className="plannedtag" title="It counts once the book is read">planned</span>}
       {editing ? <SaveText value={slot.label} label={`Prompt: ${slot.label}`} onSave={(v) => act.renamePrompt(slot.id, v)} /> : <span className="glabel" title={slot.label}>{slot.label}</span>}
+      {asks && f && act.note && <NoteText value={slot.note ?? ''} onSave={(t) => act.note!(slot.id, t)} />}
       <span className="gbook">
         {f ? <><FitText className="l" to={`/book/${f.book_id}/${f.read_id}`} title={f.title} />
           <button type="button" className="xbtn" aria-label={`Take ${f.title} off ${slot.label}`} title="Take this book off" onClick={() => act.clear(slot.id)}>&times;</button></> : null}
       </span>
-      {asks && f && act.note && <NoteInput value={slot.note ?? ''} label={noteLabel} onSave={(t) => act.note!(slot.id, t)} />}
       {editing && act.askPrompt && (
         <select className="gasks" aria-label={`Note for ${slot.label}`} value={slot.askNote === null ? '' : slot.askNote ? 'yes' : 'no'} onChange={(e) => act.askPrompt!(slot.id, e.target.value === '' ? null : e.target.value === 'yes')}>
           <option value="">{`${noteLabel}: as the challenge`}</option><option value="yes">{`${noteLabel}: ask`}</option><option value="no">{`${noteLabel}: don't ask`}</option>
@@ -318,7 +320,7 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
       {sticker && editing && act.addStickers && <AddStickers add={act.addStickers} groups={c.groups.map((g) => ({ id: g.id, name: g.name }))} />}
       <div className="gcards">{keys.map(renderCard)}</div>
       {c.total === 0 && !editing && <p className="muted">This challenge has no prompts yet. Choose Edit to add some.</p>}
-      {picking && <ReadPicker prompt={picking.label} search={act.search} onClose={() => setPicking(null)} onPick={(readId) => { act.fill(picking.id, readId); setPicking(null); }} />}
+      {picking && <ReadPicker prompt={picking.label} search={act.search} noteLabel={(picking.askNote ?? c.askNote) && act.note ? c.noteLabel : undefined} onClose={() => setPicking(null)} onPick={(readId, note) => { act.fill(picking.id, readId, note); setPicking(null); }} />}
     </div>
   );
 }

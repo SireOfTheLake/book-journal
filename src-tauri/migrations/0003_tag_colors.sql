@@ -1,0 +1,5 @@
+-- Genres, themes, and tropes now each have their own color, chosen at random and kept.
+-- This gives every existing tag one (random() is evaluated separately for each row).
+UPDATE genre SET color = CASE abs(random()) % 10 WHEN 0 THEN '#c98270' WHEN 1 THEN '#d6a35e' WHEN 2 THEN '#93a58a' WHEN 3 THEN '#6f8aa0' WHEN 4 THEN '#9a7b8f' WHEN 5 THEN '#8c9158' WHEN 6 THEN '#5aa5a0' WHEN 7 THEN '#c4683d' WHEN 8 THEN '#b8a07e' ELSE '#c47a9a' END WHERE color IS NULL;
+UPDATE theme SET color = CASE abs(random()) % 10 WHEN 0 THEN '#c98270' WHEN 1 THEN '#d6a35e' WHEN 2 THEN '#93a58a' WHEN 3 THEN '#6f8aa0' WHEN 4 THEN '#9a7b8f' WHEN 5 THEN '#8c9158' WHEN 6 THEN '#5aa5a0' WHEN 7 THEN '#c4683d' WHEN 8 THEN '#b8a07e' ELSE '#c47a9a' END WHERE color IS NULL;
+UPDATE trope SET color = CASE abs(random()) % 10 WHEN 0 THEN '#c98270' WHEN 1 THEN '#d6a35e' WHEN 2 THEN '#93a58a' WHEN 3 THEN '#6f8aa0' WHEN 4 THEN '#9a7b8f' WHEN 5 THEN '#8c9158' WHEN 6 THEN '#5aa5a0' WHEN 7 THEN '#c4683d' WHEN 8 THEN '#b8a07e' ELSE '#c47a9a' END WHERE color IS NULL;

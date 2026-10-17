@@ -1,0 +1,9 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/gen
+*.log
+
+# Real reading data used by the tests; keep it out of a public repository.
+tests/fixtures
+*.key

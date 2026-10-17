@@ -1,0 +1,23 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Permissions for the main window",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "sql:default",
+    "sql:allow-execute",
+    { "identifier": "http:default", "allow": [{ "url": "https://*" }, { "url": "http://*" }] },
+    "dialog:allow-save",
+    "fs:allow-mkdir",
+    "fs:allow-read-dir",
+    "fs:allow-remove",
+    "fs:allow-copy-file",
+    "fs:allow-write-text-file",
+    "fs:allow-exists",
+    "fs:allow-stat",
+    "fs:scope-appconfig-recursive",
+    "updater:default",
+    "process:allow-restart"
+  ]
+}

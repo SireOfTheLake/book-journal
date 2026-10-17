@@ -956,7 +956,7 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .bootdetails code { display: block; margin-top: 6px; padding: 8px; background: var(--panel2); border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
 
 /* recently finished: one row that fills the card; extra books wait in hidden rows */
-.homeshelf { grid-template-rows: auto; grid-auto-rows: 0; row-gap: 0; overflow: hidden; padding-bottom: 2px; }
+.homeshelf { grid-template-rows: auto; grid-auto-rows: 0; row-gap: 0; overflow: hidden; }
 .pickrow.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel2)); }
 
 /* sidebar "What's new" */
@@ -973,3 +973,7 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .clmore { align-self: flex-start; flex: none; padding: 6px 12px; font-size: 13px; }
 .updateerr { margin-top: 8px; }
 .updateerr code { display: block; margin-top: 6px; padding: 8px; background: var(--panel2); border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+.listseg { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+.listrows { max-height: 52vh; overflow-y: auto; }
+.listrows li .field { flex: 1; max-width: 360px; }
+.listuses { margin-left: auto; margin-right: 8px; }

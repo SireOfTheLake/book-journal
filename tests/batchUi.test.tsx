@@ -16,7 +16,7 @@ describe('settings tabs', () => {
     const db = migrateNodeDb();
     render(<DbContext.Provider value={db}><ThemeProvider saveDelay={10}><SettingsPage /></ThemeProvider></DbContext.Provider>);
     const tabs = screen.getByRole('tablist');
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Backup and Export', 'Appearance and Themes', 'App updates']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Backup and Export', 'Appearance and Themes', 'Lists', 'App updates']);
     expect(screen.getByText('Your backups')).toBeTruthy();
     expect(screen.queryByRole('group', { name: 'Mode' })).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: 'Appearance and Themes' }));

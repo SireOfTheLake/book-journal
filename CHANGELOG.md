@@ -2,7 +2,15 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 -->
+<!-- merged: r001 r002 r003 -->
+
+## 0.1.4 — 2026-10-17
+
+### New
+- Settings has a "Lists" tab with every pick-list (genres, themes, tropes, sources, time periods, narrator accents, occupations, sexualities, character tags, name types): add, rename, or delete entries, and see how often each is used.
+
+### Fixed
+- A thin strip of extra books no longer peeks out under Recently finished on the home page.
 
 ## 0.1.3 — 2026-10-17
 

@@ -8,6 +8,7 @@ import QuickLog from './QuickLog';
 import QuickSeries from './QuickSeries';
 import { Icon } from './icons';
 import UpdateToast from '../update/UpdateToast';
+import ChangelogModal, { useChangelog } from '../changelog/ChangelogModal';
 
 const YearContext = createContext<number>(new Date().getFullYear());
 export const useJournalYear = () => useContext(YearContext);
@@ -16,6 +17,7 @@ const link = ({ isActive }: { isActive: boolean }) => (isActive ? 'nav cur' : 'n
 
 export default function Shell() {
   const nav = useNavigate();
+  const clog = useChangelog();
   const db = useDb();
   const now = new Date().getFullYear();
   const todayIso = `${now}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
@@ -88,6 +90,7 @@ export default function Shell() {
         <NavLink to="/journal/challenges" className={link}><Icon name="challenges" />Challenges</NavLink>
         <NavLink to="/journal/randomizer" className={link}><Icon name="dice" />Prompt randomizer</NavLink>
         <span className="spacer" />
+        <button type="button" className="nav navbtn" onClick={clog.show}><Icon name="sparkle" />What's new{clog.unseen && <span className="newdot" role="img" aria-label="new" />}</button>
         <NavLink to="/import" className={link}><Icon name="import" />Import</NavLink>
         <NavLink to="/settings" className={link}><Icon name="settings" />Settings and themes</NavLink>
       </nav>
@@ -102,6 +105,7 @@ export default function Shell() {
           <div className="content" key={refresh}><Outlet /></div>
         </YearContext.Provider>
         <UpdateToast />
+      {clog.open && <ChangelogModal onClose={clog.close} />}
       </main>
       {adding && <QuickAdd initialTitle={addTitle} onClose={() => { setAdding(false); setAddTitle(''); }} />}
       {addingSeries && <QuickSeries onClose={() => setAddingSeries(false)} />}

@@ -100,3 +100,29 @@ GitHub no longer accepts your account password for uploads. Git needs either a b
 8. Run `git push -u origin main` again. When it asks for a **username**, type your GitHub user name. When it asks for a **password**, paste the **token** (nothing appears as you paste; just press Enter). Windows remembers it, so you will not be asked again, including for `npm run release`.
 
 If a sign-in window opens instead of asking in the terminal, choose **Token** (or "Sign in with your browser") and follow it.
+
+
+## If the app shows "migration 1 was previously applied but has been modified"
+
+This happens when the installer was built from files whose line endings differ from the ones your database was created with (Windows turns LF into CRLF when GitHub checks the code out). Your data is not damaged; the app just refuses to open.
+
+The project now has a `.gitattributes` file that keeps the database files identical everywhere. After replacing your project files with the new zip, run these in the project folder:
+
+```
+git add --renormalize .
+git add .gitattributes
+git commit -m "Keep migration line endings stable"
+git push
+npm run release -- 0.1.2
+```
+
+Then install the new Book Journal Setup.exe (or wait for the update toast). Use the next version number if 0.1.2 is already taken.
+
+## Release notes (the "What's new" window)
+
+Every release gets an entry in `CHANGELOG.md`, shown in the app under **What's new** (sidebar, above Import).
+
+- With each batch of changes I send, I add a small file in `changelog/unreleased` (r001.md, r002.md, ...). Several batches pile up there until you release.
+- `npm run release -- 0.1.2` files all of them under that version, with today's date, into `CHANGELOG.md`, removes the files from `changelog/unreleased`, and commits everything with the release. You don't edit anything by hand.
+- Don't overwrite `CHANGELOG.md` when you copy over a new zip (my zips won't include it after this one). If a batch file is ever copied back after it was released, the release command skips it, so nothing is listed twice.
+- Want to change the wording? Edit the lines in `changelog/unreleased` before you run the release, or edit `CHANGELOG.md` afterwards.

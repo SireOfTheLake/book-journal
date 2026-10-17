@@ -53,7 +53,7 @@ describe('the Home data', () => {
     expect(h.reading).toEqual([]); expect(h.paused).toEqual([]);
     expect(h.upNext.map((b) => b.title)).toEqual(['Hooks In', '68 Whiskey', 'Ronan']);
     expect(h.upNextCount).toBe(3);
-    expect(h.recent).toHaveLength(6);
+    expect(h.recent.length).toBeGreaterThanOrEqual(6); // up to 16; the card shows as many as fit across
     expect(h.recent[0].finish_date).toBe('2026-10-08');
     expect(h.recent.map((r) => r.finish_date)).toEqual([...h.recent.map((r) => r.finish_date)].sort().reverse());
     expect(h.recent[0].authors).toBeTruthy();

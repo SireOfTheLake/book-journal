@@ -1,0 +1,4 @@
+# Migration files are checksummed by the database layer, so they must be byte-identical on every machine.
+*.sql text eol=lf
+*.rs text eol=lf
+*.bat text eol=crlf

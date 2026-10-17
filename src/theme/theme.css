@@ -940,3 +940,34 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .dsticker.dloose { width: var(--w, 90px); aspect-ratio: auto; margin: var(--dy, 0) 0 var(--dy, 0) var(--dx, 0); transform: rotate(var(--rot, 0deg)); transition: transform .15s ease; }
 .dsticker.dloose img { height: auto; object-fit: contain; border-radius: 0; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55)); }
 .dsticker.dloose:hover { transform: rotate(0deg) scale(1.12); position: relative; z-index: 2; }
+
+/* start-up screen */
+.boot { min-height: 100vh; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.bootcard { width: min(440px, 100%); text-align: center; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 36px 32px; }
+.bootcard h1 { margin: 6px 0 12px; font-size: 26px; }
+.bootmark { font-size: 40px; line-height: 1; }
+.bootmsg { margin: 0 0 16px; }
+.bootbtn { margin-bottom: 14px; }
+.bootbar { height: 4px; background: var(--panel2); border-radius: 2px; overflow: hidden; }
+.bootbar span { display: block; width: 40%; height: 100%; background: var(--accent); border-radius: 2px; animation: bootslide 1.2s ease-in-out infinite; }
+@keyframes bootslide { 0% { transform: translateX(-100%); } 100% { transform: translateX(250%); } }
+.bootfix { margin: 0 0 8px; }
+.bootdetails { text-align: left; margin-top: 8px; }
+.bootdetails code { display: block; margin-top: 6px; padding: 8px; background: var(--panel2); border-radius: 6px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+
+/* recently finished: one row that fills the card; extra books wait in hidden rows */
+.homeshelf { grid-template-rows: auto; grid-auto-rows: 0; row-gap: 0; overflow: hidden; padding-bottom: 2px; }
+.pickrow.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--panel2)); }
+
+/* sidebar "What's new" */
+.navbtn { width: 100%; text-align: left; background: none; border: 0; font-family: inherit; font-size: inherit; cursor: pointer; display: flex; align-items: center; gap: inherit; }
+.newdot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-left: auto; }
+.cldlg { width: min(560px, calc(100vw - 48px)); max-height: calc(100vh - 120px); display: flex; flex-direction: column; }
+.clscroll { overflow-y: auto; display: flex; flex-direction: column; gap: 14px; padding-right: 4px; }
+.clrelease { border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; background: var(--panel); }
+.clrelease.clcurrent { border-color: var(--accent); }
+.clhead { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+.clver { font-weight: 700; font-size: 16px; }
+.cltitle { margin: 10px 0 4px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.clrelease ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.clmore { align-self: flex-start; flex: none; padding: 6px 12px; font-size: 13px; }

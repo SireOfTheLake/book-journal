@@ -11,23 +11,33 @@ export default function ReadPicker({ prompt, search, onPick, onClose }: {
   const [rows, setRows] = useState<Candidate[] | null>(null);
   const box = useRef<HTMLInputElement>(null);
   const seq = useRef(0);
+  const [active, setActive] = useState(0);
   useEffect(() => { box.current?.focus(); }, []);
   useEffect(() => {
     const n = ++seq.current;
     search(q).then((r) => { if (n === seq.current) setRows(r); }, () => { if (n === seq.current) setRows([]); });
   }, [q, search]);
+  useEffect(() => { setActive(0); }, [rows]);
+  useEffect(() => { document.getElementById(`pick-${active}`)?.scrollIntoView?.({ block: 'nearest' }); }, [active]);
+  const keys = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') { onClose(); return; }
+    const n = rows?.length ?? 0;
+    if (e.key === 'ArrowDown' && n) { e.preventDefault(); setActive((a) => Math.min(n - 1, a + 1)); }
+    else if (e.key === 'ArrowUp' && n) { e.preventDefault(); setActive((a) => Math.max(0, a - 1)); }
+    else if (e.key === 'Enter' && rows?.[active] && (e.target as HTMLElement).tagName !== 'BUTTON') { e.preventDefault(); onPick(rows[active].read_id); }
+  };
   return (
-    <div className="overlay" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+    <div className="overlay" onKeyDown={keys}>
       <div className="dialog pickdlg" role="dialog" aria-modal="true" aria-label="Choose a book">
         <h2 className="pagetitle small2">CHOOSE A BOOK</h2>
         <div className="muted small">For: {prompt}</div>
-        <input ref={box} className="field big" placeholder="Search by title, author or series" aria-label="Search books" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input ref={box} className="field big" placeholder="Search by title, author or series" aria-label="Search books" aria-activedescendant={rows?.length ? `pick-${active}` : undefined} value={q} onChange={(e) => setQ(e.target.value)} />
         <ul className="pickist">
           {rows === null && <li className="muted">Loading...</li>}
           {rows?.length === 0 && <li className="muted">{q ? 'No reads match that.' : 'You have no reads yet. Start a book first.'}</li>}
-          {rows?.map((c) => (
+          {rows?.map((c, i) => (
             <li key={c.read_id}>
-              <button type="button" className="pickrow" onClick={() => onPick(c.read_id)}>
+              <button type="button" id={`pick-${i}`} className={i === active ? 'pickrow active' : 'pickrow'} aria-current={i === active} tabIndex={-1} onMouseMove={() => setActive(i)} onClick={() => onPick(c.read_id)}>
                 <span className="pt">{c.title}</span>
                 <span className="muted small">{[c.authors, c.series].filter(Boolean).join(' · ') || 'No author'}</span>
                 <span className="small">

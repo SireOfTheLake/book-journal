@@ -68,12 +68,11 @@ export function StickerGrid({ stickers }: { stickers: Sticker[] }) {
         const loose = !!s.art && !s.cover && !s.word && !s.usMap && s.kind !== 'bingo'; // a sticker picture: shown whole, scattered
         const style = loose ? ({
           '--rot': `${(jitter(seed, 1) * 20 - 10).toFixed(1)}deg`,
-          '--w': `${Math.round(70 + jitter(seed, 2) * 44)}px`,
           '--dy': `${Math.round(jitter(seed, 3) * 16 - 8)}px`,
           '--dx': `${Math.round(jitter(seed, 4) * 10 - 8)}px`,
         } as React.CSSProperties) : undefined;
         return (
-        <div style={style} className={s.word ? 'dsticker dword' : s.usMap ? 'dsticker dstate' : loose ? 'dsticker dloose' : 'dsticker'} key={`${s.challenge_id}${i}`} title={`${s.challenge}: ${s.label} (${s.title})`}>
+        <div style={style} className={s.word ? 'dsticker dword' : s.usMap ? 'dsticker dstate' : loose ? 'dsticker dloose' : 'dsticker'} key={`${s.challenge_id}${i}`} title={`${s.challenge}: ${s.label}${s.note ? ` — ${s.note}` : ''} (${s.title})`}>
           {s.word ? <WordTilesRow tiles={s.word} label={s.label} /> : s.usMap ? <StateShape name={s.label} color={s.color} size={64} /> : s.kind === 'bingo' ? <BingoTile label={s.label} art={s.art} color={s.color ?? '#a65e3a'} />
             : s.cover ? <img src={s.cover} alt={s.title} /> : s.art ? <img src={s.art} alt={s.label} /> : <div className="dsfallback"><span>{s.title}</span></div>}
         </div>

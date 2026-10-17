@@ -712,12 +712,12 @@ a.librow:hover { background: var(--panel2); }
 .sw.before { background: color-mix(in srgb, var(--accent) 55%, var(--panel2)); }
 .splitkey { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
 .dstickers { display: flex; flex-wrap: wrap; gap: 8px; }
-.dsticker { width: 78px; }
+.dsticker { width: 76px; }
 .dsticker img { width: 100%; height: auto; display: block; border-radius: 3px; }
 .dsticker .btile { width: 100%; }
 .dsfallback { display: flex; align-items: center; justify-content: center; text-align: center; aspect-ratio: 2 / 3; background: var(--panel2); border: 1px solid var(--line2); border-radius: 3px; font-size: 11px; padding: 4px; overflow: hidden; }
 .dcovers { display: flex; flex-wrap: wrap; gap: 8px; }
-.dcover { width: 68px; display: block; }
+.dcover { width: 76px; display: block; }
 .dcover img { width: 100%; display: block; border-radius: 3px; }
 .dbar { display: grid; grid-template-columns: 90px 1fr 24px; gap: 8px; align-items: center; font-size: 13px; }
 .dbt { height: 10px; background: var(--panel2); border-radius: 5px; overflow: hidden; }
@@ -937,8 +937,6 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 
 /* dashboard stickers: whole pictures, loosely scattered (organized chaos) */
 .dstickers { align-items: center; gap: 2px 0; padding: 6px 4px; }
-.dsticker.dloose { width: var(--w, 90px); aspect-ratio: auto; margin: var(--dy, 0) 0 var(--dy, 0) var(--dx, 0); transform: rotate(var(--rot, 0deg)); transition: transform .15s ease; }
-.dsticker.dloose img { height: auto; object-fit: contain; border-radius: 0; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55)); }
 .dsticker.dloose:hover { transform: rotate(0deg) scale(1.12); position: relative; z-index: 2; }
 
 /* start-up screen */
@@ -977,3 +975,25 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .listrows { max-height: 52vh; overflow-y: auto; }
 .listrows li .field { flex: 1; max-width: 360px; }
 .listuses { margin-left: auto; margin-right: 8px; }
+
+/* notes on challenge prompts */
+.gnote { width: 100%; box-sizing: border-box; margin-top: 4px; }
+.gasks { width: 100%; margin-top: 4px; font-size: 12px; }
+.notesettings { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+
+/* dashboard stickers: the size of a cover, whole, tilted a little; covers a touch larger */
+.dsticker.dloose { width: 76px; height: 114px; aspect-ratio: auto; margin: var(--dy, 0) 0 var(--dy, 0) var(--dx, 0); transform: rotate(var(--rot, 0deg)); transition: transform .15s ease; }
+.dsticker.dloose img { width: 100%; height: 100%; object-fit: contain; border-radius: 0; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55)); }
+
+/* covers fill their frame exactly (a little stretching beats a cut-off cover). Only book covers; other pictures keep their proportions. */
+.libimg, .cand img, .covthumb, .altbtn img, .dcover img, .dsticker:not(.dloose) img, .bbox .bcover, .realcover .zoomimg img, .wordcover .libimg { object-fit: fill; }
+
+/* US map: a long title stays inside its card */
+.stcard { min-width: 0; }
+.stcard .glabel, .stcard .gbook { width: 100%; max-width: 100%; box-sizing: border-box; overflow: hidden; }
+.stcard .gbook .l { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* heat level: the chosen box is filled all the way across, with no strip left beside it */
+.seg.heatseg { gap: 0; }
+.seg.heatseg button.on, .seg.heatseg button:has(+ button.on) { border-right-color: var(--accent); }
+.plusbtn { align-self: flex-start; min-width: 32px; font-size: 18px; line-height: 1; padding: 4px 10px; }

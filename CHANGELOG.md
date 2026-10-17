@@ -2,7 +2,21 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 -->
+<!-- merged: r001 r002 r003 r004 -->
+
+## 0.1.5 — 2026-10-17
+
+### New
+- Challenge prompts can ask for a short note when a book is placed on them (a character's name, a sport...). Turn it on for the whole challenge or for single prompts while editing; not offered for Bingo or US map challenges. The note also shows on the Book Log's challenge list and on the dashboard sticker's hover text.
+
+### Improved
+- Book covers now fill their frame exactly instead of being cut off (other pictures keep their proportions).
+- Dashboard stickers show in the order the books were read, are the same size as covers (no random size changes), and covers are a little larger.
+- On the Book Log's Setting card, a single + button replaces Add location and New location. Search your sorted locations, or choose "+ New location...".
+
+### Fixed
+- Long book titles on a US map challenge are cut off with an ellipsis instead of running past the cover.
+- The Heat level boxes now fill completely when one is chosen, with no strip left beside it.
 
 ## 0.1.4 — 2026-10-17
 

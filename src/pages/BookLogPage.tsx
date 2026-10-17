@@ -1,5 +1,5 @@
 import { assignVoice, unassignVoice } from '../repo/voicing';
-import { addLocationToBook, savePlace } from '../repo/places';
+import { addLocationToBook, listPickablePlaces, savePlace } from '../repo/places';
 import { listMergeCandidates } from '../repo/bookMerge';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -32,7 +32,7 @@ export default function BookLogPage() {
 
   const reload = useCallback(async () => {
     const [l, sources, timePeriods, accents, places, genres, themes, tropes, series, universes, characters, authors, narrators] = await Promise.all([
-      repo.getBookLog(db, bookId, readId), repo.listItems(db, 'source'), repo.listItems(db, 'time_period'), repo.listItems(db, 'accent'), repo.listItems(db, 'place'),
+      repo.getBookLog(db, bookId, readId), repo.listItems(db, 'source'), repo.listItems(db, 'time_period'), repo.listItems(db, 'accent'), listPickablePlaces(db),
       repo.listTagOptions(db, 'genre'), repo.listTagOptions(db, 'theme'), repo.listTagOptions(db, 'trope'), listSeriesOptions(db), listUniverses(db), listCharacterOptions(db), repo.listAuthorOptions(db), repo.listNarratorOptions(db),
     ]);
     setLog(l);

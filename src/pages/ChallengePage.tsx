@@ -41,6 +41,7 @@ export default function ChallengePage() {
       groupColor: (g, h) => run(() => repo.setGroupColor(db, g, h)), removeGroup: (g) => run(() => repo.deleteGroup(db, g)),
       addPrompt: (g, l) => run(() => repo.addPrompt(db, id, g, l)), renamePrompt: (s, l) => run(() => repo.renamePrompt(db, s, l)),
       removePrompt: (s) => run(() => repo.deletePrompt(db, s)),
+      askAll: (ask, label) => run(() => repo.setChallengeNotes(db, id, ask, label)), askPrompt: (s, ask) => run(() => repo.setPromptAsk(db, s, ask)), note: (s, t) => run(() => repo.setPromptNote(db, s, t)),
       cardCols: (k, n) => run(() => repo.setCardCols(db, id, k, n)), moveCard: (k, b) => run(() => repo.moveCard(db, id, k, b)),
       shuffleCards: () => run(() => repo.shuffleCards(db, id)), movePrompt: (s, g, b) => run(() => repo.movePrompt(db, s, g, b)),
       shufflePrompts: (g) => run(() => repo.shufflePrompts(db, id, g)),

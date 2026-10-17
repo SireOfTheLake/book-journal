@@ -24,6 +24,9 @@ export interface GridActions {
   addPrompt(groupId: string | null, label: string): void;
   renamePrompt(slotId: string, label: string): void;
   removePrompt(slotId: string): void;
+  askAll?(ask: boolean, label: string): void; // every prompt asks for a short note (a character's name...), and what that note is called
+  askPrompt?(slotId: string, ask: boolean | null): void; // one prompt decides for itself (null = follow the challenge)
+  note?(slotId: string, text: string): void;
   addStickers?(items: { prompt: string; image: StickerImage; groupId?: string | null }[]): Promise<void>;
   replaceSticker?(slotId: string, file: File): void;
   cardCols(key: string, cols: number): void;
@@ -76,10 +79,20 @@ function FitText({ to, title, className }: { to: string; title: string; classNam
   return <Link ref={ref} className={className} to={to} title={title} style={{ fontSize: size }}>{title}</Link>;
 }
 
-function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd }: { slot: Slot; cover: string | undefined; editing: boolean; sticker?: boolean; onPick(): void; act: GridActions; dnd?: Dnd }) {
+// The short note a prompt asks for. It saves when you leave the box, press Enter, or press Escape.
+export function NoteInput({ value, label, onSave }: { value: string; label: string; onSave(text: string): void }) {
+  const [v, setV] = useState(value);
+  useLayoutEffect(() => setV(value), [value]);
+  const done = useRef(false);
+  const commit = () => { if (done.current) return; done.current = true; if (v.trim() !== value) onSave(v.trim()); setTimeout(() => { done.current = false; }, 0); };
+  return <input className="field small gnote" aria-label={label} placeholder={label} value={v} onChange={(e) => setV(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); commit(); e.currentTarget.blur(); } }} />;
+}
+
+function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd, askAll, noteLabel }: { slot: Slot; cover: string | undefined; editing: boolean; sticker?: boolean; onPick(): void; act: GridActions; dnd?: Dnd; askAll: boolean; noteLabel: string }) {
   const [confirming, setConfirming] = useState(false);
   const f = slot.fill;
   const planned = !!f && f.status !== 'finished'; // a book is on the prompt but has not been read yet
+  const asks = slot.askNote ?? askAll;
   return (
     <li className="gslot" draggable={editing && !!dnd} onDragStart={(e) => { if (editing && dnd) { e.stopPropagation(); dnd.start(e, { kind: 'slot', id: slot.id }); } }} onDragEnd={() => dnd?.end()}
       onDragOver={(e) => editing && dnd?.over(e)} onDrop={(e) => editing && dnd?.slotDrop(e, slot.id)}>
@@ -100,6 +113,12 @@ function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd }: { slot: S
         {f ? <><FitText className="l" to={`/book/${f.book_id}/${f.read_id}`} title={f.title} />
           <button type="button" className="xbtn" aria-label={`Take ${f.title} off ${slot.label}`} title="Take this book off" onClick={() => act.clear(slot.id)}>&times;</button></> : null}
       </span>
+      {asks && f && act.note && <NoteInput value={slot.note ?? ''} label={noteLabel} onSave={(t) => act.note!(slot.id, t)} />}
+      {editing && act.askPrompt && (
+        <select className="gasks" aria-label={`Note for ${slot.label}`} value={slot.askNote === null ? '' : slot.askNote ? 'yes' : 'no'} onChange={(e) => act.askPrompt!(slot.id, e.target.value === '' ? null : e.target.value === 'yes')}>
+          <option value="">{`${noteLabel}: as the challenge`}</option><option value="yes">{`${noteLabel}: ask`}</option><option value="no">{`${noteLabel}: don't ask`}</option>
+        </select>
+      )}
       {editing && (confirming
         ? <span className="movebtns"><button type="button" className="mini danger" onClick={() => act.removePrompt(slot.id)}>Delete it</button><button type="button" className="mini" onClick={() => setConfirming(false)}>Keep</button></span>
         : <button type="button" className="mini" aria-label={`Delete prompt ${slot.label}`} onClick={() => setConfirming(true)}>Delete prompt</button>)}
@@ -148,6 +167,18 @@ function AddStickers({ add, groups }: { add(items: { prompt: string; image: Stic
       <StickerStaging value={staged} onChange={setStaged} groups={groups.map((g) => ({ value: g.id, label: g.name }))} />
       {error && <div className="muted" role="alert">{error}</div>}
       {staged.length > 0 && <div><button type="button" className="btn on" onClick={save}>Add {staged.length} sticker{staged.length === 1 ? '' : 's'}</button></div>}
+    </div>
+  );
+}
+
+// "Ask for a note": a small text box under each book (a character's name, a sport...), for every prompt or only the ones you choose.
+function NoteSettings({ ask, label, onSave }: { ask: boolean; label: string; onSave(ask: boolean, label: string): void }) {
+  const [text, setText] = useState(label === 'Note' ? '' : label);
+  return (
+    <div className="notesettings">
+      <label className="inline"><input type="checkbox" checked={ask} onChange={(e) => onSave(e.target.checked, text)} /><span>Ask for a note with each book</span></label>
+      <input className="field small" aria-label="What the note is called" placeholder="Called (for example, Character)" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== (label === 'Note' ? '' : label) && onSave(ask, text)} />
+      <span className="muted small">Each prompt can also decide for itself; choose that under the prompt.</span>
     </div>
   );
 }
@@ -218,7 +249,7 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
 
   const slotList = (slots: Slot[], groupId: string | null) => (
     <>
-      <ul className="gslots">{slots.map((s) => <SlotCard key={s.id} slot={s} sticker={stacked} cover={s.fill ? covers[s.fill.book_id] : undefined} editing={editing} onPick={() => setPicking(s)} act={act} dnd={dnd} />)}</ul>
+      <ul className="gslots">{slots.map((s) => <SlotCard key={s.id} slot={s} sticker={stacked} cover={s.fill ? covers[s.fill.book_id] : undefined} editing={editing} onPick={() => setPicking(s)} act={act} dnd={dnd} askAll={c.askNote} noteLabel={c.noteLabel} />)}</ul>
       {editing && !sticker && <AddPrompt label={groupId ? 'New prompt for this sub-category' : 'New main prompt'} onAdd={(t) => act.addPrompt(groupId, t)} />}
     </>
   );
@@ -276,6 +307,7 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
           <span className="lbl2">Challenge color</span><Swatches value={c.color} label="Challenge color" onPick={act.color} />
           {<div className="addrow"><input className="field small" aria-label="New sub-category" placeholder="New sub-category" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} />
             <button type="button" className="mini" onClick={() => { if (newGroup.trim()) { act.addGroup(newGroup.trim()); setNewGroup(''); } }}>Add sub-category</button></div>}
+          {act.askAll && <NoteSettings ask={c.askNote} label={c.noteLabel} onSave={act.askAll} />}
           {keys.length > 1 && <button type="button" className="mini" onClick={act.shuffleCards}>Shuffle the cards</button>}
           {deleting
             ? <span className="movebtns"><button type="button" className="mini danger" onClick={act.remove}>Delete the whole challenge</button><button type="button" className="mini" onClick={() => setDeleting(false)}>Keep</button></span>

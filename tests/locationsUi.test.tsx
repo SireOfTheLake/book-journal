@@ -19,6 +19,13 @@ const show = (path: string) => render(<DbContext.Provider value={db}><MemoryRout
   <Route path="book/:bookId/:readId" element={<BookLogPage />} /><Route path="locations" element={<LocationsPage />} /><Route path="/" element={<HomePage />} /></Routes></MemoryRouter></DbContext.Provider>);
 const settingCard = async () => (await screen.findByText('Setting')).closest('.bcard') as HTMLElement;
 
+async function openNew() {
+  fireEvent.click(await screen.findByRole('button', { name: 'Add a location' }));
+  const box = await screen.findByLabelText('Search locations');
+  fireEvent.focus(box);
+  fireEvent.mouseDown(await screen.findByRole('option', { name: '+ New location...' }));
+}
+
 describe('the Setting card', () => {
   it('shows a warning on a plain-text location and sorts it out in the dialog', async () => {
     await addTag(db, book, 'place', 'Hogwarts');
@@ -40,7 +47,7 @@ describe('the Setting card', () => {
   });
   it('searches the countries (United States, Canada, United Kingdom first) and the areas of the chosen country', async () => {
     show(`/book/${book}/${rid}`);
-    fireEvent.click(await screen.findByRole('button', { name: 'New location...' }));
+    await openNew();
     const dlg = await screen.findByRole('dialog', { name: 'New location' });
     const country = within(dlg).getByLabelText('Country');
     fireEvent.focus(country);
@@ -61,7 +68,7 @@ describe('the Setting card', () => {
   });
   it('lets any field take a new value of its own', async () => {
     show(`/book/${book}/${rid}`);
-    fireEvent.click(await screen.findByRole('button', { name: 'New location...' }));
+    await openNew();
     const dlg = await screen.findByRole('dialog', { name: 'New location' });
     fireEvent.change(within(dlg).getByLabelText('Country'), { target: { value: 'Elbonia' } });
     expect(within(dlg).getByRole('option', { name: /Add Elbonia as a new country/ })).toBeTruthy();
@@ -70,20 +77,20 @@ describe('the Setting card', () => {
     fireEvent.click(within(dlg).getByRole('button', { name: 'Save location' }));
     await waitFor(async () => expect((await getBookLog(db, book))!.places.map((p) => p.name)).toEqual(['Newtown, Zedland, Elbonia']));
     // the new country is now suggested
-    fireEvent.click(await screen.findByRole('button', { name: 'New location...' }));
+    await openNew();
     const d2 = await screen.findByRole('dialog', { name: 'New location' });
     fireEvent.change(within(d2).getByLabelText('Country'), { target: { value: 'elb' } });
     await within(d2).findByRole('option', { name: 'Elbonia' });
   });
   it('lets the country be left out, and an area outside the country\'s list be kept as custom', async () => {
     show(`/book/${book}/${rid}`);
-    fireEvent.click(await screen.findByRole('button', { name: 'New location...' }));
+    await openNew();
     const dlg = await screen.findByRole('dialog', { name: 'New location' });
     fireEvent.change(within(dlg).getByLabelText('Area'), { target: { value: 'Tatooine' } });
     fireEvent.click(within(dlg).getByLabelText(/Fictional place/));
     fireEvent.click(within(dlg).getByRole('button', { name: 'Save location' }));
     await waitFor(async () => expect((await getBookLog(db, book))!.places[0]).toMatchObject({ name: 'Tatooine', fictional: true, country: null }));
-    fireEvent.click(await screen.findByRole('button', { name: 'New location...' }));
+    await openNew();
     const d2 = await screen.findByRole('dialog', { name: 'New location' });
     fireEvent.change(within(d2).getByLabelText('Country'), { target: { value: 'Canada' } });
     fireEvent.change(within(d2).getByLabelText('Area'), { target: { value: 'Dungeon Level 3' } });
@@ -92,7 +99,7 @@ describe('the Setting card', () => {
   });
   it('asks what a typed, unknown name is, and puts it in that field', async () => {
     show(`/book/${book}/${rid}`);
-    fireEvent.click(await screen.findByRole('button', { name: 'Add location' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a location' }));
     const box = await screen.findByLabelText('Search locations');
     fireEvent.focus(box); fireEvent.change(box, { target: { value: 'Narnia' } });
     fireEvent.mouseDown(await screen.findByRole('option', { name: /New location "Narnia"/ }));
@@ -106,12 +113,12 @@ describe('the Setting card', () => {
   it('picks an existing location from the search, and opens the dialog for a new typed one', async () => {
     await db.execute("INSERT INTO place (id, name, city, country, located) VALUES ('p1', 'Rome, Italy', 'Rome', 'Italy', 1)");
     show(`/book/${book}/${rid}`);
-    fireEvent.click(await screen.findByRole('button', { name: 'Add location' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a location' }));
     const box = await screen.findByLabelText('Search locations');
     fireEvent.focus(box); fireEvent.change(box, { target: { value: 'rom' } });
     fireEvent.mouseDown(await screen.findByRole('option', { name: /Rome, Italy/ }));
     await waitFor(async () => expect((await getBookLog(db, book))!.places.map((p) => p.name)).toEqual(['Rome, Italy']));
-    fireEvent.click(await screen.findByRole('button', { name: 'Add location' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a location' }));
     const b2 = await screen.findByLabelText('Search locations');
     fireEvent.focus(b2); fireEvent.change(b2, { target: { value: 'Lyon, France' } });
     fireEvent.mouseDown(await screen.findByRole('option', { name: /New location "Lyon, France"/ }));
@@ -142,5 +149,22 @@ describe('the Locations page and To Tidy', () => {
     fireEvent.click(within(dlg).getByLabelText(/Fictional place/));
     fireEvent.click(within(dlg).getByRole('button', { name: 'Save location' }));
     await waitFor(async () => expect((await listPlaces(db))[0].needsUpdate).toBe(false));
+  });
+});
+
+describe('the Setting card has one plus button', () => {
+  it('no longer shows separate Add location / New location buttons, and lists only sorted locations', async () => {
+    await db.execute("INSERT INTO place (id, name, city, country, located) VALUES ('p9', 'Oslo, Norway', 'Oslo', 'Norway', 1)");
+    await db.execute("INSERT INTO place (id, name, located) VALUES ('p8', 'Loose text', 0)");
+    show(`/book/${book}/${rid}`);
+    const plus = await screen.findByRole('button', { name: 'Add a location' });
+    expect(screen.queryByRole('button', { name: 'New location...' })).toBeNull();
+    expect(screen.queryByText('Add location')).toBeNull();
+    fireEvent.click(plus);
+    fireEvent.focus(await screen.findByLabelText('Search locations'));
+    const names = within(await screen.findByRole('listbox')).getAllByRole('option').map((o) => o.textContent);
+    expect(names).toContain('Oslo, Norway');
+    expect(names).not.toContain('Loose text');
+    expect(names[names.length - 1]).toBe('+ New location...');
   });
 });

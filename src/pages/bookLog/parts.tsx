@@ -151,9 +151,9 @@ export function EditSelect({ value, options, onChange, onCreate, label, addLabel
   return <button type="button" className={`ed ${empty ? 'add' : ''} ${className}`} aria-label={empty ? (addLabel ?? `Add ${label.toLowerCase()}`) : `Change ${label.toLowerCase()}`} onClick={() => setMode('pick')}>{empty ? (addLabel ?? `Add ${label.toLowerCase()}`) : current}</button>;
 }
 
-export function Seg<T extends string | number>({ value, options, onChange, label }: { value: T | null; options: { value: T; label: ReactNode }[]; onChange: (v: T | null) => void; label: string }) {
+export function Seg<T extends string | number>({ value, options, onChange, label, className = '' }: { value: T | null; options: { value: T; label: ReactNode }[]; onChange: (v: T | null) => void; label: string; className?: string }) {
   return (
-    <div className="seg" role="group" aria-label={label}>
+    <div className={`seg ${className}`.trim()} role="group" aria-label={label}>
       {options.map((o) => (
         <button type="button" key={String(o.value)} aria-pressed={value === o.value} className={value === o.value ? 'on' : ''} onClick={() => onChange(value === o.value ? null : o.value)}>{o.label}</button>
       ))}
@@ -296,15 +296,15 @@ export function TagEditor({ label, items, options, onAdd, onRemove, onRename }:
 
 // A search-as-you-type picker. Pick a match, or use the last option to create something new.
 export interface ComboOption { key: string; label: string; sub?: string | null }
-export function Combo({ options, placeholder, label, onPick, onCreate, createLabel, autoFocus, onClose }:
-  { options: ComboOption[]; placeholder: string; label: string; onPick: (key: string) => void; onCreate?: (text: string) => void; createLabel?: (text: string) => string; autoFocus?: boolean; onClose?: () => void }) {
+export function Combo({ options, placeholder, label, onPick, onCreate, createLabel, autoFocus, onClose, footer }:
+  { options: ComboOption[]; placeholder: string; label: string; onPick: (key: string) => void; onCreate?: (text: string) => void; createLabel?: (text: string) => string; autoFocus?: boolean; onClose?: () => void; footer?: { label: string; onChoose: () => void } }) {
   const [text, setText] = useState('');
   const [active, setActive] = useState(0);
   const [open, setOpen] = useState(false);
   const q = text.trim().toLowerCase();
   const matches = options.filter((o) => !q || o.label.toLowerCase().includes(q) || (o.sub ?? '').toLowerCase().includes(q)).slice(0, 8);
-  const choices: { key: string; label: string; sub?: string | null; create?: boolean }[] = [...matches, ...(onCreate && q ? [{ key: '__create', label: createLabel ? createLabel(text.trim()) : `Add "${text.trim()}"`, create: true }] : [])];
-  const choose = (c: (typeof choices)[number]) => { if (c.create) onCreate?.(text.trim()); else onPick(c.key); setText(''); setActive(0); setOpen(false); onClose?.(); };
+  const choices: { key: string; label: string; sub?: string | null; create?: boolean; foot?: boolean }[] = [...matches, ...(onCreate && q ? [{ key: '__create', label: createLabel ? createLabel(text.trim()) : `Add "${text.trim()}"`, create: true }] : []), ...(footer ? [{ key: '__footer', label: footer.label, foot: true }] : [])];
+  const choose = (c: (typeof choices)[number]) => { if (c.foot) footer?.onChoose(); else if (c.create) onCreate?.(text.trim()); else onPick(c.key); setText(''); setActive(0); setOpen(false); onClose?.(); };
   return (
     <div className="combo">
       <input className="field small" value={text} placeholder={placeholder} aria-label={label} autoFocus={autoFocus} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => { setOpen(false); onClose?.(); }, 120)}

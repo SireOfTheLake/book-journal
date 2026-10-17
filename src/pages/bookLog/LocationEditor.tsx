@@ -27,13 +27,13 @@ export default function LocationEditor({ places, options, onPick, onRemove, onSa
       </div>
       {stale.length > 0 && <span className="muted small" role="note">{stale.length === 1 ? `${stale[0].name} still needs updating.` : `${stale.length} locations still need updating.`} Click it to sort it into a city, area and country, or mark it fictional.</span>}
       {adding ? (
-        <Combo autoFocus label="Search locations" placeholder="Search for a location" onClose={() => setAdding(false)}
+        <Combo autoFocus label="Search locations" placeholder="Search your locations" onClose={() => setAdding(false)}
+          footer={{ label: '+ New location...', onChoose: () => setDialog({ id: null }) }}
           options={options.filter((o) => !have.has(o.id)).map((o) => ({ key: o.id, label: o.name }))}
           onPick={(id) => { const o = options.find((x) => x.id === id); if (o) onPick(o.name); }}
           onCreate={(text) => { const known = parseLocationText(text); setDialog(known ? { id: null, initial: known } : { id: null, initial: { city: text }, typed: text }); }} createLabel={(t) => `New location "${t}"...`} />
       ) : (
-        <span className="movebtns"><button type="button" className="ed add" onClick={() => setAdding(true)}>Add location</button>
-          <button type="button" className="ed add" onClick={() => setDialog({ id: null })}>New location...</button></span>
+        <button type="button" className="ed add plusbtn" aria-label="Add a location" title="Add a location" onClick={() => setAdding(true)}>+</button>
       )}
       {dialog && <LocationDialog title={dialog.id ? 'Edit location' : 'New location'} shared={!!dialog.id} initial={dialog.initial} typed={dialog.typed} onClose={() => setDialog(null)} onSave={(input) => onSave(dialog.id, input)} />}
     </Card>

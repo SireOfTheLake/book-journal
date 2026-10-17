@@ -42,7 +42,7 @@ export default function ChallengesCard({ items, choices, act, bare = false }: { 
               <div className="rcmain">
                 <Link className="l rcname" to={`/journal/challenges/${i.challenge_id}`}>{i.name}</Link>
                 {i.word ? <WordTiles word={i.label} letters={lettersOf(i.challenge_id)} size={30} /> : null}
-                <span className="rcprompt">{i.group ? <span className="muted">{i.group}: </span> : null}<b>{i.label}</b></span>
+                <span className="rcprompt">{i.group ? <span className="muted">{i.group}: </span> : null}<b>{i.label}</b>{i.note ? <span className="muted">{` · ${i.note}`}</span> : null}</span>
                 {i.planned && <span className="chip tiny planchip" title="It counts as done once this book is read">planned</span>}
                 <span className="muted small">{`${i.done} of ${i.total} done`}</span>
               </div>

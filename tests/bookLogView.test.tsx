@@ -42,7 +42,7 @@ describe('Book Log screen', () => {
     expect(out).toContain('Change status');
     expect(out).toContain('+ Add character');
     expect(out).toContain('clip-path'); // a 4.5 rating shades part of a star
-    for (const text of ['Add pages', 'Add publication date', 'Add location', 'Add time period', 'Add source', 'Add notes', 'Add genre', 'Add trope', 'Add theme']) expect(out, text).toContain(text);
+    for (const text of ['Add pages', 'Add publication date', 'Add a location', 'Add time period', 'Add source', 'Add notes', 'Add genre', 'Add trope', 'Add theme']) expect(out, text).toContain(text);
     expect(out).toContain('style="border-color:');
     // Setting and Time period are stacked in one column; publication is its own card.
     expect(out.indexOf('Setting')).toBeLessThan(out.indexOf('Time period'));

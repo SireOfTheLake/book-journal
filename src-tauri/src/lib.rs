@@ -112,6 +112,12 @@ pub fn run() {
         description: "challenge description",
         sql: include_str!("../migrations/0020_challenge_description.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 21,
+        description: "prompt notes",
+        sql: include_str!("../migrations/0021_prompt_notes.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

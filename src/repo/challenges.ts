@@ -12,7 +12,7 @@ export type ChallengeKind = 'grid' | 'sticker' | 'bingo';
 
 export interface ChallengeSummary extends Tracker { id: string; name: string; kind: ChallengeKind; color: string | null; published: boolean; word: boolean; usMap: boolean } // usMap = a US map challenge (a Grid of the 50 states); word = a Word Builder (a kind of Sticker challenge)
 export interface SlotFill { read_id: string; book_id: string; title: string; authors: string | null; status: string }
-export interface Slot { id: string; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: boolean; bank_prompt_id: string | null; fill: SlotFill | null }
+export interface Slot { id: string; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: boolean; bank_prompt_id: string | null; fill: SlotFill | null; askNote: boolean | null; note: string | null } // askNote: true / false = this prompt decides, null = follows the challenge; note = what you wrote for the book on it
 export interface BingoInfo { published: boolean; palette: string[]; bankId: string | null; bankName: string | null; preferUnused: boolean }
 // The free space of a Bingo board does not count toward the tracker until it is given a prompt.
 export const countsTowardTracker = (s: { is_free: boolean; label: string; art: string | null }) => !s.is_free || s.label !== '' || !!s.art;
@@ -20,7 +20,7 @@ export interface Group { id: string; name: string; color: string; slots: Slot[] 
 export interface Challenge extends Tracker {
   id: string; name: string; kind: ChallengeKind; color: string; year: number;
   bingo: BingoInfo | null; layout: Layout; groups: Group[]; loose: Slot[]; // loose = prompts that belong to the main category only
-  usMap: boolean; description: string | null;
+  usMap: boolean; description: string | null; askNote: boolean; noteLabel: string; // askNote: every prompt asks for a short note; noteLabel: what it is called
   word: boolean; theme: string | null; target: number | null; letters: Record<string, string>; // Word Builder: the theme of the words, how many words to aim for, and the sticker picture for each letter
 }
 
@@ -42,14 +42,14 @@ export async function listChallenges(db: Db, year: number): Promise<ChallengeSum
 }
 
 export async function getChallenge(db: Db, id: string): Promise<Challenge | null> {
-  const c = await first<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; layout: string | null; published: number; palette: string | null; bank_id: string | null; bank_name: string | null; prefer_unused: number; word: number; usMap: number; description: string | null; theme: string | null; target: number | null }>(
-    db, `SELECT c.us_map AS usMap, c.description AS description, c.word_builder AS word, c.word_theme AS theme, c.word_target AS target, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.layout AS layout, c.published AS published, c.palette AS palette, c.bank_id AS bank_id, c.prefer_unused AS prefer_unused,
+  const c = await first<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; layout: string | null; published: number; palette: string | null; bank_id: string | null; bank_name: string | null; prefer_unused: number; word: number; usMap: number; description: string | null; ask_note: number; note_label: string | null; theme: string | null; target: number | null }>(
+    db, `SELECT c.us_map AS usMap, c.description AS description, c.ask_note AS ask_note, c.note_label AS note_label, c.word_builder AS word, c.word_theme AS theme, c.word_target AS target, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.layout AS layout, c.published AS published, c.palette AS palette, c.bank_id AS bank_id, c.prefer_unused AS prefer_unused,
        (SELECT b.name FROM bingo_bank b WHERE b.id = c.bank_id AND b.deleted_at IS NULL) AS bank_name, y.year AS year FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id WHERE c.id = ? AND c.deleted_at IS NULL`, [id]);
   if (!c) return null;
   const groups = await db.select<{ id: string; name: string; color: string | null }>(
     'SELECT id, name, color FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position, rowid', [id]);
-  const rows = await db.select<{ id: string; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: number; bank_prompt_id: string | null; read_id: string | null; book_id: string | null; title: string | null; authors: string | null; status: string | null }>(
-    `SELECT s.id AS id, s.label AS label, s.position AS position, s.group_id AS group_id, im.file_path AS art, s.color AS color, s.is_free AS is_free, s.bank_prompt_id AS bank_prompt_id, k.read_id AS read_id, r.book_id AS book_id, b.title AS title, r.status AS status,
+  const rows = await db.select<{ id: string; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: number; bank_prompt_id: string | null; ask_note: number | null; note: string | null; read_id: string | null; book_id: string | null; title: string | null; authors: string | null; status: string | null }>(
+    `SELECT s.id AS id, s.label AS label, s.position AS position, s.group_id AS group_id, im.file_path AS art, s.color AS color, s.is_free AS is_free, s.bank_prompt_id AS bank_prompt_id, s.ask_note AS ask_note, k.note AS note, k.read_id AS read_id, r.book_id AS book_id, b.title AS title, r.status AS status,
        (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors
      FROM challenge_slot s
      LEFT JOIN image im ON im.id = s.art_image_id AND im.deleted_at IS NULL
@@ -58,7 +58,7 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
      LEFT JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL
      WHERE s.challenge_id = ? AND s.deleted_at IS NULL ORDER BY s.position`, [id]);
   const slots: Slot[] = rows.map((r) => ({
-    id: r.id, label: r.label, position: r.position, group_id: r.group_id, art: r.art, color: r.color, is_free: !!r.is_free, bank_prompt_id: r.bank_prompt_id,
+    id: r.id, label: r.label, position: r.position, group_id: r.group_id, art: r.art, color: r.color, is_free: !!r.is_free, bank_prompt_id: r.bank_prompt_id, askNote: r.ask_note === null ? null : !!r.ask_note, note: r.note,
     fill: r.read_id && r.book_id ? { read_id: r.read_id, book_id: r.book_id, title: r.title ?? '', authors: r.authors, status: r.status ?? '' } : null,
   }));
   const counted = slots.filter(countsTowardTracker);
@@ -68,7 +68,7 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
     groups: groups.map((g, i) => ({ id: g.id, name: g.name, color: g.color && isHexColor(g.color) ? g.color : accentAt(i + 1), slots: slots.filter((s) => s.group_id === g.id) })),
     loose: slots.filter((s) => !s.group_id || !groups.some((g) => g.id === s.group_id)),
     bingo: c.kind === 'bingo' ? { published: !!c.published, palette: parsePalette(c.palette), bankId: c.bank_id, bankName: c.bank_name, preferUnused: !!c.prefer_unused } : null,
-    usMap: !!c.usMap, description: c.description, word: !!c.word, theme: c.theme, target: c.target, letters: c.word ? await letterMap(db, id) : {},
+    usMap: !!c.usMap, description: c.description, askNote: !!c.ask_note, noteLabel: c.note_label?.trim() || 'Note', word: !!c.word, theme: c.theme, target: c.target, letters: c.word ? await letterMap(db, id) : {},
     ...tracker(done, c.word ? Math.max(c.target ?? 0, counted.length) : counted.length),
   };
 }
@@ -164,6 +164,19 @@ export async function replaceSticker(db: Db, slotId: string, image: StickerImage
 // ---------- editing (any time) ----------
 const syncCount = (db: Db, challengeId: string) => db.execute(
   `UPDATE challenge SET goal_count = (SELECT count(*) FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL) WHERE id = ?`, [challengeId, challengeId]);
+// ---------- notes on prompts ----------
+// Not for Bingo or US map challenges, which have no use for one.
+export async function setChallengeNotes(db: Db, id: string, ask: boolean, label: string) {
+  const c = await first<{ kind: string; us_map: number }>(db, 'SELECT kind, us_map FROM challenge WHERE id = ? AND deleted_at IS NULL', [id]);
+  if (!c) throw new Error('That challenge no longer exists.');
+  if (c.kind === 'bingo' || c.us_map) throw new Error('Bingo and US map challenges do not take notes on their prompts.');
+  await db.execute('UPDATE challenge SET ask_note = ?, note_label = ? WHERE id = ?', [ask ? 1 : 0, label.trim() || null, id]);
+}
+export const setPromptAsk = (db: Db, slotId: string, ask: boolean | null) =>
+  db.execute('UPDATE challenge_slot SET ask_note = ? WHERE id = ?', [ask === null ? null : ask ? 1 : 0, slotId]);
+export const setPromptNote = (db: Db, slotId: string, note: string) =>
+  db.execute('UPDATE challenge_completion SET note = ? WHERE slot_id = ? AND deleted_at IS NULL', [note.trim() || null, slotId]);
+
 export async function renameChallenge(db: Db, id: string, name: string) {
   if (!name.trim()) throw new Error('Give the challenge a name.');
   await db.execute('UPDATE challenge SET name = ? WHERE id = ?', [name.trim(), id]);
@@ -243,8 +256,9 @@ export async function fillSlot(db: Db, slotId: string, readId: string, rng: () =
   if (!countsTowardTracker({ is_free: !!s.is_free, label: s.label, art: s.art })) throw new Error('The free space is free. Give it a prompt if you want a book on it.');
   const r = await first<{ id: string }>(db, 'SELECT id FROM read WHERE id = ? AND deleted_at IS NULL', [readId]);
   if (!r) throw new Error('That read no longer exists.');
+  const same = await first<{ note: string | null }>(db, 'SELECT note FROM challenge_completion WHERE deleted_at IS NULL AND challenge_id = ? AND slot_id = ? AND read_id = ?', [s.challenge_id, slotId, readId]); // choosing the same book again keeps its note
   await db.execute(`UPDATE challenge_completion SET deleted_at = ${NOW} WHERE deleted_at IS NULL AND challenge_id = ? AND (slot_id = ? OR read_id = ?)`, [s.challenge_id, slotId, readId]);
-  await db.execute('INSERT INTO challenge_completion (id, read_id, challenge_id, slot_id) VALUES (?, ?, ?, ?)', [newId(), readId, s.challenge_id, slotId]);
+  await db.execute('INSERT INTO challenge_completion (id, read_id, challenge_id, slot_id, note) VALUES (?, ?, ?, ?, ?)', [newId(), readId, s.challenge_id, slotId, same?.note ?? null]);
   // A state on a US map is filled in with a random color the first time it gets a book (a different book on the same state keeps its color). A state the read just left goes back to empty.
   if (s.us_map) {
     await db.execute('UPDATE challenge_slot SET color = NULL WHERE challenge_id = ? AND color IS NOT NULL AND id NOT IN (SELECT slot_id FROM challenge_completion WHERE challenge_id = ? AND deleted_at IS NULL)', [s.challenge_id, s.challenge_id]);
@@ -343,11 +357,11 @@ export async function shufflePrompts(db: Db, challengeId: string, groupId: strin
 
 // ---------- challenges on the Book Log ----------
 // A read can count toward several challenges, but fills only one prompt in each.
-export interface ReadChallenge { challenge_id: string; name: string; kind: ChallengeKind; color: string | null; year: number; slot_id: string; label: string; group: string | null; done: number; total: number; word: boolean; planned: boolean }
+export interface ReadChallenge { challenge_id: string; name: string; kind: ChallengeKind; color: string | null; year: number; slot_id: string; label: string; group: string | null; done: number; total: number; word: boolean; planned: boolean; note: string | null }
 
 export async function listReadChallenges(db: Db, readId: string): Promise<ReadChallenge[]> {
-  const rows = await db.select<{ challenge_id: string; name: string; kind: ChallengeKind; color: string | null; year: number; slot_id: string; label: string; position: number; group: string | null; word: number; rstatus: string }>(
-    `SELECT (SELECT r.status FROM read r WHERE r.id = k.read_id) AS rstatus, c.word_builder AS word, c.id AS challenge_id, c.name AS name, c.kind AS kind, c.color AS color, y.year AS year, s.id AS slot_id, s.label AS label, s.position AS position,
+  const rows = await db.select<{ challenge_id: string; name: string; kind: ChallengeKind; color: string | null; year: number; slot_id: string; label: string; position: number; group: string | null; word: number; rstatus: string; note: string | null }>(
+    `SELECT k.note AS note, (SELECT r.status FROM read r WHERE r.id = k.read_id) AS rstatus, c.word_builder AS word, c.id AS challenge_id, c.name AS name, c.kind AS kind, c.color AS color, y.year AS year, s.id AS slot_id, s.label AS label, s.position AS position,
        (SELECT g.name FROM challenge_group g WHERE g.id = s.group_id AND g.deleted_at IS NULL) AS "group"
      FROM challenge_completion k JOIN challenge_slot s ON s.id = k.slot_id AND s.deleted_at IS NULL
        JOIN challenge c ON c.id = k.challenge_id AND c.deleted_at IS NULL JOIN journal_year y ON y.id = c.journal_year_id

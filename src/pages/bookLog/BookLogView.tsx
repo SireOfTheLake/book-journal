@@ -357,7 +357,7 @@ export default function BookLogView({ log, lists, act, neighbors, challenges }: 
             {read && <div className="stack"><span className="muted">Audio length</span><EditText label="Audio length" addLabel="Add audio length" value={formatDuration(read.audio_length_seconds) || null} validate={(v) => (v.trim() && parseDuration(v) === null ? 'Type it as 1:23 or 1h 23m.' : null)} onCommit={(v) => act.updateRead({ audio_length_seconds: v.trim() ? parseDuration(v) : null })} placeholder="1:23" /></div>}
           </Card>
           <Card label="Heat level">
-            <Seg label="Heat level" value={book.heat_level} onChange={(v) => act.updateBook({ heat_level: v })} options={HEAT.map((h) => ({ value: h.level, label: String(h.level) }))} />
+            <Seg className="heatseg" label="Heat level" value={book.heat_level} onChange={(v) => act.updateBook({ heat_level: v })} options={HEAT.map((h) => ({ value: h.level, label: String(h.level) }))} />
             <span className="muted small">{heat ? <><b>{heat.level} · {heat.name}</b>{heat.text ? `: ${heat.text}` : ''}</> : 'Not set.'}</span>
           </Card>
           {tag('Tropes', 'trope', log.tropes, lists.tropes)}

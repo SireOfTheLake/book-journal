@@ -19,6 +19,10 @@ export async function listPlaces(db: Db): Promise<PlaceRow[]> {
   return rows.map((r) => ({ id: r.id, name: r.name, city: r.city, area: r.area, country: r.country, fictional: !!r.fictional, needsUpdate: !!r.needs, books: Number(r.books) }));
 }
 
+// The locations you can pick for a book: the ones already sorted into city / area / country (or marked fictional), not loose plain text.
+export const listPickablePlaces = (db: Db) => db.select<{ id: string; name: string }>(
+  `SELECT p.id AS id, p.name AS name FROM place p WHERE p.deleted_at IS NULL AND NOT ${NEEDS_UPDATE_SQL} ORDER BY p.name COLLATE NOCASE`);
+
 // How many locations used by a book still need updating (this is what To Tidy shows). A tag that is removed from its books stops counting.
 export async function countPlacesNeedingUpdate(db: Db): Promise<number> {
   return Number((await first<{ n: number }>(db,

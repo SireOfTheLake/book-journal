@@ -1,0 +1,3 @@
+Release notes for the next version go in this folder, one file per round of changes (r001.md, r002.md, ...).
+Each line looks like:  - [new] ...   - [improved] ...   - [fixed] ...
+"npm run release -- X.Y.Z" files them into CHANGELOG.md under that version and removes them from here.

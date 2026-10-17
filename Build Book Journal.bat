@@ -6,7 +6,9 @@ if not exist node_modules (
   call npm install
   if errorlevel 1 goto failed
 )
-call npm run tauri build
+call node scripts/write-build-config.mjs
+if errorlevel 1 goto failed
+call npm run tauri build -- --config src-tauri/tauri.extra.json
 if errorlevel 1 goto failed
 set "FOUND="
 for %%f in (src-tauri\target\release\bundle\nsis\*-setup.exe) do set "FOUND=%%f"

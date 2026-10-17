@@ -126,3 +126,23 @@ Every release gets an entry in `CHANGELOG.md`, shown in the app under **What's n
 - `npm run release -- 0.1.2` files all of them under that version, with today's date, into `CHANGELOG.md`, removes the files from `changelog/unreleased`, and commits everything with the release. You don't edit anything by hand.
 - Don't overwrite `CHANGELOG.md` when you copy over a new zip (my zips won't include it after this one). If a batch file is ever copied back after it was released, the release command skips it, so nothing is listed twice.
 - Want to change the wording? Edit the lines in `changelog/unreleased` before you run the release, or edit `CHANGELOG.md` afterwards.
+
+
+## If the update notice never appears ("updater-pubkey.txt")
+
+Updates need two things inside the installed app: the right update address (now built in) and your public key. The key used to live in `src-tauri/tauri.conf.json`, and copying a new project zip over your folder put the placeholder back. It now lives in its own file that my zips never touch. Do this once:
+
+1. In the project folder (the one with `package.json`) create a file called `updater-pubkey.txt`. Easiest in a terminal:
+   `copy "%USERPROFILE%\.tauri\book-journal.key.pub" updater-pubkey.txt`
+2. Replace the project files with the new zip, then:
+   ```
+   git add -A
+   git commit -m "Update key file"
+   git push
+   npm run release -- 0.1.2
+   ```
+   (A plain `git push` does not publish a release. Only `npm run release` does, and installed apps only look at releases.)
+3. When GitHub's Actions run turns green, install the new `Book Journal Setup.exe` from the release **once by hand**. The copy you have installed now may have the wrong key and cannot update itself.
+4. After that, updates arrive by themselves. You can also open **Settings, App updates, Check for updates**; if anything is wrong it tells you what, in plain words.
+
+The release will now stop with a clear message if `updater-pubkey.txt` is missing, rather than building an installer that cannot update.

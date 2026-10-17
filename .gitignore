@@ -7,3 +7,4 @@ src-tauri/gen
 # Real reading data used by the tests; keep it out of a public repository.
 tests/fixtures
 *.key
+src-tauri/tauri.extra.json

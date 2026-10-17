@@ -20,6 +20,7 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
       - run: npm ci
+      - run: node scripts/write-build-config.mjs --sign
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -31,4 +32,4 @@ jobs:
           releaseBody: 'Book Journal installer. Installed copies offer this update by themselves.'
           releaseDraft: false
           prerelease: false
-          args: --config src-tauri/tauri.ci.json
+          args: --config src-tauri/tauri.extra.json

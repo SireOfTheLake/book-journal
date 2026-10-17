@@ -2,14 +2,16 @@ import { useEffect, useState } from 'react';
 import { tauriUpdateEnv, type PendingUpdate, type UpdateEnv } from './update';
 
 // A small notice in the corner when a newer version of the app is available. It can be dismissed (it comes back the next time the app starts).
-export default function UpdateToast({ env = tauriUpdateEnv, delayMs = 3000 }: { env?: UpdateEnv; delayMs?: number }) {
+export default function UpdateToast({ env = tauriUpdateEnv, delayMs = 3000, everyMs = 3600000 }: { env?: UpdateEnv; delayMs?: number; everyMs?: number }) {
   const [update, setUpdate] = useState<PendingUpdate | null>(null);
   const [state, setState] = useState<'idle' | 'installing' | 'failed'>('idle');
   useEffect(() => {
     let live = true;
-    const t = setTimeout(() => { env.check().then((u) => { if (live) setUpdate(u); }, () => undefined); }, delayMs); // no internet or no update address: stay quiet
-    return () => { live = false; clearTimeout(t); };
-  }, [env, delayMs]);
+    const look = () => env.check().then((u) => { if (live && u) setUpdate((was) => was ?? u); }, () => undefined); // no internet or no update address: stay quiet (Settings explains why)
+    const t = setTimeout(look, delayMs);
+    const every = setInterval(look, everyMs); // an app left open for days still hears about a new version
+    return () => { live = false; clearTimeout(t); clearInterval(every); };
+  }, [env, delayMs, everyMs]);
   if (!update) return null;
   const go = async () => { setState('installing'); try { await update.install(); } catch { setState('failed'); } };
   return (

@@ -12,11 +12,11 @@ import CharacterMenu from '../src/pages/characters/CharacterMenu';
 afterEach(cleanup);
 
 describe('settings tabs', () => {
-  it('has Backup and Export, and Appearance and Themes', async () => {
+  it('has Backup and Export, Appearance and Themes, and App updates', async () => {
     const db = migrateNodeDb();
     render(<DbContext.Provider value={db}><ThemeProvider saveDelay={10}><SettingsPage /></ThemeProvider></DbContext.Provider>);
     const tabs = screen.getByRole('tablist');
-    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Backup and Export', 'Appearance and Themes']);
+    expect(within(tabs).getAllByRole('tab').map((t) => t.textContent)).toEqual(['Backup and Export', 'Appearance and Themes', 'App updates']);
     expect(screen.getByText('Your backups')).toBeTruthy();
     expect(screen.queryByRole('group', { name: 'Mode' })).toBeNull();
     fireEvent.click(screen.getByRole('tab', { name: 'Appearance and Themes' }));

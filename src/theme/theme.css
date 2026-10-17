@@ -934,3 +934,9 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .toast { position: fixed; right: 18px; bottom: 18px; z-index: 50; max-width: 380px; display: flex; flex-direction: column; gap: 10px; background: var(--panel); border: 1px solid var(--accent); border-radius: 8px; padding: 12px 14px; box-shadow: 0 6px 24px rgba(0, 0, 0, .35); }
 .toasttext { display: flex; flex-direction: column; gap: 3px; }
 .toastbtns { display: flex; align-items: center; gap: 10px; }
+
+/* dashboard stickers: whole pictures, loosely scattered (organized chaos) */
+.dstickers { align-items: center; gap: 2px 0; padding: 6px 4px; }
+.dsticker.dloose { width: var(--w, 90px); aspect-ratio: auto; margin: var(--dy, 0) 0 var(--dy, 0) var(--dx, 0); transform: rotate(var(--rot, 0deg)); transition: transform .15s ease; }
+.dsticker.dloose img { height: auto; object-fit: contain; border-radius: 0; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55)); }
+.dsticker.dloose:hover { transform: rotate(0deg) scale(1.12); position: relative; z-index: 2; }

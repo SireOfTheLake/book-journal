@@ -52,16 +52,33 @@ function BookLine({ b }: { b: MonthBook | null }) {
   return <Link className="l" to={`/book/${b.book_id}/${b.read_id}`}>{b.title}</Link>;
 }
 
+// a stable pseudo-random number (0..1) per sticker, so the scatter looks the same every time the page opens
+function jitter(seed: string, salt: number): number {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < seed.length; i++) { h ^= seed.charCodeAt(i); h = Math.imul(h, 16777619); }
+  return ((h >>> 0) % 1000) / 1000;
+}
+
 export function StickerGrid({ stickers }: { stickers: Sticker[] }) {
   if (stickers.length === 0) return <span className="muted small">No challenge prompts were filled in this period.</span>;
   return (
     <div className="dstickers">
-      {stickers.map((s, i) => (
-        <div className={s.word ? 'dsticker dword' : s.usMap ? 'dsticker dstate' : 'dsticker'} key={`${s.challenge_id}${i}`} title={`${s.challenge}: ${s.label} (${s.title})`}>
+      {stickers.map((s, i) => {
+        const seed = `${s.challenge_id}|${s.label}|${i}`;
+        const loose = !!s.art && !s.cover && !s.word && !s.usMap && s.kind !== 'bingo'; // a sticker picture: shown whole, scattered
+        const style = loose ? ({
+          '--rot': `${(jitter(seed, 1) * 20 - 10).toFixed(1)}deg`,
+          '--w': `${Math.round(70 + jitter(seed, 2) * 44)}px`,
+          '--dy': `${Math.round(jitter(seed, 3) * 16 - 8)}px`,
+          '--dx': `${Math.round(jitter(seed, 4) * 10 - 8)}px`,
+        } as React.CSSProperties) : undefined;
+        return (
+        <div style={style} className={s.word ? 'dsticker dword' : s.usMap ? 'dsticker dstate' : loose ? 'dsticker dloose' : 'dsticker'} key={`${s.challenge_id}${i}`} title={`${s.challenge}: ${s.label} (${s.title})`}>
           {s.word ? <WordTilesRow tiles={s.word} label={s.label} /> : s.usMap ? <StateShape name={s.label} color={s.color} size={64} /> : s.kind === 'bingo' ? <BingoTile label={s.label} art={s.art} color={s.color ?? '#a65e3a'} />
             : s.cover ? <img src={s.cover} alt={s.title} /> : s.art ? <img src={s.art} alt={s.label} /> : <div className="dsfallback"><span>{s.title}</span></div>}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

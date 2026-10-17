@@ -2,7 +2,18 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 -->
+<!-- merged: r001 r002 -->
+
+## 0.1.3 — 2026-10-17
+
+### New
+- Settings has an "App updates" tab: see your version, check for updates, and install one with a button. If the check fails it says why.
+
+### Improved
+- An app left open now looks for updates every hour, not only at start-up.
+
+### Fixed
+- Automatic updates now have their address and key built in reliably, so replacing project files can no longer break them.
 
 ## 0.1.2 — 2026-10-17
 

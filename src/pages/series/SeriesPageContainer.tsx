@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
+import EntityMenu from '../EntityMenu';
+import { deleteSeries, mergeSeries, seriesDeletePreview, seriesMergePlan } from '../../repo/seriesMerge';
+import { listSeriesOptions } from '../../repo/series';
 import { useDb } from '../../db/DbContext';
 import { listTagOptions, renameTag, type Item } from '../../repo/bookLog';
 import { listBookOptions } from '../../repo/characters';
@@ -11,6 +14,8 @@ import SeriesView, { type SeriesActions } from './SeriesView';
 export default function SeriesPageContainer() {
   const db = useDb();
   const { seriesId = '' } = useParams();
+  const nav = useNavigate();
+  const [otherSeries, setOtherSeries] = useState<Item[]>([]);
   const [page, setPage] = useState<SeriesPage | null | undefined>(undefined);
   const [universes, setUniverses] = useState<Item[]>([]);
   const [genres, setGenres] = useState<Item[]>([]);
@@ -20,7 +25,7 @@ export default function SeriesPageContainer() {
 
   const reload = useCallback(async () => {
     const [p, u, g, b, a] = await Promise.all([getSeriesPage(db, seriesId), listUniverses(db), listTagOptions(db, 'genre'), listBookOptions(db), listAuthorOptions(db)]);
-    setPage(p); setUniverses(u); setGenres(g); setBooks(b.filter((x) => !p?.books.some((y) => y.id === x.id))); setAuthors(a);
+    setPage(p); setUniverses(u); setGenres(g); setBooks(b.filter((x) => !p?.books.some((y) => y.id === x.id))); setAuthors(a); setOtherSeries(await listSeriesOptions(db));
   }, [db, seriesId]);
   useEffect(() => { reload().catch((e) => setError(String(e))); }, [reload]);
 
@@ -48,7 +53,13 @@ export default function SeriesPageContainer() {
   if (page === null) return <p className="muted">That series could not be found.</p>;
   return (
     <section>
-      <h1 className="pagetitle">SERIES</h1>
+      <div className="titlerow"><h1 className="pagetitle">SERIES</h1><EntityMenu noun="series" self={{ id: page.series.id, name: page.series.title }} others={otherSeries} merge={{
+        plan: (keep, dup) => seriesMergePlan(db, keep, dup),
+        merge: async (keep, dup, choice) => { await mergeSeries(db, keep, dup, choice); if (keep === seriesId) await reload(); else nav(`/series/${keep}`); },
+      }} remove={{
+        describe: async () => { const p = await seriesDeletePreview(db, seriesId); return `Its ${p.books} book${p.books === 1 ? '' : 's'} stay in your journal, just not in a series.`; },
+        run: async () => { await deleteSeries(db, seriesId); nav('/series'); },
+      }} /></div>
       {error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}
       <SeriesView page={page} lists={{ universes, genres, books, authors }} act={act} />
     </section>

@@ -16,6 +16,7 @@ export default function MergeDialog({ noun, self, others, api, onClose }: { noun
   const [choice, setChoice] = useState<MergeChoice | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const plural = noun === 'series' ? 'series' : `${noun}s`;
   const otherName = others.find((c) => c.id === other)?.name ?? '';
   const keepName = keepSelf ? self.name : otherName, dupName = keepSelf ? otherName : self.name;
   const ids = (): [string, string] => (keepSelf ? [self.id, other as string] : [other as string, self.id]);
@@ -38,8 +39,8 @@ export default function MergeDialog({ noun, self, others, api, onClose }: { noun
 
   return (
     <div className="overlay" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
-      <div className={`dialog${plan ? ' mergedlg' : ''}`} role="dialog" aria-label={`Merge ${noun}s`}>
-        <h2 className="pagetitle small2">{`Merge ${noun}s`}</h2>
+      <div className={`dialog${plan ? ' mergedlg' : ''}`} role="dialog" aria-label={`Merge ${plural}`}>
+        <h2 className="pagetitle small2">{`Merge ${plural}`}</h2>
         {!plan && (
           <>
             <span className="muted">{`Two entries for the same ${noun} become one. You will review what comes across before anything changes.`}</span>

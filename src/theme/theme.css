@@ -1030,3 +1030,14 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .quoteform { display: flex; flex-direction: column; gap: 6px; }
 .quoteform textarea { min-height: 70px; }
 .ownrow { display: flex; gap: 0; }
+
+/* Copies I own: pick any number of formats, each in its own color */
+.seg.ownseg { --own-purple: hsl(270 45% 64%); --own-aqua: hsl(176 55% 52%); --own-pink: hsl(330 65% 70%); }
+.seg.ownseg button { min-width: 0; }
+.seg.ownseg button.on { color: hsl(25 25% 9%); }
+.seg.ownseg button.own-physical.on { background: var(--own-purple); }
+.seg.ownseg button.own-audio.on { background: var(--own-aqua); }
+.seg.ownseg button.own-ebook.on { background: var(--own-pink); }
+.seg.ownseg button.own-physical.on, .seg.ownseg button:has(+ button.own-physical.on) { border-right-color: var(--own-purple); }
+.seg.ownseg button.own-audio.on, .seg.ownseg button:has(+ button.own-audio.on) { border-right-color: var(--own-aqua); }
+.seg.ownseg button.own-ebook.on, .seg.ownseg button:has(+ button.own-ebook.on) { border-right-color: var(--own-pink); }

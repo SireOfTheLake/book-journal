@@ -2,7 +2,18 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 -->
+
+## 0.1.9 — 2026-10-18
+
+### New
+- Merge and delete for series and authors, from the ... menu on their pages. Merging opens a review screen: choose which details to keep, use the other's or join them, and untick any books, names, genres or series you do not want to bring over. Books that would share a number in the merged series are flagged. Deleting a series or author keeps their books.
+
+### Improved
+- Copies I own now sits under the Authors box on the Book Log, and uses the same boxes as Format (Physical, Audio, Ebook) so you can pick several: purple, aqua and pink when selected.
+
+### Fixed
+- Deleted books no longer show up in the search bar; the search list is refreshed every time you click into it.
 
 ## 0.1.8 — 2026-10-18
 

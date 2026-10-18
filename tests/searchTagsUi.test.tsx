@@ -34,6 +34,19 @@ describe('header search', () => {
   const box = (onAdd = vi.fn()) => render(<DbContext.Provider value={db}><MemoryRouter><SearchBox onAddBook={onAdd} /><Routes><Route path="*" element={<Where />} /></Routes></MemoryRouter></DbContext.Provider>);
   const type = (v: string) => { const i = screen.getByLabelText('Search'); fireEvent.focus(i); fireEvent.change(i, { target: { value: v } }); return i; };
 
+  it('forgets a deleted book without a refresh', async () => {
+    const { a } = await seed();
+    box();
+    type('moon');
+    expect(await screen.findByText('Moonlit Bargain')).toBeTruthy();
+    const { deleteBook } = await import('../src/repo/bookLog');
+    await deleteBook(db, a);
+    const i = screen.getByLabelText('Search');
+    fireEvent.blur(i); fireEvent.focus(i);
+    await waitFor(() => expect(screen.queryByText('Moonlit Bargain')).toBeNull());
+    expect(screen.getByText('Moon Garden')).toBeTruthy();
+  });
+
   it('shows grouped results with the add option last, and opens a book when picked', async () => {
     const { a } = await seed();
     box();

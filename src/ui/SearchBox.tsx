@@ -40,7 +40,7 @@ export default function SearchBox({ onAddBook }: { onAddBook: (title: string) =>
   return (
     <div className="searchwrap" ref={box}>
       <input ref={input} className="search" placeholder="Search everything (Ctrl+K)" aria-label="Search" value={q} role="combobox" aria-expanded={open && canAdd} aria-controls="search-results"
-        onChange={(e) => { setQ(e.target.value); setCur(0); setOpen(true); }} onFocus={() => { setOpen(true); if (!index) void ensureIndex(); }} onKeyDown={onKey} />
+        onChange={(e) => { setQ(e.target.value); setCur(0); setOpen(true); }} onFocus={() => { setOpen(true); void ensureIndex(); }} onKeyDown={onKey} />
       {open && canAdd && (
         <div className="sresults" id="search-results" role="listbox" aria-label="Search results">
           {groups.map((g) => (

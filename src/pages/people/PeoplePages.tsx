@@ -3,6 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { mergeNarrators, narratorMergePlan } from '../../repo/narratorMerge';
 import NarratorMenu from './NarratorMenu';
+import EntityMenu from '../EntityMenu';
+import { authorDeletePreview, authorMergePlan, deleteAuthor, mergeAuthors } from '../../repo/authorMerge';
 import { useDb } from '../../db/DbContext';
 import { listItems, type Item } from '../../repo/bookLog';
 import { listBookOptions } from '../../repo/characters';
@@ -29,14 +31,23 @@ export function NarratorsPage() {
 export function AuthorPage() {
   const db = useDb();
   const { authorId = '' } = useParams();
+  const nav = useNavigate();
+  const [others, setOthers] = useState<Item[]>([]);
   const [d, setD] = useState<repo.AuthorDetail | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
-  const reload = useCallback(async () => setD(await repo.getAuthor(db, authorId)), [db, authorId]);
+  const reload = useCallback(async () => { setD(await repo.getAuthor(db, authorId)); setOthers((await repo.listAuthors(db)).map((a) => ({ id: a.id, name: a.name }))); }, [db, authorId]);
   useEffect(() => { reload().catch((e) => setError(String(e))); }, [reload]);
   const act = useMemo(() => personActions(db, 'author', authorId, async (fn) => { try { await fn(); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } }), [db, authorId, reload]);
   if (d === undefined) return <p className="muted">Loading...</p>;
   if (d === null) return <p className="muted">That author could not be found.</p>;
-  return <section><h1 className="pagetitle">AUTHOR</h1>{error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}<AuthorView d={d} act={act} /></section>;
+  const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
+  return <section><div className="titlerow"><h1 className="pagetitle">AUTHOR</h1><EntityMenu noun="author" self={{ id: d.core.id, name: d.core.name }} others={others} merge={{
+    plan: (keep, dup) => authorMergePlan(db, keep, dup),
+    merge: async (keep, dup, choice) => { await mergeAuthors(db, keep, dup, choice); if (keep === authorId) await reload(); else nav(`/authors/${keep}`); },
+  }} remove={{
+    describe: async () => { const p = await authorDeletePreview(db, authorId); return `Their ${plural(p.books, 'book')} and ${plural(p.series, 'series')} stay in your journal, just without this author.`; },
+    run: async () => { await deleteAuthor(db, authorId); nav('/authors'); },
+  }} /></div>{error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}<AuthorView d={d} act={act} /></section>;
 }
 
 export function NarratorPage() {

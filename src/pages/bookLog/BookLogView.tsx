@@ -318,6 +318,16 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
           </Card>
           <Card label="Title"><EditText label="Title" className="bigtext" value={book.title} onCommit={(v) => v.trim() && act.updateBook({ title: v.trim() })} /></Card>
           <Authors log={log} lists={lists} act={act} />
+          {flags.owned && (
+            <Card label="Copies I own">
+              <div className="seg ownseg" role="group" aria-label="Copies I own">
+                {([['own_physical', 'physical', 'Physical'], ['own_audio', 'audio', 'Audio'], ['own_ebook', 'ebook', 'Ebook']] as const).map(([col, icon, label]) => (
+                  <button type="button" key={col} aria-pressed={book[col] === 1} className={`own-${icon}${book[col] === 1 ? ' on' : ''}`} onClick={() => act.updateBook({ [col]: book[col] === 1 ? 0 : 1 })}><Icon name={icon} />{label}</button>
+                ))}
+              </div>
+              <span className="muted small">{book.own_physical || book.own_ebook || book.own_audio ? 'You have a copy.' : 'Not owned yet.'}</span>
+            </Card>
+          )}
           <button type="button" className="btn" aria-pressed={book.is_favorite === 1} onClick={() => act.updateBook({ is_favorite: book.is_favorite ? 0 : 1 })}>{book.is_favorite ? 'Favorite' : 'Mark as favorite'}</button>
           {!inProgress && <button type="button" className="btn" onClick={act.startReading}>Start reading</button>}
           {!inProgress && book.shelf !== 'up_next' && <button type="button" className="btn" onClick={() => act.setStatus('up_next')}>Move to Up Next</button>}
@@ -385,16 +395,6 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
           <Card label="Originally published">
             <EditText label="Originally published" addLabel="Add publication date" type="date" value={book.original_publication_date} onCommit={(v) => act.updateBook({ original_publication_date: v || null })} />
           </Card>
-          {flags.owned && (
-            <Card label="Copies I own">
-              <div className="ownrow" role="group" aria-label="Copies I own">
-                {([['own_physical', 'physical', 'Physical'], ['own_ebook', 'ebook', 'Ebook'], ['own_audio', 'audio', 'Audio']] as const).map(([col, icon, label]) => (
-                  <label key={col} className="inline"><input type="checkbox" checked={book[col] === 1} onChange={(e) => act.updateBook({ [col]: e.target.checked ? 1 : 0 })} /><Icon name={icon} />{label}</label>
-                ))}
-              </div>
-              <span className="muted small">{book.own_physical || book.own_ebook || book.own_audio ? 'You have a copy.' : 'Not owned yet.'}</span>
-            </Card>
-          )}
 
           {read && (
             <>

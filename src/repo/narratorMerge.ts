@@ -3,16 +3,16 @@ import { first } from '../import/writer';
 import { addAlias, type LinkRef } from './people';
 import { makeField, resolveValue, type MergeChoice, type MergePlan } from './mergeReview';
 
-const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
-interface Row { id: string; name: string; sort_name: string | null; is_favorite: number; notes: string | null; links: string | null; photo_image_id: string | null }
+export const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
+export interface Row { id: string; name: string; sort_name: string | null; is_favorite: number; notes: string | null; links: string | null; photo_image_id: string | null }
 const parseLinks = (s: string | null): LinkRef[] => { try { return s ? (JSON.parse(s) as LinkRef[]) : []; } catch { return []; } };
 const linkText = (s: string | null) => parseLinks(s).map((l) => l.label || l.url).join(', ');
-const load = async (db: Db, id: string) => (await db.select<Row>('SELECT id, name, sort_name, is_favorite, notes, links, photo_image_id FROM narrator WHERE id = ? AND deleted_at IS NULL', [id]))[0];
+export const loadPerson = async (db: Db, kind: 'author' | 'narrator', id: string) => (await db.select<Row>(`SELECT id, name, sort_name, is_favorite, notes, links, photo_image_id FROM ${kind} WHERE id = ? AND deleted_at IS NULL`, [id]))[0];
+const load = (db: Db, id: string) => loadPerson(db, 'narrator', id);
 
-// What the review screen shows: the fields that differ, and everything the duplicate has that could come across.
-export async function narratorMergePlan(db: Db, keepId: string, dupId: string): Promise<MergePlan> {
-  const keep = await load(db, keepId), dup = await load(db, dupId);
-  if (!keep || !dup) throw new Error('One of those narrators no longer exists.');
+
+// The fields every person (author or narrator) has: sort name, notes, picture and links.
+export function personFieldPlan(keep: Row, dup: Row) {
   const fields = [
     makeField('sort_name', 'Sort name', keep.sort_name, dup.sort_name),
     makeField('notes', 'Notes', keep.notes, dup.notes, true),
@@ -23,6 +23,14 @@ export async function narratorMergePlan(db: Db, keepId: string, dupId: string): 
   if (keep.photo_image_id && dup.photo_image_id) { fields[2].keep = 'Current picture'; fields[2].dup = 'The other picture'; }
   const links = fields[3];
   if (links.keep && links.dup && links.keep !== links.dup) links.mode = 'both';
+  return fields;
+}
+
+// What the review screen shows: the fields that differ, and everything the duplicate has that could come across.
+export async function narratorMergePlan(db: Db, keepId: string, dupId: string): Promise<MergePlan> {
+  const keep = await load(db, keepId), dup = await load(db, dupId);
+  if (!keep || !dup) throw new Error('One of those narrators no longer exists.');
+  const fields = personFieldPlan(keep, dup);
   const items: MergePlan['items'] = [];
   const add = async (group: string, table: string, sql: string) => { for (const r of await db.select<{ id: string; label: string }>(sql, [dupId])) items.push({ key: `${table}:${r.id}`, group, label: r.label }); };
   await add('Other names', 'narrator_alias', 'SELECT id, name AS label FROM narrator_alias WHERE narrator_id = ? AND deleted_at IS NULL ORDER BY rowid');
@@ -30,6 +38,31 @@ export async function narratorMergePlan(db: Db, keepId: string, dupId: string): 
   await add('Books', 'book_narrator', 'SELECT bn.id AS id, b.title AS label FROM book_narrator bn JOIN book b ON b.id = bn.book_id WHERE bn.narrator_id = ? AND bn.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY b.title');
   await add('Listens', 'read_narrator', "SELECT rn.id AS id, b.title || COALESCE(' (' || r.finish_date || ')', '') AS label FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id WHERE rn.narrator_id = ? AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY b.title");
   return { fields, items };
+}
+
+
+// Applies the field choices (or, with no choice, fills what is blank) to the kept person.
+export async function mergePersonFields(db: Db, kind: 'author' | 'narrator', keep: Row, dup: Row, choice?: MergeChoice) {
+  const keepId = keep.id;
+  const drop = (table: string, id: string) => db.execute(`UPDATE ${table} SET deleted_at = ${NOW} WHERE id = ?`, [id]);
+  const set: Record<string, string | number | null> = {};
+  const mode = (k: string) => (choice ? choice.fields[k] ?? 'keep' : 'dup');
+  for (const [k, text] of [['sort_name', false], ['notes', true]] as const) {
+    const v = resolveValue<string>(choice ? mode(k) : 'dup', keep[k], dup[k], text);
+    if (v !== undefined && (choice || !keep[k])) set[k] = v;
+  }
+  if (!keep.is_favorite && dup.is_favorite) set.is_favorite = 1;
+  const pm = mode('photo');
+  if (dup.photo_image_id && (choice ? pm === 'dup' : !keep.photo_image_id)) {
+    if (keep.photo_image_id) await drop('image', keep.photo_image_id);
+    set.photo_image_id = dup.photo_image_id;
+  }
+  const lm = mode('links');
+  const mine = parseLinks(keep.links), theirs = parseLinks(dup.links);
+  const merged = lm === 'keep' ? mine : lm === 'dup' ? (choice ? theirs : [...mine, ...theirs.filter((t) => !mine.some((m) => m.url === t.url))]) : [...mine, ...theirs.filter((t) => !mine.some((m) => m.url === t.url))];
+  if (JSON.stringify(merged) !== JSON.stringify(mine)) set.links = JSON.stringify(merged);
+  const cols = Object.keys(set);
+  if (cols.length) await db.execute(`UPDATE ${kind} SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`, [...cols.map((c) => set[c]), keepId]);
 }
 
 // Folds `dupId` into `keepId`. Without a choice, everything comes across and empty fields are filled in.
@@ -72,24 +105,6 @@ export async function mergeNarrators(db: Db, keepId: string, dupId: string, choi
   }
   if (dup.name.trim().toLowerCase() !== keep.name.trim().toLowerCase()) await addAlias(db, 'narrator', keepId, dup.name);
 
-  // Fields.
-  const set: Record<string, string | number | null> = {};
-  const mode = (k: string) => (choice ? choice.fields[k] ?? 'keep' : 'dup');
-  for (const [k, text] of [['sort_name', false], ['notes', true]] as const) {
-    const v = resolveValue<string>(choice ? mode(k) : 'dup', keep[k], dup[k], text);
-    if (v !== undefined && (choice || !keep[k])) set[k] = v;
-  }
-  if (!keep.is_favorite && dup.is_favorite) set.is_favorite = 1;
-  const pm = mode('photo');
-  if (dup.photo_image_id && (choice ? pm === 'dup' : !keep.photo_image_id)) {
-    if (keep.photo_image_id) await drop('image', keep.photo_image_id);
-    set.photo_image_id = dup.photo_image_id;
-  }
-  const lm = mode('links');
-  const mine = parseLinks(keep.links), theirs = parseLinks(dup.links);
-  const merged = lm === 'keep' ? mine : lm === 'dup' ? (choice ? theirs : [...mine, ...theirs.filter((t) => !mine.some((m) => m.url === t.url))]) : [...mine, ...theirs.filter((t) => !mine.some((m) => m.url === t.url))];
-  if (JSON.stringify(merged) !== JSON.stringify(mine)) set.links = JSON.stringify(merged);
-  const cols = Object.keys(set);
-  if (cols.length) await db.execute(`UPDATE narrator SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`, [...cols.map((c) => set[c]), keepId]);
+  await mergePersonFields(db, 'narrator', keep, dup, choice);
   await db.execute(`UPDATE narrator SET deleted_at = ${NOW} WHERE id = ?`, [dupId]);
 }

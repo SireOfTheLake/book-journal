@@ -46,15 +46,16 @@ describe('date picker month and year choosers', () => {
 describe('character menu', () => {
   it('merges two characters through the menu', async () => {
     const merge = vi.fn().mockResolvedValue(undefined);
-    render(<CharacterMenu self={{ id: 'a', name: 'Rory' }} characters={[{ id: 'a', name: 'Rory' }, { id: 'b', name: 'Aurora' }]} act={{ preview: async () => ({ books: 2, relationships: 1 }), merge, remove: vi.fn() }} />);
+    render(<CharacterMenu self={{ id: 'a', name: 'Rory' }} characters={[{ id: 'a', name: 'Rory' }, { id: 'b', name: 'Aurora' }]} act={{ plan: async () => ({ fields: [], items: [{ key: 'book_character:x', group: 'Books', label: 'One (main)' }] }), merge, remove: vi.fn() }} />);
     fireEvent.click(screen.getByLabelText('Character menu'));
     fireEvent.click(screen.getByRole('menuitem', { name: /Merge characters/ }));
     const dlg = screen.getByRole('dialog', { name: 'Merge characters' });
     const pick = async (label: string, name: string) => { const box = within(dlg).getByLabelText(label); fireEvent.focus(box); fireEvent.change(box, { target: { value: name } }); fireEvent.mouseDown(await within(dlg).findByText(name)); };
     await pick('Search the other character', 'Aurora');
-    await screen.findByText(/2 books, 1 relationship move over/);
+    fireEvent.click(within(dlg).getByRole('button', { name: 'Review...' }));
+    fireEvent.click(await within(dlg).findByLabelText('One (main)'));
     fireEvent.click(within(dlg).getByRole('button', { name: 'Merge' }));
-    await waitFor(() => expect(merge).toHaveBeenCalledWith('a', 'b'));
+    await waitFor(() => expect(merge).toHaveBeenCalledWith('a', 'b', { fields: {}, leave: ['book_character:x'] }));
   });
 });
 

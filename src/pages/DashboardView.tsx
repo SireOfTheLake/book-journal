@@ -140,10 +140,10 @@ export function SharedCards({ d, period }: { d: DashboardCore; period: string })
         <Counts title="Most read authors" items={d.top.authors} />
         <Counts title="Top genres" items={d.top.genres} />
         <Counts title="Top tropes" items={d.top.tropes} />
-        <Counts title="Main character names" items={d.top.characters} />
+        <Counts title="Main character first names" items={d.top.characters} />
         <Counts title="Main character jobs" items={d.top.jobs} />
-        <Counts title="Settings: states" items={d.top.states} />
-        <Counts title="Settings: countries" items={d.top.countries} />
+        <Counts title="Settings: States" items={d.top.states} />
+        <Counts title="Settings: Non-US Countries" items={d.top.countries} />
         <FavoritesCard books={d.favorites} />
 
         <Card label="Shortest and longest" className="span2">

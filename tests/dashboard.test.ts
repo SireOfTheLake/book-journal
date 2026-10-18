@@ -1,3 +1,4 @@
+import { newId } from '../src/domain/ids';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../src/db/adapter';
 import { migrateNodeDb } from '../src/db/nodeDb';
@@ -144,6 +145,23 @@ describe('the monthly dashboard', () => {
     const d = await getMonthlyDashboard(db, 2026, 3);
     expect(d.top.characters).toEqual([{ name: 'Carl', count: 1 }, { name: 'Sam', count: 1 }]);
     expect(d.top.jobs).toEqual([{ name: 'Coal miner', count: 2 }]);
+  });
+  it('counts first names only, US states only, and non-US countries only', async () => {
+    const one = await finished('Setting One', '2026-04-05'); const two = await finished('Setting Two', '2026-04-10');
+    const jon = await createCharacter(db, 'Jon Snow'); const jonB = await createCharacter(db, 'Jon Arryn');
+    await addCharacterToBook(db, jon, one.b, 'main'); await addCharacterToBook(db, jonB, two.b, 'main');
+    const place = async (b: string, name: string, state: string | null, country: string | null) => {
+      const id = newId();
+      await db.execute('INSERT INTO place (id, name, state_region, country) VALUES (?, ?, ?, ?)', [id, name, state, country]);
+      await db.execute('INSERT INTO book_place (id, book_id, place_id, sort_order) VALUES (?, ?, ?, 1)', [newId(), b, id]);
+    };
+    await place(one.b, 'Austin', 'Texas', 'United States'); await place(two.b, 'Waco', 'texas', 'USA');
+    await place(one.b, 'Washington', 'District of Columbia', 'United States'); await place(one.b, 'Toronto', 'Ontario', 'Canada');
+    await place(two.b, 'Paris', null, 'France'); await place(two.b, 'Perth', 'Western Australia', 'Australia'); await place(two.b, 'Dallas', 'Texas', 'France');
+    const d = await getMonthlyDashboard(db, 2026, 4);
+    expect(d.top.characters).toEqual([{ name: 'Jon', count: 2 }]);
+    expect(d.top.states).toEqual([{ name: 'Texas', count: 2 }]);
+    expect(d.top.countries.map((c) => c.name).sort()).toEqual(['Australia', 'Canada', 'France']);
   });
   it('counts a series as continued when read this month, not when started this month, and also when finished this month', async () => {
     const s1 = await createSeries(db, 'Started Now'); const s2 = await createSeries(db, 'Older'); const s3 = await createSeries(db, 'Done Long Ago');

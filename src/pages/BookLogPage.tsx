@@ -68,7 +68,11 @@ export default function BookLogPage() {
       saveLocation: async (id, input) => { if (id) await savePlace(db, id, input); else await addLocationToBook(db, bookId, input); await reload(); },
       mergeCandidates: () => listMergeCandidates(db, bookId), startMerge: (other) => nav(`/book/${bookId}/merge/${other}`),
       newRead: () => run(async () => { const id = await repo.createRead(db, bookId); nav(`/book/${bookId}/${id}`); }),
-      createItem: (table, name) => run(() => repo.createListItem(db, table, name)),
+      // a new source or time period is also chosen for this read / book straight away
+      createItem: (table, name) => run(async () => {
+        const id = await repo.createListItem(db, table, name);
+        if (table === 'source') { if (rid) await repo.updateRead(db, rid, { source_id: id }); } else await repo.updateBook(db, bookId, { time_period_id: id, time_period_detail: null });
+      }),
       startReading: () => run(async () => { const id = await repo.setStatus(db, bookId, null, 'reading'); if (id) nav(`/book/${bookId}/${id}`, { replace: true }); }),
       renameItem: (t, id, n) => run(() => repo.renameListItem(db, t, id, n)),
       removeSource: (id) => run(() => repo.removeSource(db, id)),

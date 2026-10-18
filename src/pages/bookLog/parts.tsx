@@ -130,10 +130,12 @@ export function EditSelect({ value, options, onChange, onCreate, label, addLabel
   const [mode, setMode] = useState<'view' | 'pick' | 'new'>('view');
   const [name, setName] = useState('');
   const sel = useRef<HTMLSelectElement>(null);
+  const finished = useRef(false);
+  useEffect(() => { if (mode === 'new') finished.current = false; }, [mode]);
   useEffect(() => { if (mode === 'pick') { sel.current?.focus(); try { sel.current?.showPicker?.(); } catch { /* ignore */ } } }, [mode]);
   const current = options.find((o) => o.value === value)?.label ?? null;
   if (mode === 'new') {
-    const done = (save: boolean) => { if (save && name.trim()) onCreate?.(name); setName(''); setMode('view'); };
+    const done = (save: boolean) => { if (finished.current) return; finished.current = true; if (save && name.trim()) onCreate?.(name); setName(''); setMode('view'); };
     return <input className="field" autoFocus value={name} aria-label={`New ${label.toLowerCase()}`} placeholder={`New ${label.toLowerCase()}`} onChange={(e) => setName(e.target.value)}
       onBlur={() => done(true)} onKeyDown={(e) => { if (e.key === 'Enter') done(true); if (e.key === 'Escape') done(false); }} />;
   }

@@ -1,5 +1,5 @@
 import type { Db } from '../db/adapter';
-import { countMakeups, dayBefore, monthRange, pageDots, sourceMix, splitProgress, starDots, topCounts, uniqueCounts, type Counted, type DotColumn, type Split, type SourceMix } from '../domain/dashboard';
+import { countMakeups, dayBefore, firstName, nonUsCountry, usState, monthRange, pageDots, sourceMix, splitProgress, starDots, topCounts, uniqueCounts, type Counted, type DotColumn, type Split, type SourceMix } from '../domain/dashboard';
 import { metricInfo, type Metric } from '../domain/goals';
 import { getCovers } from './library';
 import { letterMap, listChallenges } from './challenges';
@@ -53,10 +53,10 @@ async function loadMonthBooks(db: Db, from: string, to: string): Promise<MonthBo
 }
 
 // Per-book tag lists for the month's books: { bookId: [names] }.
-async function perBook(db: Db, sql: string, ids: string[]) {
+async function perBook(db: Db, sql: string, ids: string[], pick: (r: { n: string | null; c: string | null }) => string | null = (r) => r.n) {
   const map = new Map<string, string[]>();
   if (!ids.length) return map;
-  for (const r of await db.select<{ b: string; n: string | null }>(sql, ids)) if (r.n) (map.get(r.b) ?? map.set(r.b, []).get(r.b)!).push(r.n);
+  for (const r of await db.select<{ b: string; n: string | null; c: string | null }>(sql, ids)) { const v = pick(r); if (v) (map.get(r.b) ?? map.set(r.b, []).get(r.b)!).push(v); }
   return map;
 }
 
@@ -111,8 +111,8 @@ async function buildDashboard(db: Db, year: number, from: string, to: string, to
   const q = marks(ids);
   const genres = await perBook(db, `SELECT bg.book_id AS b, g.name AS n FROM book_genre bg JOIN genre g ON g.id = bg.genre_id AND g.deleted_at IS NULL WHERE bg.deleted_at IS NULL AND bg.book_id IN (${q})`, ids);
   const tropes = await perBook(db, `SELECT bt.book_id AS b, t.name AS n FROM book_trope bt JOIN trope t ON t.id = bt.trope_id AND t.deleted_at IS NULL WHERE bt.deleted_at IS NULL AND bt.book_id IN (${q})`, ids);
-  const states = await perBook(db, `SELECT bp.book_id AS b, p.state_region AS n FROM book_place bp JOIN place p ON p.id = bp.place_id AND p.deleted_at IS NULL WHERE bp.deleted_at IS NULL AND bp.book_id IN (${q})`, ids);
-  const countries = await perBook(db, `SELECT bp.book_id AS b, p.country AS n FROM book_place bp JOIN place p ON p.id = bp.place_id AND p.deleted_at IS NULL WHERE bp.deleted_at IS NULL AND bp.book_id IN (${q})`, ids);
+  const states = await perBook(db, `SELECT bp.book_id AS b, p.state_region AS n, p.country AS c FROM book_place bp JOIN place p ON p.id = bp.place_id AND p.deleted_at IS NULL WHERE bp.deleted_at IS NULL AND bp.book_id IN (${q})`, ids, (r) => usState(r.n, r.c));
+  const countries = await perBook(db, `SELECT bp.book_id AS b, p.country AS n FROM book_place bp JOIN place p ON p.id = bp.place_id AND p.deleted_at IS NULL WHERE bp.deleted_at IS NULL AND bp.book_id IN (${q})`, ids, (r) => nonUsCountry(r.n));
   // main characters, each counted once however many of the month's books they are in (Carl in two Dungeon Crawler Carl books is one Carl)
   const chars = ids.length ? await db.select<{ id: string; n: string }>(`SELECT DISTINCT c.id AS id, c.name AS n FROM book_character bc JOIN character c ON c.id = bc.character_id AND c.deleted_at IS NULL WHERE bc.deleted_at IS NULL AND bc.role = 'main' AND bc.book_id IN (${q})`, ids) : [];
   const jobs = ids.length ? await db.select<{ id: string; n: string }>(`SELECT DISTINCT c.id AS id, o.name AS n FROM book_character bc JOIN character c ON c.id = bc.character_id AND c.deleted_at IS NULL JOIN character_occupation co ON co.character_id = c.id AND co.deleted_at IS NULL JOIN occupation o ON o.id = co.occupation_id AND o.deleted_at IS NULL WHERE bc.deleted_at IS NULL AND bc.role = 'main' AND bc.book_id IN (${q})`, ids) : [];
@@ -165,7 +165,7 @@ async function buildDashboard(db: Db, year: number, from: string, to: string, to
     goals, challenges, stickers,
     top: {
       authors: topCounts(books.flatMap((b) => b.authors), topN), genres: topCounts(per(genres), topN), tropes: topCounts(per(tropes), topN), states: topCounts(per(states), topN), countries: topCounts(per(countries), topN),
-      characters: uniqueCounts(chars.map((c) => ({ id: c.id, value: c.n })), topN), jobs: uniqueCounts(jobs.map((c) => ({ id: c.id, value: c.n })), topN),
+      characters: uniqueCounts(chars.map((c) => ({ id: c.id, value: firstName(c.n) })), topN), jobs: uniqueCounts(jobs.map((c) => ({ id: c.id, value: c.n })), topN),
     },
     favorites: books.filter((b) => b.favorite || (b.rating ?? 0) >= 20),
     shortest: byPages[0] ?? null, longest: byPages[byPages.length - 1] ?? null, shortestAudio: audio[0] ?? null, longestAudio: audio[audio.length - 1] ?? null,

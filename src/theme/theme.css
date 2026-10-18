@@ -1011,3 +1011,11 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .seg.thumbs button.t-neutral.on, .seg.thumbs button:has(+ button.t-neutral.on) { border-right-color: #d9b94a; }
 .seg.thumbs button.t-down.on, .seg.thumbs button:has(+ button.t-down.on) { border-right-color: #d4574a; }
 .seg.listseg button.on, .seg.listseg button:has(+ button.on) { border-right-color: var(--line2); }
+
+/* Merge review */
+.mergedlg { max-width: 640px; max-height: 85vh; overflow-y: auto; }
+.mergefields { display: flex; flex-direction: column; gap: 8px; }
+.mergefield { display: flex; flex-direction: column; gap: 4px; }
+.mergefield .seg { flex-wrap: wrap; }
+.mergeitems { border: 1px solid var(--line2); border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; margin: 0; }
+.mergeitems legend { padding: 0 4px; }

@@ -64,8 +64,8 @@ export default function CharacterPageContainer() {
       <div className="titlerow">
         <h1 className="pagetitle">CHARACTER</h1>
         <CharacterMenu self={{ id: d.core.id, name: d.core.name }} characters={lists.characters.map((c) => ({ id: c.id, name: c.name }))} act={{
-          preview: (cid) => repo.mergePreview(db, cid),
-          merge: async (keep, dup) => { await repo.mergeCharacters(db, keep, dup); if (keep === characterId) await reload(); else nav(`/characters/${keep}`); },
+          plan: (keep, dup) => repo.characterMergePlan(db, keep, dup),
+          merge: async (keep, dup, choice) => { await repo.mergeCharacters(db, keep, dup, choice); if (keep === characterId) await reload(); else nav(`/characters/${keep}`); },
           remove: async (cid) => { await repo.deleteCharacter(db, cid); nav('/characters'); },
         }} />
       </div>

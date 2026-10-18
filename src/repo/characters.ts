@@ -2,6 +2,7 @@ import { voicingCandidates, voicingsOf, type Voicing } from './voicing';
 import type { Db, SqlValue } from '../db/adapter';
 import { newId } from '../domain/ids';
 import { first } from '../import/writer';
+import { makeField, resolveValue, type MergeChoice, type MergePlan } from './mergeReview';
 import type { Item } from './bookLog';
 import { PARTNERS_SQL } from './sql';
 
@@ -251,9 +252,39 @@ export async function mergePreview(db: Db, dupId: string) {
   };
 }
 
+const TEXT_FIELDS = new Set(['description', 'origin_note', 'notes']);
+const MERGE_LABELS: [string, string][] = [['description', 'Description'], ['gender', 'Gender'], ['gender_detail', 'Gender detail'], ['age_min', 'Youngest age'], ['age_max', 'Oldest age'], ['organization', 'Organization'],
+  ['origin_note', 'Where they are from'], ['life_status', 'Alive or dead'], ['notes', 'Notes']];
+
+// Everything the review screen needs: the fields that differ, and the duplicate's items that could come across.
+export async function characterMergePlan(db: Db, keepId: string, dupId: string): Promise<MergePlan> {
+  const [keep] = await db.select<CharacterCore>('SELECT * FROM character WHERE id = ? AND deleted_at IS NULL', [keepId]);
+  const [dup] = await db.select<CharacterCore>('SELECT * FROM character WHERE id = ? AND deleted_at IS NULL', [dupId]);
+  if (!keep || !dup) throw new Error('One of those characters no longer exists.');
+  const name = async (table: string, id: string | null) => (id ? (await db.select<{ name: string }>(`SELECT name FROM ${table} WHERE id = ?`, [id]))[0]?.name ?? null : null);
+  const fields = MERGE_LABELS.map(([k, l]) => makeField(k, l, keep[k as keyof CharacterCore], dup[k as keyof CharacterCore], TEXT_FIELDS.has(k)));
+  fields.push(makeField('sexuality_id', 'Sexuality', await name('sexuality', keep.sexuality_id), await name('sexuality', dup.sexuality_id)));
+  fields.push(makeField('current_place_id', 'Setting', await name('place', keep.current_place_id), await name('place', dup.current_place_id)));
+  // sexuality and setting are stored as ids; the screen shows names but the choice is by key
+  const items: MergePlan['items'] = [];
+  const add = async (group: string, table: string, sql: string) => { for (const r of await db.select<{ id: string; label: string }>(sql, [dupId])) items.push({ key: `${table}:${r.id}`, group, label: r.label }); };
+  await add('Books', 'book_character', "SELECT bc.id AS id, b.title || ' (' || bc.role || ')' AS label FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY b.title");
+  await add('Other names', 'character_alt_name', 'SELECT id, name AS label FROM character_alt_name WHERE character_id = ? AND deleted_at IS NULL ORDER BY rowid');
+  await add('Occupations', 'character_occupation', 'SELECT co.id AS id, o.name AS label FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = ? AND co.deleted_at IS NULL ORDER BY o.name');
+  await add('Tags', 'character_tag_link', 'SELECT l.id AS id, t.name AS label FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = ? AND l.deleted_at IS NULL ORDER BY t.name');
+  await add('Previous places', 'character_previous_place', 'SELECT cp.id AS id, p.name AS label FROM character_previous_place cp JOIN place p ON p.id = cp.place_id WHERE cp.character_id = ? AND cp.deleted_at IS NULL ORDER BY p.name');
+  await add('Family and friends', 'related_person', 'SELECT id, name || \' (\' || rel_type || \')\' AS label FROM related_person WHERE character_id = ? AND deleted_at IS NULL ORDER BY name');
+  await add('Relationships', 'character_relationship', `SELECT r.id AS id, o.name || ' (' || r.rel_type || ')' AS label FROM character_relationship r JOIN character o ON o.id = CASE WHEN r.character_a_id = '${dupId}' THEN r.character_b_id ELSE r.character_a_id END
+    WHERE (r.character_a_id = '${dupId}' OR r.character_b_id = '${dupId}') AND r.deleted_at IS NULL AND o.id <> '${keepId}' AND ? IS NOT NULL ORDER BY o.name`);
+  await add('Pictures', 'character_image', "SELECT id, 'Picture ' || (rowid) AS label FROM character_image WHERE character_id = ? AND deleted_at IS NULL ORDER BY rowid");
+  return { fields, items };
+}
+
 // Folds `dupId` into `keepId`: everything the duplicate had moves over (nothing is doubled up), the duplicate's
 // name is kept as an alternate name, and the duplicate is then soft-deleted. Fields the kept character leaves empty are filled in.
-export async function mergeCharacters(db: Db, keepId: string, dupId: string): Promise<void> {
+export async function mergeCharacters(db: Db, keepId: string, dupId: string, choice?: MergeChoice): Promise<void> {
+  const leave = new Set(choice?.leave ?? []);
+  const drop = async (table: string, id: string) => { await db.execute(`UPDATE ${table} SET deleted_at = ${NOW} WHERE id = ?`, [id]); };
   if (keepId === dupId) throw new Error('Choose two different characters.');
   const [keep] = await db.select<CharacterCore>('SELECT * FROM character WHERE id = ? AND deleted_at IS NULL', [keepId]);
   const [dup] = await db.select<CharacterCore>('SELECT * FROM character WHERE id = ? AND deleted_at IS NULL', [dupId]);
@@ -261,6 +292,7 @@ export async function mergeCharacters(db: Db, keepId: string, dupId: string): Pr
 
   // Books: an existing link wins, except a main role beats a side role. Notes are joined.
   for (const l of await db.select<{ id: string; book_id: string; role: 'main' | 'side'; notes: string | null }>('SELECT id, book_id, role, notes FROM book_character WHERE character_id = ? AND deleted_at IS NULL', [dupId])) {
+    if (leave.has(`book_character:${l.id}`)) { await drop('book_character', l.id); continue; }
     const mine = (await db.select<{ id: string; role: string; notes: string | null }>('SELECT id, role, notes FROM book_character WHERE character_id = ? AND book_id = ? AND deleted_at IS NULL', [keepId, l.book_id]))[0];
     if (!mine) { await db.execute('UPDATE book_character SET character_id = ? WHERE id = ?', [keepId, l.id]); continue; }
     const notes = [mine.notes, l.notes].filter((x, i, a): x is string => !!x && a.indexOf(x) === i).join('\n') || null;
@@ -277,13 +309,17 @@ export async function mergeCharacters(db: Db, keepId: string, dupId: string): Pr
   // Occupations, tags, previous places: move unless the kept character already has it.
   for (const [table, col] of [['character_occupation', 'occupation_id'], ['character_tag_link', 'character_tag_id'], ['character_previous_place', 'place_id']] as const) {
     for (const r of await db.select<{ id: string; v: string }>(`SELECT id, ${col} AS v FROM ${table} WHERE character_id = ? AND deleted_at IS NULL`, [dupId])) {
+      if (leave.has(`${table}:${r.id}`)) { await drop(table, r.id); continue; }
       if (await first(db, `SELECT id FROM ${table} WHERE character_id = ? AND ${col} = ? AND deleted_at IS NULL`, [keepId, r.v])) await db.execute(`UPDATE ${table} SET deleted_at = ${NOW} WHERE id = ?`, [r.id]);
       else await db.execute(`UPDATE ${table} SET character_id = ? WHERE id = ?`, [keepId, r.id]);
     }
   }
 
   // Names: the duplicate's alternate names move over, and its main name becomes one too.
-  await db.execute('UPDATE character_alt_name SET character_id = ? WHERE character_id = ? AND deleted_at IS NULL', [keepId, dupId]);
+  for (const a of await db.select<{ id: string }>('SELECT id FROM character_alt_name WHERE character_id = ? AND deleted_at IS NULL', [dupId])) {
+    if (leave.has(`character_alt_name:${a.id}`)) await drop('character_alt_name', a.id);
+    else await db.execute('UPDATE character_alt_name SET character_id = ? WHERE id = ?', [keepId, a.id]);
+  }
   const known = (await db.select<{ name: string }>('SELECT name FROM character_alt_name WHERE character_id = ? AND deleted_at IS NULL', [keepId])).map((x) => x.name.toLowerCase());
   if (dup.name.trim().toLowerCase() !== keep.name.trim().toLowerCase() && !known.includes(dup.name.trim().toLowerCase())) await addAltName(db, keepId, dup.name, null);
 
@@ -291,12 +327,14 @@ export async function mergeCharacters(db: Db, keepId: string, dupId: string): Pr
   const hasMain = !!(await first(db, 'SELECT id FROM character_image WHERE character_id = ? AND is_main = 1 AND deleted_at IS NULL', [keepId]));
   if (hasMain) await db.execute('UPDATE character_image SET is_main = 0 WHERE character_id = ? AND is_main = 1', [dupId]);
   for (const r of await db.select<{ id: string; image_id: string }>('SELECT id, image_id FROM character_image WHERE character_id = ? AND deleted_at IS NULL', [dupId])) {
+    if (leave.has(`character_image:${r.id}`)) { await db.execute(`UPDATE character_image SET deleted_at = ${NOW}, is_main = 0 WHERE id = ?`, [r.id]); continue; }
     if (await first(db, 'SELECT id FROM character_image WHERE character_id = ? AND image_id = ? AND deleted_at IS NULL', [keepId, r.image_id])) await db.execute(`UPDATE character_image SET deleted_at = ${NOW}, is_main = 0 WHERE id = ?`, [r.id]);
     else await db.execute('UPDATE character_image SET character_id = ? WHERE id = ?', [keepId, r.id]);
   }
 
   // Plain related people.
   for (const p of await db.select<{ id: string; name: string; rel_type: string }>('SELECT id, name, rel_type FROM related_person WHERE character_id = ? AND deleted_at IS NULL', [dupId])) {
+    if (leave.has(`related_person:${p.id}`)) { await drop('related_person', p.id); continue; }
     if (await first(db, 'SELECT id FROM related_person WHERE character_id = ? AND lower(name) = lower(?) AND rel_type = ? AND deleted_at IS NULL', [keepId, p.name, p.rel_type])) await db.execute(`UPDATE related_person SET deleted_at = ${NOW} WHERE id = ?`, [p.id]);
     else await db.execute('UPDATE related_person SET character_id = ? WHERE id = ?', [keepId, p.id]);
   }
@@ -307,7 +345,7 @@ export async function mergeCharacters(db: Db, keepId: string, dupId: string): Pr
     const dupIsA = r.character_a_id === dupId;
     const other = dupIsA ? r.character_b_id : r.character_a_id;
     await db.execute(`UPDATE character_relationship SET deleted_at = ${NOW} WHERE id = ?`, [r.id]);
-    if (other === keepId) continue;
+    if (other === keepId || leave.has(`character_relationship:${r.id}`)) continue;
     const mine = { label: dupIsA ? r.a_is_to_b : r.b_is_to_a, status: dupIsA ? r.a_status : r.b_status };
     const theirs = { label: dupIsA ? r.b_is_to_a : r.a_is_to_b, status: dupIsA ? r.b_status : r.a_status };
     const keepIsA = keepId < other;
@@ -326,7 +364,10 @@ export async function mergeCharacters(db: Db, keepId: string, dupId: string): Pr
   // Fill what the kept character is missing, then retire the duplicate.
   const fill: Record<string, SqlValue> = {};
   for (const f of ['description', 'gender', 'gender_detail', 'age_min', 'age_max', 'sexuality_id', 'organization', 'current_place_id', 'origin_note', 'notes', 'life_status'] as const) {
-    if ((keep[f] === null || keep[f] === '') && dup[f] !== null && dup[f] !== '') fill[f] = dup[f] as SqlValue;
+    if (choice) {
+      const v = resolveValue<SqlValue>(choice.fields[f] ?? 'keep', keep[f] as SqlValue, dup[f] as SqlValue, TEXT_FIELDS.has(f));
+      if (v !== undefined) fill[f] = v;
+    } else if ((keep[f] === null || keep[f] === '') && dup[f] !== null && dup[f] !== '') fill[f] = dup[f] as SqlValue;
   }
   if (fill.age_min !== undefined || fill.age_max !== undefined) { fill.age_min = fill.age_min ?? keep.age_min; fill.age_max = fill.age_max ?? keep.age_max; }
   if (!keep.is_featured && dup.is_featured) fill.is_featured = 1;

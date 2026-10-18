@@ -2,7 +2,19 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 -->
+
+## 0.1.7 — 2026-10-17
+
+### New
+- Merge narrators: open the ... menu on a narrator page, choose the other narrator, then review what comes across (notes, picture, links, other names, accents, books and listens) before merging.
+
+### Improved
+- Merging characters now has a review step too: choose which details to keep, use the other's or join them, and untick any books, names, tags, relationships or pictures you do not want to bring over.
+- Dashboard: "Settings: States" counts only the 50 US states, "Settings: Non-US Countries" counts only countries outside the US, and main characters are counted by first name.
+
+### Fixed
+- Typing a new source or time period and pressing Enter now selects the new one instead of showing the previous choice.
 
 ## 0.1.6 — 2026-10-17
 

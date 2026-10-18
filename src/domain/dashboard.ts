@@ -84,3 +84,19 @@ export function uniqueCounts(pairs: { id: string; value: string | null }[], n = 
   for (const p of pairs) { const k = `${p.id}\u0000${p.value}`; if (p.value && !seen.has(k)) { seen.add(k); values.push(p.value); } }
   return topCounts(values, n);
 }
+
+// The fifty states only (not DC or the territories), for the "Settings: states" count.
+export const US_STATES = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa', 'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey', 'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming'];
+const STATE_KEYS = new Map(US_STATES.map((n) => [n.toLowerCase(), n]));
+const US_NAMES = new Set(['united states', 'united states of america', 'usa', 'us', 'u.s.', 'u.s.a.']);
+export const isUsCountry = (country: string | null | undefined) => US_NAMES.has((country ?? '').trim().toLowerCase());
+// A state counts only if it is one of the fifty, in the United States (or with no country given). Returns its proper name.
+export function usState(state: string | null | undefined, country?: string | null): string | null {
+  const name = STATE_KEYS.get((state ?? '').trim().toLowerCase());
+  if (!name) return null;
+  return !country?.trim() || isUsCountry(country) ? name : null;
+}
+// Only countries other than the United States.
+export const nonUsCountry = (country: string | null | undefined): string | null => (country?.trim() && !isUsCountry(country) ? country.trim() : null);
+// A character is counted by the part of the name before the first space.
+export const firstName = (name: string | null | undefined): string => (name ?? '').trim().split(/\s+/)[0] ?? '';

@@ -5,6 +5,7 @@ import App from './App';
 import { DbProvider } from './db/DbContext';
 import './theme/theme.css';
 import { applyCachedTheme } from './theme/apply';
+import { FeaturesProvider } from './features/FeaturesContext';
 import { ThemeProvider } from './theme/ThemeContext';
 
 // Show the saved colors at once, before the database has opened.
@@ -15,7 +16,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <HashRouter>
       <DbProvider>
         <ThemeProvider>
-          <App />
+          <FeaturesProvider>
+            <App />
+          </FeaturesProvider>
         </ThemeProvider>
       </DbProvider>
     </HashRouter>

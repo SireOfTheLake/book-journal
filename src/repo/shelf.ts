@@ -7,6 +7,7 @@ export type SeriesState = 'next' | 'waiting' | null;
 export interface ShelfBook {
   id: string; title: string; authors: string | null; series: string | null; series_id: string | null; position: number | null;
   shelf: Shelf; priority: number | null; page_count: number | null; has_cover: number; added: string;
+  own_physical: number; own_ebook: number; own_audio: number;
   series_state: SeriesState; release: 'tba' | string | null; // an upcoming release date, or 'tba'
   released: string | null; // the date it came out, when that was in the last 30 days and nothing else is still to come
 }
@@ -14,7 +15,7 @@ export interface ShelfBook {
 
 // Everything on the Up Next and TBR shelves, each in your priority order.
 export const listShelf = (db: Db) => db.select<ShelfBook>(
-  `SELECT b.id AS id, b.title AS title, b.series_id AS series_id, b.series_position AS position, b.shelf AS shelf, b.tbr_priority AS priority, b.page_count AS page_count, b.created_at AS added,
+  `SELECT b.id AS id, b.title AS title, b.series_id AS series_id, b.series_position AS position, b.shelf AS shelf, b.tbr_priority AS priority, b.own_physical AS own_physical, b.own_ebook AS own_ebook, b.own_audio AS own_audio, b.page_count AS page_count, b.created_at AS added,
      (SELECT s.title FROM series s WHERE s.id = b.series_id) AS series,
      (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors,
      EXISTS (SELECT 1 FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL) AS has_cover,
@@ -87,4 +88,16 @@ export async function addToShelf(db: Db, input: { title: string; authors: string
 export async function putOnShelf(db: Db, bookId: string, shelf: Shelf) {
   await setStatus(db, bookId, null, shelf);
   await moveToShelf(db, bookId, shelf);
+}
+
+export type OwnFilter = 'all' | 'own' | 'want';
+export type FormatFilter = 'any' | 'physical' | 'ebook' | 'audio';
+const OWN_COL = { physical: 'own_physical', ebook: 'own_ebook', audio: 'own_audio' } as const;
+// With a format chosen, "own" means you have that format; with none, any format counts. "want" is the opposite: no copy (of that format) yet.
+export function ownsBook(b: Pick<ShelfBook, 'own_physical' | 'own_ebook' | 'own_audio'>, format: FormatFilter): boolean {
+  return format === 'any' ? !!(b.own_physical || b.own_ebook || b.own_audio) : !!b[OWN_COL[format]];
+}
+export function filterByOwnership<T extends Pick<ShelfBook, 'own_physical' | 'own_ebook' | 'own_audio'>>(books: T[], own: OwnFilter, format: FormatFilter): T[] {
+  if (own === 'all') return books;
+  return books.filter((b) => ownsBook(b, format) === (own === 'own'));
 }

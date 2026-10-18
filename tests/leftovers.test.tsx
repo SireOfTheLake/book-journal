@@ -105,7 +105,7 @@ describe('sidebar icons', () => {
     render(<DbContext.Provider value={db}><MemoryRouter><Routes><Route element={<Shell />}><Route index element={<div />} /></Route></Routes></MemoryRouter></DbContext.Provider>);
     const nav = screen.getByRole('navigation', { name: 'Main' });
     const links = within(nav).getAllByRole('link');
-    expect(links.length).toBe(20);
+    expect(links.length).toBe(21);
     for (const l of links) expect(l.querySelector('svg.ico[aria-hidden="true"]'), l.textContent ?? '').toBeTruthy();
     expect(within(nav).getByRole('link', { name: 'Home' })).toBeTruthy();
     expect(within(nav).getByRole('link', { name: 'Settings and themes' })).toBeTruthy();

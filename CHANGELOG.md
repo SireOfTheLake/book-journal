@@ -2,7 +2,15 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 -->
+
+## 0.1.8 — 2026-10-18
+
+### New
+- Settings > Features: an on/off switch for each optional part of the Book Log. Turning one off only hides it; your saved data stays.
+- Quotes and favorite passages: a Quotes card on each book (passage, page and/or audio time, a note, a favorite star) and a Quotes page in the sidebar to search every quote or show only favorites.
+- Copies I own: tick whether you own a physical, ebook or audio copy of a book.
+- TBR & Up Next can be filtered to books you own a copy of or books you want without a copy yet, for any format or one specific format. Each book shows what you own.
 
 ## 0.1.7 — 2026-10-17
 

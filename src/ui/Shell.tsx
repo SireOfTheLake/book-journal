@@ -7,6 +7,7 @@ import SearchBox from './SearchBox';
 import QuickLog from './QuickLog';
 import QuickSeries from './QuickSeries';
 import { Icon } from './icons';
+import { useFeatures } from '../features/FeaturesContext';
 import UpdateToast from '../update/UpdateToast';
 import ChangelogModal, { useChangelog } from '../changelog/ChangelogModal';
 
@@ -18,6 +19,7 @@ const link = ({ isActive }: { isActive: boolean }) => (isActive ? 'nav cur' : 'n
 export default function Shell() {
   const nav = useNavigate();
   const clog = useChangelog();
+  const { flags } = useFeatures();
   const db = useDb();
   const now = new Date().getFullYear();
   const todayIso = `${now}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
@@ -69,6 +71,7 @@ export default function Shell() {
         <NavLink to="/characters" className={link}><Icon name="characters" />Characters</NavLink>
         <NavLink to="/universes" className={link}><Icon name="universes" />Universes</NavLink>
         <NavLink to="/locations" className={link}><Icon name="pin" />Locations</NavLink>
+        {flags.quotes && <NavLink to="/quotes" className={link}><Icon name="quote" />Quotes</NavLink>}
         <div className="grouphead">
           <span className="lbl">Journal</span>
           {newYear === null ? (

@@ -15,7 +15,10 @@ import { fillSlot, clearSlot, listChallengeChoices, listReadChallenges } from '.
 import { getReason, setReason, setReasonPrompt, type Reason } from '../repo/reason';
 import { listShelf, type ShelfBook } from '../repo/shelf';
 import { discardDraft, nameDraftBook, chooseShelfBook } from '../repo/randomizer';
+import { useFeatures } from '../features/FeaturesContext';
+import { addQuote, deleteQuote, listBookQuotes, setQuoteFavorite, updateQuote, type Quote } from '../repo/quotes';
 import DraftBook from './bookLog/DraftBook';
+import type { QuoteActions } from './bookLog/QuotesCard';
 import BookLogView, { type Actions, type ChallengeInfo, type Lists } from './bookLog/BookLogView';
 
 export default function BookLogPage() {
@@ -28,6 +31,8 @@ export default function BookLogPage() {
   const [chData, setChData] = useState<{ items: Awaited<ReturnType<typeof listReadChallenges>>; choices: Awaited<ReturnType<typeof listChallengeChoices>> }>({ items: [], choices: [] });
   const [reason, setReasonState] = useState<Reason>({ kind: null, sub: null, prompt: null });
   const [shelf, setShelf] = useState<ShelfBook[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const { flags } = useFeatures();
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -36,6 +41,7 @@ export default function BookLogPage() {
       repo.listTagOptions(db, 'genre'), repo.listTagOptions(db, 'theme'), repo.listTagOptions(db, 'trope'), listSeriesOptions(db), listUniverses(db), listCharacterOptions(db), repo.listAuthorOptions(db), repo.listNarratorOptions(db),
     ]);
     setLog(l);
+    setQuotes(flags.quotes ? await listBookQuotes(db, bookId) : []);
     if (l?.read) {
       const r = l.read;
       const years = [...new Set([r.finish_date, r.start_date, new Date().toLocaleDateString('en-CA')].filter((d): d is string => !!d).map((d) => Number(d.slice(0, 4))))];
@@ -45,7 +51,7 @@ export default function BookLogPage() {
     setShelf(l?.book.is_draft ? await listShelf(db) : []);
     setNeighbors(await repo.getNeighbors(db, l?.read?.id ?? null));
     setLists({ sources, timePeriods, accents, places, genres, themes, tropes, series, universes, characters, authors, narrators });
-  }, [db, bookId, readId]);
+  }, [db, bookId, readId, flags.quotes]);
   useEffect(() => { reload().catch((e) => setError(String(e))); }, [reload]);
 
   const act = useMemo<Actions | null>(() => {
@@ -107,6 +113,16 @@ export default function BookLogPage() {
       reason, reasonAct: { set: (r) => void run(() => setReason(db, rid, r)), setPrompt: (t) => void run(() => setReasonPrompt(db, rid, t)) } };
   }, [db, log, chData, reason, reload]);
 
+  const quoteAct = useMemo<QuoteActions>(() => {
+    const run = async (fn: () => Promise<unknown>) => { try { await fn(); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
+    return {
+      add: async (i) => { await addQuote(db, bookId, i); await reload(); },
+      update: async (id, i) => { await updateQuote(db, id, i); await reload(); },
+      favorite: (id, fav) => void run(() => setQuoteFavorite(db, id, fav)),
+      remove: (id) => void run(() => deleteQuote(db, id)),
+    };
+  }, [db, bookId, reload]);
+
   if (log === undefined) return <p className="muted">Loading...</p>;
   if (log === null) return <p className="muted">That book could not be found.</p>;
   if (log.book.is_draft && log.read && challenges) {
@@ -128,7 +144,7 @@ export default function BookLogPage() {
   return (
     <>
       {error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}
-      <BookLogView log={log} lists={lists} act={act!} neighbors={neighbors} challenges={challenges} />
+      <BookLogView log={log} lists={lists} act={act!} neighbors={neighbors} challenges={challenges} quotes={{ items: quotes, act: quoteAct }} />
     </>
   );
 }

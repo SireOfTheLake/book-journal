@@ -24,6 +24,7 @@ import SeriesLedgerPage from './pages/series/SeriesLedgerPage';
 import { UniversePageContainer, UniversesPage } from './pages/universes/UniversePages';
 import OverviewPage from './pages/journal/OverviewPage';
 import SeriesPageContainer from './pages/series/SeriesPageContainer';
+import QuotesPage from './pages/QuotesPage';
 import ImportPage from './pages/ImportPage';
 import Placeholder from './pages/Placeholder';
 
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="characters" element={<CharactersPage />} />
         <Route path="characters/:characterId" element={<CharacterPageContainer />} />
         <Route path="universes" element={<UniversesPage />} />
+        <Route path="quotes" element={<QuotesPage />} />
         <Route path="locations" element={<LocationsPage />} />
         <Route path="universes/:universeId" element={<UniversePageContainer />} />
         <Route path="book/:bookId" element={<BookLogPage />} />

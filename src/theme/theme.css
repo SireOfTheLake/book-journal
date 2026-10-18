@@ -1019,3 +1019,14 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .mergefield .seg { flex-wrap: wrap; }
 .mergeitems { border: 1px solid var(--line2); border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; gap: 4px; margin: 0; }
 .mergeitems legend { padding: 0 4px; }
+
+/* Features tab, quotes, owned copies */
+.featurelist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+.featurerow { align-items: flex-start; gap: 10px; }
+.quotelist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.quoteitem { border-left: 3px solid var(--line2); padding: 4px 0 4px 12px; display: flex; flex-direction: column; gap: 4px; }
+.quoteitem.fav { border-left-color: var(--accent); }
+.quotetext { white-space: pre-wrap; font-style: italic; }
+.quoteform { display: flex; flex-direction: column; gap: 6px; }
+.quoteform textarea { min-height: 70px; }
+.ownrow { display: flex; gap: 0; }

@@ -124,6 +124,12 @@ pub fn run() {
         description: "solo and dual narration, once",
         sql: include_str!("../migrations/0022_narration_style_once.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 23,
+        description: "quotes and owned copies",
+        sql: include_str!("../migrations/0023_quotes_owned.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

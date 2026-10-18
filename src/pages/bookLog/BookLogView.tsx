@@ -18,6 +18,9 @@ import ChallengesCard, { type ChallengeActions } from './ChallengesCard';
 import ReasonCard, { type ReasonActions } from './ReasonCard';
 import type { Reason } from '../../repo/reason';
 import type { ChallengeChoice, ReadChallenge } from '../../repo/challenges';
+import { useFeatures } from '../../features/FeaturesContext';
+import QuotesCard, { type QuoteActions } from './QuotesCard';
+import type { Quote } from '../../repo/quotes';
 import { Card, Combo, EditNotes, EditSelect, EditText, FilePicker, Icon, LinkImageForm, Seg, Stars, TagEditor, Thumbs, ZoomImage } from './parts';
 
 export interface Lists { sources: Item[]; timePeriods: Item[]; accents: Item[]; places: Item[]; genres: Item[]; themes: Item[]; tropes: Item[]; series: Item[]; universes?: Item[]; characters: (Item & { tags?: string | null })[]; authors: Item[]; narrators: Item[] }
@@ -273,8 +276,9 @@ const opts = (items: Item[]) => items.map((i) => ({ value: i.id, label: i.name }
 
 export interface ChallengeInfo { items: ReadChallenge[]; choices: ChallengeChoice[]; act: ChallengeActions; reason?: Reason; reasonAct?: ReasonActions }
 
-export default function BookLogView({ log, lists, act, neighbors, challenges }: { log: BookLog; lists: Lists; act: Actions; neighbors?: Neighbors; challenges?: ChallengeInfo }) {
+export default function BookLogView({ log, lists, act, neighbors, challenges, quotes }: { log: BookLog; lists: Lists; act: Actions; neighbors?: Neighbors; challenges?: ChallengeInfo; quotes?: { items: Quote[]; act: QuoteActions } }) {
   const { book, read } = log;
+  const { flags } = useFeatures();
   const inProgress = !!read && (read.status === 'reading' || read.status === 'on_hold') && !book.shelf;
   const heat = book.heat_level !== null ? HEAT[book.heat_level] : null;
   const accentName = (id: string | null) => lists.accents.find((a) => a.id === id)?.name ?? null;
@@ -381,6 +385,16 @@ export default function BookLogView({ log, lists, act, neighbors, challenges }: 
           <Card label="Originally published">
             <EditText label="Originally published" addLabel="Add publication date" type="date" value={book.original_publication_date} onCommit={(v) => act.updateBook({ original_publication_date: v || null })} />
           </Card>
+          {flags.owned && (
+            <Card label="Copies I own">
+              <div className="ownrow" role="group" aria-label="Copies I own">
+                {([['own_physical', 'physical', 'Physical'], ['own_ebook', 'ebook', 'Ebook'], ['own_audio', 'audio', 'Audio']] as const).map(([col, icon, label]) => (
+                  <label key={col} className="inline"><input type="checkbox" checked={book[col] === 1} onChange={(e) => act.updateBook({ [col]: e.target.checked ? 1 : 0 })} /><Icon name={icon} />{label}</label>
+                ))}
+              </div>
+              <span className="muted small">{book.own_physical || book.own_ebook || book.own_audio ? 'You have a copy.' : 'Not owned yet.'}</span>
+            </Card>
+          )}
 
           {read && (
             <>
@@ -414,6 +428,7 @@ export default function BookLogView({ log, lists, act, neighbors, challenges }: 
             </>
           )}
           <Characters log={log} lists={lists} act={act} />
+          {flags.quotes && quotes && <QuotesCard quotes={quotes.items} act={quotes.act} />}
           {read ? <DayLog log={log} act={act} /> : (
             <Card className="span4"><span className="muted">{book.shelf ? <>This book is on your {book.shelf === 'up_next' ? 'Up Next' : 'TBR'} shelf.</> : 'This book has no reads yet.'} Choose <b>In Progress</b> in the Status box to start it.</span></Card>
           )}

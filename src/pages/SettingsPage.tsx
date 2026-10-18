@@ -6,6 +6,7 @@ import AppearanceCard from './settings/AppearanceCard';
 import TagColorsCard from './settings/TagColorsCard';
 import UpdatesCard from './settings/UpdatesCard';
 import ListsCard from './settings/ListsCard';
+import FeaturesCard from './settings/FeaturesCard';
 
 const KIND_LABEL: Record<BackupKind, string> = { manual: 'Backed up by you', 'before-import': 'Before an import', 'before-upgrade': 'Before an upgrade' };
 const parentOf = (dir: string) => dir.replace(/[\\/][^\\/]*[\\/]?$/, '');
@@ -20,7 +21,7 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pictures, setPictures] = useState(false);
   const [unavailable, setUnavailable] = useState<string | null>(null);
-  const [tab, setTab] = useState<'backup' | 'appearance' | 'lists' | 'updates'>('backup');
+  const [tab, setTab] = useState<'backup' | 'appearance' | 'lists' | 'features' | 'updates'>('backup');
 
   const load = useCallback(async () => {
     setLast(await lastBackupAt(db));
@@ -44,9 +45,11 @@ export default function SettingsPage() {
         <button type="button" role="tab" id="tab-backup" aria-selected={tab === 'backup'} aria-controls="panel-backup" onClick={() => setTab('backup')}>Backup and Export</button>
         <button type="button" role="tab" id="tab-appearance" aria-selected={tab === 'appearance'} aria-controls="panel-appearance" onClick={() => setTab('appearance')}>Appearance and Themes</button>
         <button type="button" role="tab" id="tab-lists" aria-selected={tab === 'lists'} aria-controls="panel-lists" onClick={() => setTab('lists')}>Lists</button>
+        <button type="button" role="tab" id="tab-features" aria-selected={tab === 'features'} aria-controls="panel-features" onClick={() => setTab('features')}>Features</button>
         <button type="button" role="tab" id="tab-updates" aria-selected={tab === 'updates'} aria-controls="panel-updates" onClick={() => setTab('updates')}>App updates</button>
       </div>
       {tab === 'lists' && <div role="tabpanel" id="panel-lists" aria-labelledby="tab-lists" className="tabpanel"><ListsCard /></div>}
+      {tab === 'features' && <div role="tabpanel" id="panel-features" aria-labelledby="tab-features" className="tabpanel"><FeaturesCard /></div>}
       {tab === 'updates' && <div role="tabpanel" id="panel-updates" aria-labelledby="tab-updates" className="tabpanel"><UpdatesCard /></div>}
 
       {tab === 'backup' && <div role="tabpanel" id="panel-backup" aria-labelledby="tab-backup" className="tabpanel">

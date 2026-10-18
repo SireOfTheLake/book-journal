@@ -20,6 +20,7 @@ export interface BookRow {
   time_period_id: string | null; time_period_detail: string | null; setting_text: string | null;
   original_publication_date: string | null; is_favorite: number; shelf: 'tbr' | 'up_next' | null;
   series_id: string | null; series_position: number | null; universe_id: string | null; cover_image_id: string | null;
+  own_physical?: number; own_ebook?: number; own_audio?: number; // 1 = you own that format
   is_draft?: number; // 1 = a blank page made by the Prompt Randomizer, waiting for a book
 }
 export interface ReadRow {
@@ -116,7 +117,7 @@ export const listItems = (db: Db, table: 'source' | 'time_period' | 'accent' | '
   db.select<Item>(`SELECT id, name FROM ${table} WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE`);
 
 // ---------- editing ----------
-const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position']);
+const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position', 'own_physical', 'own_ebook', 'own_audio']);
 const READ_COLS = new Set(['status', 'start_date', 'finish_date', 'finish_time', 'rating', 'format', 'source_id', 'audio_length_seconds', 'narration_style', 'notes']);
 
 async function patch(db: Db, table: 'book' | 'read', allowed: Set<string>, id: string, fields: Record<string, SqlValue>) {

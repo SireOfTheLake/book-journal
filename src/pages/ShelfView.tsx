@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Move, Shelf, ShelfBook } from '../repo/shelf';
+import { useFeatures } from '../features/FeaturesContext';
+import { filterByOwnership, type FormatFilter, type Move, type OwnFilter, type Shelf, type ShelfBook } from '../repo/shelf';
 
 export interface ShelfActions {
   start(bookId: string): void;
@@ -43,6 +44,8 @@ function releaseText(r: string): string {
 
 function Row({ b, cover, index, count, ordered, act }: { b: ShelfBook; cover: string | undefined; index: number; count: number; ordered: boolean; act: ShelfActions }) {
   const [confirming, setConfirming] = useState(false);
+  const { flags } = useFeatures();
+  const owned = [b.own_physical ? 'Physical' : null, b.own_ebook ? 'Ebook' : null, b.own_audio ? 'Audio' : null].filter(Boolean).join(', ');
   const other: Shelf = b.shelf === 'up_next' ? 'tbr' : 'up_next';
   return (
     <li className="shelfrow">
@@ -55,6 +58,7 @@ function Row({ b, cover, index, count, ordered, act }: { b: ShelfBook; cover: st
           {b.page_count ? <span className="muted">{`${b.series ? ' · ' : ''}${b.page_count} pages`}</span> : null}
         </span>
         <span className="chips">
+          {flags.owned && (owned ? <span className="chip on" title="Formats you own">{`Own: ${owned}`}</span> : <span className="chip muted">No copy yet</span>)}
           {b.series_state === 'next' && <span className="chip">Next in series</span>}
           {b.series_state === 'waiting' && <span className="chip muted">Earlier books unread</span>}
           {b.release && <span className="chip">{releaseText(b.release)}</span>}
@@ -107,13 +111,19 @@ export default function ShelfView({ books, covers, requestCovers, act }: { books
   const [author, setAuthor] = useState('');
   const [addTo, setAddTo] = useState<Shelf>('tbr');
   const [busy, setBusy] = useState(false);
+  const { flags } = useFeatures();
+  const [own, setOwn] = useState<OwnFilter>('all');
+  const [format, setFormat] = useState<FormatFilter>('any');
 
   const q = query.trim().toLowerCase();
-  const filtered = useMemo(() => (q ? books.filter((b) => `${b.title} ${b.authors ?? ''} ${b.series ?? ''}`.toLowerCase().includes(q)) : books), [books, q]);
+  const filtered = useMemo(() => {
+    const byText = q ? books.filter((b) => `${b.title} ${b.authors ?? ''} ${b.series ?? ''}`.toLowerCase().includes(q)) : books;
+    return flags.owned ? filterByOwnership(byText, own, format) : byText;
+  }, [books, q, flags.owned, own, format]);
   const upNext = useMemo(() => sortBooks(filtered.filter((b) => b.shelf === 'up_next'), sort), [filtered, sort]);
   const tbr = useMemo(() => sortBooks(filtered.filter((b) => b.shelf === 'tbr'), sort), [filtered, sort]);
   // The arrows only make sense when the list is in your own order and nothing is hidden by the search.
-  const ordered = sort === 'priority' && !q;
+  const ordered = sort === 'priority' && !q && !(flags.owned && (own !== 'all'));
 
   async function add() {
     if (!title.trim() || busy) return;
@@ -127,6 +137,16 @@ export default function ShelfView({ books, covers, requestCovers, act }: { books
         <input className="field search2" placeholder="Search title, author, or series" aria-label="Search the shelves" value={query} onChange={(e) => setQuery(e.target.value)} />
         <select aria-label="Sort by" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>{SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
       </div>
+      {flags.owned && (
+        <div className="bltools" role="group" aria-label="Owned or wanted">
+          <div className="seg listseg" role="group" aria-label="Ownership">
+            {([['all', 'All'], ['own', 'Own a copy'], ['want', 'Want, no copy']] as const).map(([v, l]) => <button type="button" key={v} aria-pressed={own === v} className={own === v ? 'on' : ''} onClick={() => setOwn(v)}>{l}</button>)}
+          </div>
+          <div className="seg listseg" role="group" aria-label="Copy format">
+            {([['any', 'Any format'], ['physical', 'Physical'], ['ebook', 'Ebook'], ['audio', 'Audio']] as const).map(([v, l]) => <button type="button" key={v} aria-pressed={format === v} className={format === v ? 'on' : ''} onClick={() => setFormat(v)}>{l}</button>)}
+          </div>
+        </div>
+      )}
       <div className="bcard shelfadd">
         <span className="lbl2">Add a book</span>
         <div className="bltools">

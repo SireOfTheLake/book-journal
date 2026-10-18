@@ -6,17 +6,18 @@ const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 const first = async <T,>(db: Db, sql: string, params: SqlValue[] = []) => (await db.select<T>(sql, params))[0];
 
 export interface PlaceInput { city?: string | null; area?: string | null; country?: string | null; fictional?: boolean }
-export interface PlaceRow { id: string; name: string; city: string | null; area: string | null; country: string | null; fictional: boolean; needsUpdate: boolean; books: number }
+export interface PlaceRow { id: string; name: string; city: string | null; area: string | null; country: string | null; fictional: boolean; needsUpdate: boolean; books: number; characters: number }
 
 // A plain-text place that has not been sorted into city / area / country, and is not marked fictional, needs updating.
 export const NEEDS_UPDATE_SQL = '(p.located = 0 AND p.is_fictional = 0)';
 
 export async function listPlaces(db: Db): Promise<PlaceRow[]> {
-  const rows = await db.select<{ id: string; name: string; city: string | null; area: string | null; country: string | null; fictional: number; needs: number; books: number }>(
+  const rows = await db.select<{ id: string; name: string; city: string | null; area: string | null; country: string | null; fictional: number; needs: number; books: number; characters: number }>(
     `SELECT p.id AS id, p.name AS name, p.city AS city, p.state_region AS area, p.country AS country, p.is_fictional AS fictional, ${NEEDS_UPDATE_SQL} AS needs,
-       (SELECT count(*) FROM book_place bp JOIN book b ON b.id = bp.book_id AND b.deleted_at IS NULL WHERE bp.place_id = p.id AND bp.deleted_at IS NULL) AS books
+       (SELECT count(*) FROM book_place bp JOIN book b ON b.id = bp.book_id AND b.deleted_at IS NULL WHERE bp.place_id = p.id AND bp.deleted_at IS NULL) AS books,
+       (SELECT count(*) FROM character c WHERE c.deleted_at IS NULL AND (c.current_place_id = p.id OR EXISTS (SELECT 1 FROM character_previous_place cp WHERE cp.character_id = c.id AND cp.place_id = p.id AND cp.deleted_at IS NULL))) AS characters
      FROM place p WHERE p.deleted_at IS NULL ORDER BY needs DESC, p.name COLLATE NOCASE`);
-  return rows.map((r) => ({ id: r.id, name: r.name, city: r.city, area: r.area, country: r.country, fictional: !!r.fictional, needsUpdate: !!r.needs, books: Number(r.books) }));
+  return rows.map((r) => ({ id: r.id, name: r.name, city: r.city, area: r.area, country: r.country, fictional: !!r.fictional, needsUpdate: !!r.needs, books: Number(r.books), characters: Number(r.characters) }));
 }
 
 // The locations you can pick for a book: the ones already sorted into city / area / country (or marked fictional), not loose plain text.
@@ -114,4 +115,47 @@ export async function listPlaceParts(db: Db): Promise<PlaceParts> {
   const areas = rows.flatMap((r) => { const k = `${r.country}|${r.area}`; if (!r.area || seen.has(k)) return []; seen.add(k); return [{ country: r.country, area: r.area }]; });
   const cities = rows.flatMap((r) => (r.city ? [{ city: r.city, area: r.area, country: r.country }] : []));
   return { countries, areas, cities };
+}
+
+// ---------- delete and purge ----------
+const USED_BY_CHARACTER = `(EXISTS (SELECT 1 FROM character_previous_place cp JOIN character c ON c.id = cp.character_id AND c.deleted_at IS NULL WHERE cp.place_id = p.id AND cp.deleted_at IS NULL)
+  OR EXISTS (SELECT 1 FROM character c WHERE c.current_place_id = p.id AND c.deleted_at IS NULL))`;
+const USED_BY_BOOK = `EXISTS (SELECT 1 FROM book_place bp JOIN book b ON b.id = bp.book_id AND b.deleted_at IS NULL WHERE bp.place_id = p.id AND bp.deleted_at IS NULL)`;
+
+// Removes a location everywhere it was used. Books and characters stay, they just lose this place.
+export async function deletePlace(db: Db, id: string): Promise<void> {
+  if (!(await first(db, 'SELECT id FROM place WHERE id = ? AND deleted_at IS NULL', [id]))) throw new Error('That location has already been deleted.');
+  for (const t of ['book_place', 'character_previous_place']) await db.execute(`UPDATE ${t} SET deleted_at = ${NOW} WHERE place_id = ? AND deleted_at IS NULL`, [id]);
+  await db.execute('UPDATE book SET setting_place_id = NULL WHERE setting_place_id = ?', [id]);
+  await db.execute('UPDATE character SET current_place_id = NULL WHERE current_place_id = ?', [id]);
+  await db.execute(`UPDATE place SET deleted_at = ${NOW} WHERE id = ?`, [id]);
+}
+
+// Flagged (needs updating) locations that no book uses. Ones a character still uses are kept, so nothing is lost by accident.
+const PURGEABLE = `FROM place p WHERE p.deleted_at IS NULL AND ${NEEDS_UPDATE_SQL} AND NOT ${USED_BY_BOOK} AND NOT ${USED_BY_CHARACTER}`;
+export async function countPurgeable(db: Db): Promise<number> {
+  return Number((await first<{ n: number }>(db, `SELECT count(*) AS n ${PURGEABLE}`))?.n ?? 0);
+}
+export async function purgeUnusedPlaces(db: Db): Promise<number> {
+  const rows = await db.select<{ id: string }>(`SELECT p.id AS id ${PURGEABLE}`);
+  for (const r of rows) await deletePlace(db, r.id);
+  return rows.length;
+}
+
+export interface PlaceDetail { place: PlaceRow; books: { id: string; title: string; authors: string | null }[]; characters: { id: string; name: string; how: string }[] }
+
+// One location with the books and characters tied to it.
+export async function getPlaceDetail(db: Db, id: string): Promise<PlaceDetail | null> {
+  const place = (await listPlaces(db)).find((p) => p.id === id);
+  if (!place) return null;
+  const books = await db.select<{ id: string; title: string; authors: string | null }>(
+    `SELECT b.id AS id, b.title AS title,
+       (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.rowid) x) AS authors
+     FROM book_place bp JOIN book b ON b.id = bp.book_id AND b.deleted_at IS NULL WHERE bp.place_id = ? AND bp.deleted_at IS NULL ORDER BY b.title COLLATE NOCASE`, [id]);
+  const chars = await db.select<{ id: string; name: string; cur: number; prev: number }>(
+    `SELECT c.id AS id, c.name AS name, (c.current_place_id = ?1) AS cur,
+       EXISTS (SELECT 1 FROM character_previous_place cp WHERE cp.character_id = c.id AND cp.place_id = ?1 AND cp.deleted_at IS NULL) AS prev
+     FROM character c WHERE c.deleted_at IS NULL AND (c.current_place_id = ?1 OR EXISTS (SELECT 1 FROM character_previous_place cp WHERE cp.character_id = c.id AND cp.place_id = ?1 AND cp.deleted_at IS NULL))
+     ORDER BY c.name COLLATE NOCASE`, [id]);
+  return { place, books, characters: chars.map((c) => ({ id: c.id, name: c.name, how: [c.cur ? 'Lives here now' : null, c.prev ? 'Lived here before' : null].filter(Boolean).join(', ') })) };
 }

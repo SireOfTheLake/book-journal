@@ -1041,3 +1041,5 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .seg.ownseg button.own-physical.on, .seg.ownseg button:has(+ button.own-physical.on) { border-right-color: var(--own-purple); }
 .seg.ownseg button.own-audio.on, .seg.ownseg button:has(+ button.own-audio.on) { border-right-color: var(--own-aqua); }
 .seg.ownseg button.own-ebook.on, .seg.ownseg button:has(+ button.own-ebook.on) { border-right-color: var(--own-pink); }
+.plainlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.locinline { max-width: 520px; }

@@ -8,7 +8,7 @@ export interface LocationValue { city: string | null; area: string | null; count
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 // A window to add or change a location. Country, area and city are each a search over what exists, and each accepts a new value of your own.
-export default function LocationDialog({ title, initial, typed, shared, onSave, onClose }: { title: string; initial?: Partial<LocationValue>; typed?: string; shared?: boolean; onSave(input: PlaceInput): Promise<void>; onClose(): void }) {
+export default function LocationDialog({ title, initial, typed, shared, onSave, onClose, onDelete, usedBy, inline }: { title: string; initial?: Partial<LocationValue>; typed?: string; shared?: boolean; onSave(input: PlaceInput): Promise<void>; onClose(): void; onDelete?(): Promise<void>; usedBy?: number; inline?: boolean }) {
   const db = useDb();
   const [city, setCity] = useState(initial?.city ?? '');
   const [area, setArea] = useState(initial?.area ?? '');
@@ -17,6 +17,7 @@ export default function LocationDialog({ title, initial, typed, shared, onSave, 
   const [parts, setParts] = useState<PlaceParts>({ countries: [], areas: [], cities: [] });
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
   useEffect(() => { listPlaceParts(db).then(setParts, () => undefined); }, [db]);
   const c = canonicalCountry(country);
   const countryOptions = useMemo(() => [...COUNTRIES_ORDERED, ...parts.countries.filter((x) => !COUNTRIES_ORDERED.includes(x))], [parts]);
@@ -29,12 +30,15 @@ export default function LocationDialog({ title, initial, typed, shared, onSave, 
   const preview = locationLabel(standardLocation({ city, area, country }));
   const save = async () => {
     setBusy(true);
-    try { await onSave({ city, area, country, fictional }); onClose(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false); }
+    try { await onSave({ city, area, country, fictional }); if (!inline) onClose(); setBusy(false); } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false); }
   };
-  return (
-    <div className="overlay" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
-      <div className="dialog locdlg" role="dialog" aria-label={title}>
-        <h2 className="pagetitle small2">{title}</h2>
+  const remove = async () => {
+    setBusy(true);
+    try { await onDelete?.(); onClose(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false); }
+  };
+  const body = (
+    <>
+        {!inline && <h2 className="pagetitle small2">{title}</h2>}
         {shared && <span className="muted small">This changes the location everywhere it is used.</span>}
         <span className="muted small">A location can be a city, an area, a country, or any mix. Search the lists or type your own.</span>
         {typed && (
@@ -50,9 +54,19 @@ export default function LocationDialog({ title, initial, typed, shared, onSave, 
         <label className="check"><input type="checkbox" checked={fictional} onChange={(e) => setFictional(e.target.checked)} /> Fictional place (made up, like Hogwarts or Tatooine)</label>
         <span className="muted small" aria-live="polite">{preview ? <>Saved as: <b>{preview}</b>{fictional ? ' (fictional)' : ''}</> : 'Fill in at least one of the three.'}</span>
         {error && <div className="muted" role="alert">{error}</div>}
-        <div className="actions"><button type="button" className="btn" onClick={onClose}>Cancel</button><span className="grow" />
+        {confirming && <span className="notice" role="alert">{`Delete this location? ${usedBy ? `It is removed from ${usedBy} book${usedBy === 1 ? '' : 's'} (the books stay). ` : ''}This cannot be undone.`}</span>}
+        <div className="actions">{!inline && <button type="button" className="btn" onClick={onClose}>Cancel</button>}
+          {onDelete && (confirming
+            ? <><button type="button" className="btn danger" disabled={busy} onClick={remove}>Yes, delete it</button><button type="button" className="btn" onClick={() => setConfirming(false)}>Keep it</button></>
+            : <button type="button" className="btn" aria-label="Delete location" onClick={() => setConfirming(true)}>Delete location</button>)}
+          <span className="grow" />
           <button type="button" className="btn on" disabled={busy} onClick={save}>Save location</button></div>
-      </div>
+    </>
+  );
+  if (inline) return <div className="locinline stackcol" role="group" aria-label={title}>{body}</div>;
+  return (
+    <div className="overlay" onKeyDown={(e) => e.key === 'Escape' && onClose()}>
+      <div className="dialog locdlg" role="dialog" aria-label={title}>{body}</div>
     </div>
   );
 }

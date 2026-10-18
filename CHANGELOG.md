@@ -2,7 +2,13 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 -->
+
+## 0.1.10 — 2026-10-18
+
+### New
+- Locations can be deleted: open Edit on the Locations page and choose Delete location (books keep going, they just lose the place). A new Purge unused locations button removes every location marked as needing an update that has no books.
+- Each location now shows how many characters use it as well as books. Click it to open the location's page: the books and characters tied to it, and for a location with a warning, fields to enter the real city, area and country and update it (or combine it with one that already exists). The page can also delete the location.
 
 ## 0.1.9 — 2026-10-18
 

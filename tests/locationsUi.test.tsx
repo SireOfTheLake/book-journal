@@ -168,3 +168,23 @@ describe('the Setting card has one plus button', () => {
     expect(names[names.length - 1]).toBe('+ New location...');
   });
 });
+
+describe('deleting and purging on the locations page', () => {
+  it('deletes a location from its edit window after confirming', async () => {
+    await addTag(db, book, 'place', 'Old text place');
+    show('/locations');
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Old text place' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Delete location' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Yes, delete it' }));
+    await waitFor(async () => expect(await listPlaces(db)).toHaveLength(0));
+  });
+  it('purges flagged locations that have no books after asking', async () => {
+    await db.execute("INSERT INTO place (id, name, located) VALUES ('p1', 'Vague', 0)");
+    show('/locations');
+    fireEvent.click(await screen.findByRole('button', { name: 'Purge unused locations' }));
+    expect(await screen.findByText(/Delete 1 location that need updating and have no books/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, purge them' }));
+    await screen.findByText('Purged 1 location.');
+    expect(await listPlaces(db)).toHaveLength(0);
+  });
+});

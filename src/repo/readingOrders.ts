@@ -172,3 +172,16 @@ export async function linkItemToBook(db: Db, itemId: string, bookId: string): Pr
   if (!b) throw new Error('That book is not in the library any more.');
   await db.execute('UPDATE reading_order_item SET book_id = ?, title = ?, author_name = ?, series_name = ?, series_position = ? WHERE id = ?', [bookId, b.title, b.authors, b.series, b.pos, itemId]);
 }
+
+// Adds every book of a series, in series order, to the end of the list. Books already on the list are skipped. Returns how many were added.
+export async function addSeriesToOrder(db: Db, orderId: string, seriesId: string): Promise<number> {
+  const books = await db.select<{ id: string }>('SELECT id FROM book WHERE series_id = ? AND deleted_at IS NULL ORDER BY series_position IS NULL, series_position, rowid', [seriesId]);
+  if (!books.length) throw new Error('That series has no books yet.');
+  let added = 0;
+  for (const b of books) {
+    if ((await db.select<{ id: string }>('SELECT id FROM reading_order_item WHERE order_id = ? AND book_id = ? AND deleted_at IS NULL', [orderId, b.id])).length) continue;
+    await addLibraryItem(db, orderId, b.id); added++;
+  }
+  if (!added) throw new Error('All of that series is already on this list.');
+  return added;
+}

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../src/db/adapter';
 import { migrateNodeDb } from '../src/db/nodeDb';
 import { addTag, createRead, quickAdd, updateRead } from '../src/repo/bookLog';
-import { addCustomItem, addItemToLibrary, addLibraryItem, linkItemToBook, createOrder, deleteOrder, getOrder, listOrders, moveItem, removeItem, searchLibraryBooks } from '../src/repo/readingOrders';
+import { addCustomItem, addItemToLibrary, addLibraryItem, linkItemToBook, addSeriesToOrder, createOrder, deleteOrder, getOrder, listOrders, moveItem, removeItem, searchLibraryBooks } from '../src/repo/readingOrders';
 import { createSeries, setBookSeries } from '../src/repo/series';
 
 let db: Db;
@@ -52,5 +52,15 @@ describe('reading orders', () => {
     const d = (await getOrder(db, o))!;
     expect([d.items[0].book_id, d.items[0].authors]).toEqual([b, 'Zed']);
     await expect(linkItemToBook(db, it, b)).rejects.toThrow();
+  });
+  it('adds a whole series in order and skips what is already there', async () => {
+    const sid = await createSeries(db, 'Saga');
+    const ids: string[] = [];
+    for (const [t, p] of [['C', 3], ['A', 1], ['B', 2]] as const) { const id = (await quickAdd(db, { title: t, authors: ['X'], status: 'tbr' })).bookId; await setBookSeries(db, id, sid, p); ids.push(id); }
+    const o = await createOrder(db, 'P');
+    await addLibraryItem(db, o, ids[1]);
+    expect(await addSeriesToOrder(db, o, sid)).toBe(2);
+    expect((await getOrder(db, o))!.items.map((i) => i.title)).toEqual(['A', 'B', 'C']);
+    await expect(addSeriesToOrder(db, o, sid)).rejects.toThrow();
   });
 });

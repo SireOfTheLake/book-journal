@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDb } from '../../db/DbContext';
-import { addCustomItem, addLibraryItem, deleteOrder, getOrder, moveItem, removeItem, renameOrder, searchLibraryBooks, type OrderDetail, type OrderItem } from '../../repo/readingOrders';
+import { addCustomItem, addLibraryItem, addSeriesToOrder, deleteOrder, getOrder, moveItem, removeItem, renameOrder, searchLibraryBooks, type OrderDetail, type OrderItem } from '../../repo/readingOrders';
+import { listSeriesOptions } from '../../repo/series';
 import { EditText } from '../bookLog/parts';
 import AddToLibraryDialog, { type LibraryStart } from './AddToLibraryDialog';
 
@@ -79,6 +80,7 @@ export default function ReadingOrderPage() {
         )}
       </div>
 
+      <AddSeries onAdd={(seriesId) => run(() => addSeriesToOrder(db, order.id, seriesId))} />
       <AddFromLibrary onAdd={(bookId) => run(() => addLibraryItem(db, order.id, bookId))} />
       <AddOther onAdd={(i) => run(() => addCustomItem(db, order.id, i))} />
       {adding && <AddToLibraryDialog start={adding} onClose={() => setAdding(null)} onDone={() => { setAdding(null); void reload(); }} />}
@@ -130,6 +132,26 @@ function AddOther({ onAdd }: { onAdd(i: { title: string; author: string; series:
         <input className="field num" type="number" aria-label="Position in series" placeholder="#" step="0.5" value={pos} onChange={(e) => setPos(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
         <input className="field" aria-label="Note" placeholder="Note, for example: story in a collection" value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && submit()} />
         <button type="button" className="btn on" onClick={submit}>Add</button>
+      </div>
+    </div>
+  );
+}
+
+function AddSeries({ onAdd }: { onAdd(seriesId: string): void }) {
+  const db = useDb();
+  const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
+  const [pick, setPick] = useState('');
+  useEffect(() => { listSeriesOptions(db).then(setOptions, () => undefined); }, [db]);
+  return (
+    <div className="bcard">
+      <span className="lbl2">Add a whole series</span>
+      <span className="muted small">Adds every book in the series, in series order, to the end of the list. Books already here are skipped.</span>
+      <div className="ordernew">
+        <select className="field" aria-label="Series to add" value={pick} onChange={(e) => setPick(e.target.value)}>
+          <option value="">Choose a series</option>
+          {options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+        </select>
+        <button type="button" className="btn on" disabled={!pick} onClick={() => { onAdd(pick); setPick(''); }}>Add series</button>
       </div>
     </div>
   );

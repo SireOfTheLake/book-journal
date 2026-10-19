@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Candidate } from '../../repo/challenges';
 
-const STATUS: Record<string, string> = { reading: 'Reading', on_hold: 'Paused', finished: 'Finished', dnf: 'Did not finish' };
+const STATUS: Record<string, string> = { up_next: 'Up Next', reading: 'Reading', on_hold: 'Paused', finished: 'Finished', dnf: 'Did not finish' };
 
 // A window for choosing which book (and which read of it) goes on a prompt. In progress books come first; type to search the rest.
 export default function ReadPicker({ prompt, search, onPick, onClose, noteLabel }: {

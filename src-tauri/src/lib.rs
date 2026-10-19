@@ -130,6 +130,12 @@ pub fn run() {
         description: "quotes and owned copies",
         sql: include_str!("../migrations/0023_quotes_owned.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 24,
+        description: "series needs-a-change flag",
+        sql: include_str!("../migrations/0024_series_flag.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

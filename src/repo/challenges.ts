@@ -282,13 +282,13 @@ export async function searchReads(db: Db, challengeId: string, query: string, li
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const where = words.map(() => `lower(b.title || ' ' || COALESCE((SELECT group_concat(au.name, ' ') FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL), '') || ' ' || COALESCE((SELECT s.title FROM series s WHERE s.id = b.series_id), '')) LIKE ?`).join(' AND ');
   return db.select<Candidate>(
-    `SELECT r.id AS read_id, b.id AS book_id, b.title AS title, r.status AS status, COALESCE(r.finish_date, r.start_date) AS "when",
+    `SELECT r.id AS read_id, b.id AS book_id, b.title AS title, CASE WHEN b.shelf IS NOT NULL AND r.status = 'on_hold' AND r.start_date IS NULL THEN 'up_next' ELSE r.status END AS status, COALESCE(r.finish_date, r.start_date) AS "when",
        (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors,
        (SELECT s.title FROM series s WHERE s.id = b.series_id) AS series,
        (SELECT cs.label FROM challenge_completion k JOIN challenge_slot cs ON cs.id = k.slot_id WHERE k.read_id = r.id AND k.challenge_id = ? AND k.deleted_at IS NULL AND cs.deleted_at IS NULL) AS used_on
      FROM read r JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL
      WHERE r.deleted_at IS NULL ${where ? `AND ${where}` : ''}
-     ORDER BY (r.status IN ('reading','on_hold')) DESC, COALESCE(r.finish_date, r.start_date, '') DESC, r.rowid DESC LIMIT ?`,
+     ORDER BY (r.status IN ('reading','on_hold') AND b.shelf IS NULL) DESC, COALESCE(r.finish_date, r.start_date, '') DESC, r.rowid DESC LIMIT ?`,
     [challengeId, ...words.map((w) => `%${w}%`), limit]);
 }
 

@@ -2,7 +2,13 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 -->
+
+## 0.1.11 — 2026-10-18
+
+### New
+- Books on Up Next now get their own read straight away, so the Why I'm Reading This, Format, Source, Narration and Notes cards show for them. Starting the book turns that read into the real one, and moving the book back to TBR (or off the shelf) deletes it. Up Next books you already had get their read the first time you open them.
+- A temporary flag on every existing series, marked in the series ledger. Open a flagged series and click the flag to clear it.
 
 ## 0.1.10 — 2026-10-18
 

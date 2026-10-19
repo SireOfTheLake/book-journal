@@ -10,7 +10,7 @@ export type SeriesStatus = 'finished' | 'caught_up' | 'in_progress' | 'on_hold' 
 
 export interface LedgerRow {
   id: string; title: string; total_books: number | null; publication_status: 'complete' | 'incomplete';
-  universe: string | null; universe_id: string | null; is_favorite: number; marks: Mark[]; status: SeriesStatus;
+  universe: string | null; universe_id: string | null; is_favorite: number; flagged: number; marks: Mark[]; status: SeriesStatus;
   read: number; total: number; // main books only (whole-number positions): "1 of 5"
   allBooks: number; novellas: number; // every known book, and how many of them are novellas: "7 books"
 }
@@ -28,7 +28,7 @@ export function seriesLength(series: { total_books: number | null }, books: { po
 
 interface SeriesDbRow {
   id: string; title: string; universe_id: string | null; total_books: number | null; is_ongoing: number; publication_status: 'complete' | 'incomplete';
-  reading_status_override: 'completed' | 'in_progress' | 'on_hold' | 'dnf' | null; interconnected_standalones: number; is_favorite: number; notes: string | null;
+  reading_status_override: 'completed' | 'in_progress' | 'on_hold' | 'dnf' | null; interconnected_standalones: number; is_favorite: number; flagged: number; notes: string | null;
 }
 interface BookDbRow { id: string; series_id: string; title: string; position: number | null; shelf: string | null; is_read: number; is_dnf: number; is_reading: number; unreleased: number | null }
 
@@ -36,7 +36,7 @@ const BOOKS_SQL = `
   SELECT b.id, b.series_id, b.title, b.series_position AS position, b.shelf,
     EXISTS (SELECT 1 FROM read r WHERE r.book_id = b.id AND r.status = 'finished' AND r.deleted_at IS NULL) AS is_read,
     EXISTS (SELECT 1 FROM read r WHERE r.book_id = b.id AND r.status = 'dnf' AND r.deleted_at IS NULL) AS is_dnf,
-    EXISTS (SELECT 1 FROM read r WHERE r.book_id = b.id AND r.status IN ('reading', 'on_hold') AND r.deleted_at IS NULL) AS is_reading,
+    EXISTS (SELECT 1 FROM read r WHERE r.book_id = b.id AND r.status IN ('reading', 'on_hold') AND b.shelf IS NULL AND r.deleted_at IS NULL) AS is_reading,
     (SELECT is_unreleased FROM v_book_release v WHERE v.book_id = b.id) AS unreleased
   FROM book b WHERE b.series_id IS NOT NULL AND b.deleted_at IS NULL
   ORDER BY b.series_id, b.series_position IS NULL, b.series_position, b.rowid`;
@@ -76,7 +76,7 @@ export async function listSeriesLedger(db: Db): Promise<LedgerRow[]> {
     const mine = books.filter((b) => b.series_id === s.id);
     const marks = buildMarks(s, mine);
     const len = seriesLength(s, mine.map((b) => ({ position: b.position, is_read: b.is_read })));
-    return { id: s.id, title: s.title, total_books: s.total_books, publication_status: s.publication_status, universe: s.universe, universe_id: s.universe_id, is_favorite: s.is_favorite,
+    return { id: s.id, title: s.title, total_books: s.total_books, publication_status: s.publication_status, universe: s.universe, universe_id: s.universe_id, is_favorite: s.is_favorite, flagged: s.flagged,
       marks, status: seriesStatus(s, mine), read: len.mainRead, total: len.mainTotal, allBooks: len.allBooks, novellas: len.novellas };
   });
 }
@@ -128,7 +128,7 @@ export async function getSeriesPage(db: Db, seriesId: string): Promise<SeriesPag
 }
 
 // ---------- editing ----------
-const SERIES_COLS = new Set(['title', 'universe_id', 'total_books', 'is_ongoing', 'publication_status', 'reading_status_override', 'interconnected_standalones', 'is_favorite', 'notes']);
+const SERIES_COLS = new Set(['title', 'universe_id', 'total_books', 'is_ongoing', 'publication_status', 'reading_status_override', 'interconnected_standalones', 'is_favorite', 'flagged', 'notes']);
 export async function updateSeries(db: Db, id: string, fields: Record<string, SqlValue>) {
   const cols = Object.keys(fields).filter((c) => SERIES_COLS.has(c));
   if (cols.length) await db.execute(`UPDATE series SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`, [...cols.map((c) => fields[c]), id]);

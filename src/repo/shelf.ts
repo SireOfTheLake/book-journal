@@ -1,5 +1,5 @@
 import type { Db } from '../db/adapter';
-import { quickAdd, setStatus } from './bookLog';
+import { dropPlannedReads, ensurePlannedRead, quickAdd, setStatus } from './bookLog';
 
 export type Shelf = 'tbr' | 'up_next';
 // 'next' means the earlier books in the series are done, so this one is next; 'waiting' means an earlier book is still unread.
@@ -63,11 +63,13 @@ export async function moveToShelf(db: Db, bookId: string, shelf: Shelf) {
   if (shelf === 'up_next') upNext.push(bookId); else tbr.unshift(bookId);
   await db.execute('UPDATE book SET shelf = ? WHERE id = ?', [shelf, bookId]);
   await save(db, upNext, tbr);
+  if (shelf === 'up_next') await ensurePlannedRead(db, bookId); else await dropPlannedReads(db, bookId);
 }
 
 // The book stays in your library as "Not started".
 export async function removeFromShelf(db: Db, bookId: string) {
   await db.execute('UPDATE book SET shelf = NULL, tbr_priority = NULL WHERE id = ?', [bookId]);
+  await dropPlannedReads(db, bookId);
   await tidyShelf(db);
 }
 

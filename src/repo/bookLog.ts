@@ -71,6 +71,7 @@ async function seriesNav(db: Db, book: BookRow): Promise<BookLog['seriesNav']> {
 export async function getBookLog(db: Db, bookId: string, readId?: string | null): Promise<BookLog | null> {
   const [book] = await db.select<BookRow>('SELECT * FROM book WHERE id = ? AND deleted_at IS NULL', [bookId]);
   if (!book) return null;
+  if (book.shelf === 'up_next' && !book.is_draft) await ensurePlannedRead(db, bookId); // books put on Up Next before this existed get their read now
   const items = (sql: string) => db.select<Item>(sql, [bookId]);
   const tag = (t: TagTable) => items(`SELECT x.id AS id, x.name AS name, x.color AS color FROM book_${t} j JOIN ${t} x ON x.id = j.${t}_id WHERE j.book_id = ? AND j.deleted_at IS NULL ORDER BY x.name`);
   const [seriesRow] = book.series_id ? await db.select<{ id: string; title: string; total_books: number | null }>('SELECT id, title, total_books FROM series WHERE id = ?', [book.series_id]) : [];
@@ -173,19 +174,37 @@ export async function deleteBook(db: Db, bookId: string): Promise<void> {
 }
 
 // One status control for both shelves (stored on the book) and reading states (stored on the read).
+// An Up Next book carries a "planned" read: a paused read with no dates, so the Why I'm Reading This, Format and Source cards have somewhere to live.
+// Starting the book turns that same read into the real one; moving the book back to TBR deletes it.
+export async function plannedReadId(db: Db, bookId: string): Promise<string | null> {
+  return first(db, "SELECT id FROM read WHERE book_id = ? AND status = 'on_hold' AND start_date IS NULL AND finish_date IS NULL AND deleted_at IS NULL ORDER BY rowid LIMIT 1", [bookId]);
+}
+export async function ensurePlannedRead(db: Db, bookId: string): Promise<string> {
+  const open = await first(db, "SELECT id FROM read WHERE book_id = ? AND status IN ('reading', 'on_hold') AND deleted_at IS NULL ORDER BY rowid LIMIT 1", [bookId]);
+  return open ?? createRead(db, bookId, 'on_hold');
+}
+export async function dropPlannedReads(db: Db, bookId: string): Promise<void> {
+  for (const r of await db.select<{ id: string }>("SELECT id FROM read WHERE book_id = ? AND status = 'on_hold' AND start_date IS NULL AND finish_date IS NULL AND deleted_at IS NULL", [bookId])) await deleteRead(db, r.id);
+}
+
 export async function setStatus(db: Db, bookId: string, readId: string | null, status: Status): Promise<string | null> {
   if (status === 'tbr' || status === 'up_next') {
     const [{ m }] = await db.select<{ m: number | null }>('SELECT max(tbr_priority) AS m FROM book WHERE shelf IS NOT NULL AND deleted_at IS NULL');
+    const [was] = await db.select<{ shelf: string | null }>('SELECT shelf FROM book WHERE id = ?', [bookId]);
     await db.execute('UPDATE book SET shelf = ?, tbr_priority = coalesce(tbr_priority, ?) WHERE id = ?', [status, (m ?? 0) + 1, bookId]);
+    // Already planned for Up Next: nothing to redo, and what you entered on the read stays.
+    if (status === 'up_next' && was?.shelf === 'up_next' && (await plannedReadId(db, bookId))) return readId;
     // Moving a book back to a shelf means it is no longer being read, so a read that was started but not
     // finished (reading or paused) is dropped. Finished reads, and DNF reads, are history and stay.
     const open = await db.select<{ id: string }>("SELECT id FROM read WHERE book_id = ? AND status IN ('reading', 'on_hold') AND deleted_at IS NULL", [bookId]);
-    for (const r of open) await db.execute(`UPDATE read SET deleted_at = ${NOW} WHERE id = ?`, [r.id]);
+    for (const r of open) await deleteRead(db, r.id);
+    if (status === 'up_next') return createRead(db, bookId, 'on_hold');
     return open.some((r) => r.id === readId) ? null : readId;
   }
+  const planned = readId ? null : await plannedReadId(db, bookId);
   await db.execute('UPDATE book SET shelf = NULL, tbr_priority = NULL WHERE id = ?', [bookId]);
-  const id = readId ?? (await createRead(db, bookId, status));
-  if (readId) await updateRead(db, id, { status });
+  const id = readId ?? planned ?? (await createRead(db, bookId, status));
+  if (readId || planned) await updateRead(db, id, { status });
   return id;
 }
 
@@ -234,6 +253,7 @@ export async function addPlace(db: Db, p: { name: string; state?: string; countr
 export async function quickAdd(db: Db, input: { title: string; authors: string[]; status: Status }): Promise<{ bookId: string; readId: string | null }> {
   const { createBook } = await import('./books');
   const bookId = await createBook(db, { title: input.title, authors: input.authors, shelf: input.status === 'tbr' || input.status === 'up_next' ? input.status : null });
+  if (input.status === 'up_next') await ensurePlannedRead(db, bookId);
   if (input.status === 'tbr' || input.status === 'up_next') return { bookId, readId: null };
   return { bookId, readId: await createRead(db, bookId, input.status) };
 }

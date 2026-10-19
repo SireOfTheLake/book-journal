@@ -190,8 +190,14 @@ export async function mergeBooks(db: Db, keepId: string, otherId: string, picks:
 
   const cols = Object.keys(set);
   if (cols.length) await db.execute(`UPDATE book SET ${cols.map((c) => `${c} = ?`).join(', ')} WHERE id = ?`, [...cols.map((c) => set[c]), keepId]);
+  // planned reads (Up Next placeholders): only one is kept, and none if the merged book is not on Up Next
+  {
+    const shelfNow = (await first<{ shelf: string | null }>(db, 'SELECT shelf FROM book WHERE id = ?', [keepId]))?.shelf ?? null;
+    const planned = await db.select<{ id: string }>("SELECT id FROM read WHERE book_id = ? AND status = 'on_hold' AND start_date IS NULL AND finish_date IS NULL AND deleted_at IS NULL ORDER BY rowid", [keepId]);
+    for (const [i, r] of planned.entries()) if (shelfNow !== 'up_next' || i > 0) await deleteRead(db, r.id);
+  }
   // a book that is being read is not on a shelf
-  const open = await first<{ n: number }>(db, "SELECT count(*) AS n FROM read WHERE book_id = ? AND status IN ('reading', 'on_hold') AND deleted_at IS NULL", [keepId]);
+  const open = await first<{ n: number }>(db, "SELECT count(*) AS n FROM read WHERE book_id = ? AND status IN ('reading', 'on_hold') AND start_date IS NOT NULL AND deleted_at IS NULL", [keepId]);
   if (open?.n) await db.execute('UPDATE book SET shelf = NULL, tbr_priority = NULL WHERE id = ?', [keepId]);
   await db.execute(`UPDATE book SET deleted_at = ${NOW}, shelf = NULL, tbr_priority = NULL, cover_image_id = NULL WHERE id = ?`, [otherId]);
 }

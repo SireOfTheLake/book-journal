@@ -142,6 +142,7 @@ export default function SeriesView({ page, lists, act }: { page: SeriesPage; lis
       <div className="sphead">
         <EditText label="Series title" className="seriestitle" value={series.title} onCommit={(v) => v.trim() && act.update({ title: v.trim() })} />
         <span className="grow" />
+        {series.flagged === 1 && <button type="button" className="btn flagbtn" title="Click to clear this flag" onClick={() => act.update({ flagged: 0 })}><span aria-hidden="true">&#9873; </span>Needs a change</button>}
         <button type="button" className="btn" aria-pressed={series.is_favorite === 1} onClick={() => act.update({ is_favorite: series.is_favorite ? 0 : 1 })}>{series.is_favorite ? 'Favorite' : 'Mark as favorite'}</button>
       </div>
 

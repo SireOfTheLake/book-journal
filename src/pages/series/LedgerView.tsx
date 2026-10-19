@@ -58,7 +58,7 @@ export default function LedgerView({ rows, onCreate }: { rows: LedgerRow[]; onCr
           const color = BOOK_COLORS[i % BOOK_COLORS.length];
           return (
             <div key={r.id} className="srow" style={{ background: r.status === 'finished' ? `${color}26` : undefined }}>
-              <span><Link className="l ttl" to={`/series/${r.id}`}>{r.title}</Link>{r.universe && r.universe_id && <span className="muted small"> · <Link className="l inlinelink" to={`/universes/${r.universe_id}`}>{r.universe}</Link></span>}</span>
+              <span>{r.flagged === 1 && <span className="serflag" role="img" aria-label="Needs a change" title="Needs a change">&#9873; </span>}<Link className="l ttl" to={`/series/${r.id}`}>{r.title}</Link>{r.universe && r.universe_id && <span className="muted small"> · <Link className="l inlinelink" to={`/universes/${r.universe_id}`}>{r.universe}</Link></span>}</span>
               <div className="ms">{r.marks.length ? r.marks.map((m, k) => <MarkView key={k} m={m} color={color} />) : <span className="muted">No books yet</span>}</div>
               <span className="muted">{`${r.read} of ${r.total}`}{r.allBooks !== r.total && <span className="small block">{`${r.allBooks} books`}</span>}</span>
               <span><span className={`schip ${r.status}`}>{r.status === 'caught_up' && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>}{STATUS_LABEL[r.status]}</span></span>

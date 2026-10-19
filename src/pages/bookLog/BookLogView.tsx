@@ -279,6 +279,8 @@ export interface ChallengeInfo { items: ReadChallenge[]; choices: ChallengeChoic
 export default function BookLogView({ log, lists, act, neighbors, challenges, quotes }: { log: BookLog; lists: Lists; act: Actions; neighbors?: Neighbors; challenges?: ChallengeInfo; quotes?: { items: Quote[]; act: QuoteActions } }) {
   const { book, read } = log;
   const { flags } = useFeatures();
+  // An Up Next book has a placeholder read (paused, no dates) so it can have a format, source and reason before it is started.
+  const planned = !!read && !!book.shelf && read.status === 'on_hold' && !read.start_date && !read.finish_date;
   const inProgress = !!read && (read.status === 'reading' || read.status === 'on_hold') && !book.shelf;
   const heat = book.heat_level !== null ? HEAT[book.heat_level] : null;
   const accentName = (id: string | null) => lists.accents.find((a) => a.id === id)?.name ?? null;
@@ -311,10 +313,10 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
           <Cover log={log} act={act} />
           <Card label="Status">
             <EditSelect label="Status" className="statuspill" value={currentStatus(log)} options={STATUSES} onChange={(v) => v && act.setStatus(v as Status)} />
-            {read && <DeleteRead key={read.id} act={act} />}
+            {read && !planned && <DeleteRead key={read.id} act={act} />}
           </Card>
           <Card label="Rating">
-            {read ? <Stars value={storedToStars(read.rating)} onChange={(v) => act.updateRead({ rating: starsToStored(v) })} /> : <span className="muted">Start the book to rate it.</span>}
+            {read && !planned ? <Stars value={storedToStars(read.rating)} onChange={(v) => act.updateRead({ rating: starsToStored(v) })} /> : <span className="muted">Start the book to rate it.</span>}
           </Card>
           <Card label="Title"><EditText label="Title" className="bigtext" value={book.title} onCommit={(v) => v.trim() && act.updateBook({ title: v.trim() })} /></Card>
           <Authors log={log} lists={lists} act={act} />
@@ -352,7 +354,7 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
             ) : <AddSeries lists={lists} act={act} />}
             <UniverseLine log={log} lists={lists} act={act} />
           </Card>
-          {read ? (
+          {read && !planned ? (
             <Card label="Dates">
               <div className="stack"><span className="muted">Started</span><EditText label="Start date" type="date" max={read.finish_date} initial={read.finish_date} value={read.start_date} onCommit={(v) => act.updateRead({ start_date: v || null })} /></div>
               <div className="stack"><span className="muted">Finished</span><EditText label="Finish date" type="date" min={read.start_date} value={read.finish_date} onCommit={(v) => act.updateRead({ finish_date: v || null })} />
@@ -429,7 +431,7 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
           )}
           <Characters log={log} lists={lists} act={act} />
           {flags.quotes && quotes && <QuotesCard quotes={quotes.items} act={quotes.act} />}
-          {read ? <DayLog log={log} act={act} /> : (
+          {read && !planned ? <DayLog log={log} act={act} /> : (
             <Card className="span4"><span className="muted">{book.shelf ? <>This book is on your {book.shelf === 'up_next' ? 'Up Next' : 'TBR'} shelf.</> : 'This book has no reads yet.'} Choose <b>In Progress</b> in the Status box to start it.</span></Card>
           )}
         </div>

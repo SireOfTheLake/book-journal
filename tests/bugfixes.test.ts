@@ -43,7 +43,10 @@ describe('moving a book out of In Progress', () => {
     await setStatus(db, b, rb, 'tbr');
     const home = await getHome(db, '2026-10-13');
     expect([home.reading.length, home.paused.length]).toEqual([0, 0]);
-    expect((await reads(a)).every((r) => r.deleted_at !== null)).toBe(true);
+    const ra = await reads(a); // the started read is gone; Up Next gets a fresh planned (paused, undated) read
+    expect(ra.filter((r) => r.deleted_at === null).map((r) => r.status)).toEqual(['on_hold']);
+    expect(ra.filter((r) => r.deleted_at !== null)).toHaveLength(1);
+    expect((await getHome(db, '2026-10-13')).paused).toEqual([]);
   });
   it('keeps finished reads, since they are history', async () => {
     const book = await id('Egotistical Puckboy'); // finished 2025-07-27
@@ -57,7 +60,7 @@ describe('moving a book out of In Progress', () => {
     expect((await reads(book)).map((r) => r.status)).toEqual(['finished', 'reading']);
     await setStatus(db, book, second, 'up_next');
     const left = (await reads(book)).filter((r) => r.deleted_at === null);
-    expect(left.map((r) => r.status)).toEqual(['finished']);
+    expect(left.map((r) => r.status)).toEqual(['finished', 'on_hold']); // plus the planned read for Up Next
   });
   it('keeps a did-not-finish read', async () => {
     const book = await id('Hooks In');

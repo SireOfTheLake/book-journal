@@ -34,7 +34,7 @@ export async function getHome(db: Db, today: string): Promise<HomeData> {
   const raw = await db.select<Omit<CurrentRead, 'day' | 'progress' | 'last_entry' | 'entries'> & { page_count: number | null; audio_length_seconds: number | null }>(
     `SELECT r.id AS read_id, b.id AS book_id, b.title AS title, r.status AS status, r.format AS format, r.start_date AS start_date, b.page_count AS page_count, r.audio_length_seconds AS audio_length_seconds,
        ${AUTHORS}, ${SERIES}, ${COVER}
-     FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status IN ('reading', 'on_hold')
+     FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status IN ('reading', 'on_hold') AND b.shelf IS NULL
      ORDER BY r.status = 'on_hold', r.start_date DESC, r.rowid DESC`);
   const ids = raw.map((r) => r.read_id);
   const entries = ids.length ? await db.select<{ read_id: string; entry_date: string; page: number | null; percent: number | null; seconds: number | null }>(

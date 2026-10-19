@@ -1,7 +1,7 @@
 import type { Db } from '../db/adapter';
 import { newId } from '../domain/ids';
 import type { Pick } from '../domain/randomizer';
-import { addBookAuthor, createRead, deleteBook } from './bookLog';
+import { addBookAuthor, createRead, deleteBook, dropPlannedReads } from './bookLog';
 import { createBook } from './books';
 import { fillSlot, listChallengeChoices, type ChallengeChoice } from './challenges';
 import { promptSuggestions, setReason } from './reason';
@@ -71,6 +71,10 @@ export async function chooseShelfBook(db: Db, draftBookId: string, chosenBookId:
   const readId = await draftRead(db, draftBookId);
   const [chosen] = await db.select<{ id: string }>('SELECT id FROM book WHERE id = ? AND deleted_at IS NULL AND is_draft = 0', [chosenBookId]);
   if (!chosen) throw new Error('That book is no longer there.');
+  // A book on Up Next already has a planned read: what was entered there carries over, then it is replaced by the one being moved in.
+  const [mine] = await db.select<{ format: string | null; source_id: string | null }>("SELECT r.format AS format, r.source_id AS source_id FROM read r WHERE r.book_id = ? AND r.status = 'on_hold' AND r.start_date IS NULL AND r.deleted_at IS NULL LIMIT 1", [chosenBookId]);
+  await dropPlannedReads(db, chosenBookId);
+  if (mine) await db.execute('UPDATE read SET format = COALESCE(format, ?), source_id = COALESCE(source_id, ?) WHERE id = ?', [mine.format, mine.source_id, readId]);
   await db.execute('UPDATE read SET book_id = ? WHERE id = ?', [chosenBookId, readId]);
   const have = await db.select<{ n: number }>('SELECT count(*) AS n FROM read_narrator WHERE read_id = ? AND deleted_at IS NULL', [readId]);
   if (!Number(have[0]?.n)) {

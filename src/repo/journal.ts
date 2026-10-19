@@ -43,7 +43,7 @@ export async function listJournalYear(db: Db, year: number): Promise<JournalYear
      ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.rowid DESC`, [String(year)]);
   const reading = await db.select<ListRow>(
     `${READ_SELECT}
-     WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status IN ('reading', 'on_hold')
+     WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status IN ('reading', 'on_hold') AND b.shelf IS NULL
      ORDER BY r.start_date DESC, r.rowid DESC`);
   const upNext = await db.select<ListRow>(
     `SELECT b.id AS book_id, NULL AS read_id, b.title, NULL AS status, NULL AS start_date, NULL AS finish_date, NULL AS format, NULL AS rating, NULL AS year_number,

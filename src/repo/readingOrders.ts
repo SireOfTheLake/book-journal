@@ -185,3 +185,14 @@ export async function addSeriesToOrder(db: Db, orderId: string, seriesId: string
   if (!added) throw new Error('All of that series is already on this list.');
   return added;
 }
+
+// Changes the details of a line that is not in the library.
+export async function updateCustomItem(db: Db, itemId: string, i: CustomItem): Promise<void> {
+  const title = i.title.trim();
+  if (!title) throw new Error('A title cannot be empty.');
+  const [item] = await db.select<{ book_id: string | null }>('SELECT book_id FROM reading_order_item WHERE id = ? AND deleted_at IS NULL', [itemId]);
+  if (!item) throw new Error('That line has been removed.');
+  if (item.book_id) throw new Error('Change a library book from its own page.');
+  await db.execute('UPDATE reading_order_item SET title = ?, author_name = ?, series_name = ?, series_position = ? WHERE id = ?',
+    [title, i.author?.trim() || null, i.series?.trim() || null, i.seriesPosition ?? null, itemId]);
+}

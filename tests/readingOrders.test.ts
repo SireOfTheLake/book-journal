@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../src/db/adapter';
 import { migrateNodeDb } from '../src/db/nodeDb';
 import { addTag, createRead, quickAdd, updateRead } from '../src/repo/bookLog';
-import { addCustomItem, addItemToLibrary, addLibraryItem, linkItemToBook, addSeriesToOrder, createOrder, deleteOrder, getOrder, listOrders, moveItem, removeItem, searchLibraryBooks } from '../src/repo/readingOrders';
+import { addCustomItem, addItemToLibrary, addLibraryItem, linkItemToBook, updateCustomItem, addSeriesToOrder, createOrder, deleteOrder, getOrder, listOrders, moveItem, removeItem, searchLibraryBooks } from '../src/repo/readingOrders';
 import { createSeries, setBookSeries } from '../src/repo/series';
 
 let db: Db;
@@ -62,5 +62,15 @@ describe('reading orders', () => {
     expect(await addSeriesToOrder(db, o, sid)).toBe(2);
     expect((await getOrder(db, o))!.items.map((i) => i.title)).toEqual(['A', 'B', 'C']);
     await expect(addSeriesToOrder(db, o, sid)).rejects.toThrow();
+  });
+  it('edits a line that is not in the library, but not a linked one', async () => {
+    const o = await createOrder(db, 'P');
+    const it = await addCustomItem(db, o, { title: 'Old' });
+    await updateCustomItem(db, it, { title: 'New', author: 'Ann', series: 'S', seriesPosition: 2 });
+    expect((await getOrder(db, o))!.items[0]).toMatchObject({ title: 'New', authors: 'Ann', series_name: 'S', series_position: 2 });
+    await expect(updateCustomItem(db, it, { title: ' ' })).rejects.toThrow();
+    const b = (await quickAdd(db, { title: 'Real', authors: ['Q'], status: 'tbr' })).bookId;
+    const linked = await addLibraryItem(db, o, b);
+    await expect(updateCustomItem(db, linked, { title: 'X' })).rejects.toThrow();
   });
 });

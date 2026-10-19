@@ -42,4 +42,13 @@ describe('reading order pages', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Link' }));
     await waitFor(async () => expect((await getOrder(db, o))!.items.every((i) => i.book_id)).toBe(true));
   });
+  it('edits an outside title in place', async () => {
+    const o = await createOrder(db, 'P');
+    await addCustomItem(db, o, { title: 'Draft' });
+    ui(`/reading-orders/${o}`);
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit Draft' }));
+    fireEvent.change(screen.getByLabelText('Edit title'), { target: { value: 'Final' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(async () => expect((await getOrder(db, o))!.items[0].title).toBe('Final'));
+  });
 });

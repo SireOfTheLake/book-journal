@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDb } from '../../db/DbContext';
-import { addCustomItem, addLibraryItem, addSeriesToOrder, deleteOrder, getOrder, moveItem, removeItem, renameOrder, searchLibraryBooks, type OrderDetail, type OrderItem } from '../../repo/readingOrders';
+import { addCustomItem, addLibraryItem, addSeriesToOrder, deleteOrder, getOrder, moveItem, removeItem, renameOrder, updateCustomItem, searchLibraryBooks, type OrderDetail, type OrderItem } from '../../repo/readingOrders';
 import { listSeriesOptions } from '../../repo/series';
 import { EditText } from '../bookLog/parts';
 import AddToLibraryDialog, { type LibraryStart } from './AddToLibraryDialog';
@@ -17,6 +17,7 @@ export default function ReadingOrderPage() {
   const [overId, setOverId] = useState<string | null>(null);
   const [adding, setAdding] = useState<LibraryStart | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editing, setEditing] = useState<string | null>(null);
   const reload = useCallback(async () => setOrder(await getOrder(db, orderId)), [db, orderId]);
   useEffect(() => { reload().catch((e) => setError(String(e))); }, [reload]);
   const run = async (fn: () => Promise<unknown>) => { setError(null); try { await fn(); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
@@ -61,14 +62,18 @@ export default function ReadingOrderPage() {
                 <span className="ordernum">{idx + 1}</span>
                 {it.cover ? <img className="ordercover" src={it.cover} alt="" /> : <span className="ordercover blank" aria-hidden="true" />}
                 <span className="ordermain">
+                  {editing === it.id ? (
+                    <EditLine item={it} onCancel={() => setEditing(null)} onSave={(v) => { setEditing(null); void run(() => updateCustomItem(db, it.id, v)); }} />
+                  ) : (<>
                   {it.book_id ? <Link className="l big" to={`/book/${it.book_id}`}>{it.title}</Link> : <b className="big">{it.title}</b>}
-                  <span className="muted small">{[it.authors, it.series_name ? `${it.series_name}${it.series_position !== null ? ` #${it.series_position}` : ''}` : null].filter(Boolean).join(' · ') || ' '}</span>
+                  <span className="muted small">{[it.authors, it.series_name ? `${it.series_name}${it.series_position !== null ? ` #${it.series_position}` : ''}` : null].filter(Boolean).join(' · ') || ' '}</span></>)}
                   <NoteEdit note={it.note} onSave={(n) => run(async () => { const { updateItemNote } = await import('../../repo/readingOrders'); await updateItemNote(db, it.id, n); })} />
                 </span>
                 <span className={`orderstate ${it.is_read ? 'yes' : 'no'}`}>
                   {it.is_read ? 'Read' : it.book_id ? 'Not read' : 'Not in library'}
                 </span>
                 <span className="orderacts">
+                  {!it.book_id && <button type="button" className="mini" aria-label={`Edit ${it.title}`} onClick={() => setEditing(it.id)}>Edit</button>}
                   {!it.book_id && <button type="button" className="mini" onClick={() => setAdding({ itemId: it.id, title: it.title, author: it.authors ?? '', series: it.series_name ?? '', position: it.series_position })}>Add to library</button>}
                   <button type="button" className="mini" aria-label={`Move ${it.title} up`} disabled={idx === 0} onClick={() => move(it.id, idx - 1)}>&uarr;</button>
                   <button type="button" className="mini" aria-label={`Move ${it.title} down`} disabled={idx === order.items.length - 1} onClick={() => move(it.id, idx + 1)}>&darr;</button>
@@ -153,6 +158,25 @@ function AddSeries({ onAdd }: { onAdd(seriesId: string): void }) {
         </select>
         <button type="button" className="btn on" disabled={!pick} onClick={() => { onAdd(pick); setPick(''); }}>Add series</button>
       </div>
+    </div>
+  );
+}
+
+function EditLine({ item, onSave, onCancel }: { item: OrderItem; onSave(v: { title: string; author: string; series: string; seriesPosition: number | null }): void; onCancel(): void }) {
+  const [title, setTitle] = useState(item.title);
+  const [author, setAuthor] = useState(item.authors ?? '');
+  const [series, setSeries] = useState(item.series_name ?? '');
+  const [pos, setPos] = useState(item.series_position === null ? '' : String(item.series_position));
+  const save = () => onSave({ title, author, series, seriesPosition: pos.trim() === '' || !Number.isFinite(Number(pos)) ? null : Number(pos) });
+  const key = (e: React.KeyboardEvent) => { if (e.key === 'Enter') save(); if (e.key === 'Escape') onCancel(); };
+  return (
+    <div className="orderother">
+      <input className="field" autoFocus aria-label="Edit title" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={key} />
+      <input className="field" aria-label="Edit author" placeholder="Author" value={author} onChange={(e) => setAuthor(e.target.value)} onKeyDown={key} />
+      <input className="field" aria-label="Edit series" placeholder="Series" value={series} onChange={(e) => setSeries(e.target.value)} onKeyDown={key} />
+      <input className="field num" type="number" step="0.5" aria-label="Edit position in series" placeholder="#" value={pos} onChange={(e) => setPos(e.target.value)} onKeyDown={key} />
+      <button type="button" className="btn on" onClick={save}>Save</button>
+      <button type="button" className="btn" onClick={onCancel}>Cancel</button>
     </div>
   );
 }

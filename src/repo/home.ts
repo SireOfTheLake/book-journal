@@ -62,7 +62,7 @@ export async function getHome(db: Db, today: string): Promise<HomeData> {
   const upcoming = await db.select<HomeData['upcoming'][number]>(
     `SELECT f.book_id AS book_id, b.title AS title, f.format AS format, f.status AS status, f.release_date AS release_date, ${AUTHORS}
      FROM format_release f JOIN book b ON b.id = f.book_id AND b.deleted_at IS NULL
-     WHERE f.deleted_at IS NULL AND (f.status = 'tba' OR f.release_date >= ?) ORDER BY f.release_date IS NULL, f.release_date, b.title LIMIT 5`, [today]);
+     WHERE f.deleted_at IS NULL AND (f.status = 'tba' OR f.release_date >= ?) ORDER BY f.release_date IS NULL, f.release_date, CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END LIMIT 5`, [today]);
 
   const [stats] = await db.select<{ finished: number; month: number; avg: number | null; rated: number; audio: number | null }>(
     `SELECT count(*) AS finished, sum(CASE WHEN substr(finish_date, 1, 7) = ? THEN 1 ELSE 0 END) AS month, avg(rating) / 4.0 AS avg, count(rating) AS rated,

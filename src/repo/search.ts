@@ -43,7 +43,7 @@ export async function listTagOptions(db: Db): Promise<TagOption[]> {
     const rows = await db.select<{ id: string; name: string; color: string | null; count: number }>(
       `SELECT t.id AS id, t.name AS name, t.color AS color, COUNT(DISTINCT j.book_id) AS count FROM ${kind} t
        JOIN ${join} j ON j.${col} = t.id AND j.deleted_at IS NULL JOIN book b ON b.id = j.book_id AND b.deleted_at IS NULL
-       WHERE t.deleted_at IS NULL GROUP BY t.id ORDER BY lower(t.name)`);
+       WHERE t.deleted_at IS NULL GROUP BY t.id ORDER BY CASE WHEN lower(t.name) LIKE \'the %\' THEN lower(substr(t.name, 5)) ELSE lower(t.name) END`);
     out.push(...rows.map((r) => ({ kind, ...r })));
   }
   return out;

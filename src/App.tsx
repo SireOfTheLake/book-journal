@@ -26,6 +26,8 @@ import OverviewPage from './pages/journal/OverviewPage';
 import SeriesPageContainer from './pages/series/SeriesPageContainer';
 import LocationDetailPage from './pages/locations/LocationDetailPage';
 import QuotesPage from './pages/QuotesPage';
+import ReadingOrdersPage from './pages/readingOrders/ReadingOrdersPage';
+import ReadingOrderPage from './pages/readingOrders/ReadingOrderPage';
 import ImportPage from './pages/ImportPage';
 import Placeholder from './pages/Placeholder';
 
@@ -46,6 +48,8 @@ export default function App() {
         <Route path="characters" element={<CharactersPage />} />
         <Route path="characters/:characterId" element={<CharacterPageContainer />} />
         <Route path="universes" element={<UniversesPage />} />
+        <Route path="reading-orders" element={<ReadingOrdersPage />} />
+        <Route path="reading-orders/:orderId" element={<ReadingOrderPage />} />
         <Route path="quotes" element={<QuotesPage />} />
         <Route path="locations" element={<LocationsPage />} />
         <Route path="locations/:placeId" element={<LocationDetailPage />} />

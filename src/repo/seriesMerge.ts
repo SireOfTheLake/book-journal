@@ -41,7 +41,7 @@ export async function seriesMergePlan(db: Db, keepId: string, dupId: string): Pr
     const clash = b.position !== null ? mine.find((m) => m.position === b.position) : undefined;
     items.push({ key: `book:${b.id}`, group: 'Books', label: `${b.title}${b.position !== null ? ` (#${b.position})` : ''}${clash ? ` — same number as "${clash.title}"` : ''}` });
   }
-  for (const g of await db.select<{ id: string; label: string }>('SELECT sg.id AS id, g.name AS label FROM series_genre sg JOIN genre g ON g.id = sg.genre_id WHERE sg.series_id = ? AND sg.deleted_at IS NULL ORDER BY g.name', [dupId])) items.push({ key: `series_genre:${g.id}`, group: 'Genres', label: g.label });
+  for (const g of await db.select<{ id: string; label: string }>('SELECT sg.id AS id, g.name AS label FROM series_genre sg JOIN genre g ON g.id = sg.genre_id WHERE sg.series_id = ? AND sg.deleted_at IS NULL ORDER BY CASE WHEN lower(g.name) LIKE \'the %\' THEN lower(substr(g.name, 5)) ELSE lower(g.name) END', [dupId])) items.push({ key: `series_genre:${g.id}`, group: 'Genres', label: g.label });
   for (const a of await seriesAuthors(db, dupId)) items.push({ key: `author:${a.id}`, group: 'Authors', label: a.name });
   return { fields, items };
 }

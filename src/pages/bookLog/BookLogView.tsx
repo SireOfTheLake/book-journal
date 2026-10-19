@@ -23,7 +23,7 @@ import QuotesCard, { type QuoteActions } from './QuotesCard';
 import type { Quote } from '../../repo/quotes';
 import { Card, Combo, EditNotes, EditSelect, EditText, FilePicker, Icon, LinkImageForm, Seg, Stars, TagEditor, Thumbs, ZoomImage } from './parts';
 
-export interface Lists { sources: Item[]; timePeriods: Item[]; accents: Item[]; places: Item[]; genres: Item[]; themes: Item[]; tropes: Item[]; series: Item[]; universes?: Item[]; characters: (Item & { tags?: string | null })[]; authors: Item[]; narrators: Item[] }
+export interface Lists { sources: Item[]; timePeriods: Item[]; accents: Item[]; places: Item[]; genres: Item[]; themes: Item[]; tropes: Item[]; moods?: Item[]; paces?: Item[]; warnings?: Item[]; series: Item[]; universes?: Item[]; characters: (Item & { tags?: string | null })[]; authors: Item[]; narrators: Item[] }
 export interface Actions {
   setStatus(s: Status): void;
   updateBook(f: Record<string, SqlValue>): void;
@@ -378,6 +378,9 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
           </Card>
           {tag('Tropes', 'trope', log.tropes, lists.tropes)}
           {tag('Themes', 'theme', log.themes, lists.themes)}
+          {flags.moodpace && tag('Mood', 'mood', log.moods, lists.moods ?? [])}
+          {flags.moodpace && tag('Pace', 'pace', log.paces, lists.paces ?? [])}
+          {flags.warnings && tag('Content warnings', 'content_warning', log.warnings, lists.warnings ?? [])}
 
           {read ? (
             <>
@@ -398,6 +401,18 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
             <EditText label="Originally published" addLabel="Add publication date" type="date" value={book.original_publication_date} onCommit={(v) => act.updateBook({ original_publication_date: v || null })} />
           </Card>
 
+          {flags.recommender && book.shelf && (
+            <Card label="Recommended by">
+              <EditText label="Recommended by" addLabel="Add who recommended it" value={book.recommended_by ?? null} onCommit={(v) => act.updateBook({ recommended_by: v.trim() || null })} placeholder="A friend, a podcast, a list..." />
+            </Card>
+          )}
+          {flags.whystopped && read?.status === 'dnf' && (
+            <Card label="Why I stopped">
+              <EditText label="Why I stopped" addLabel="Add why you stopped" value={read.stopped_reason ?? null} onCommit={(v) => act.updateRead({ stopped_reason: v.trim() || null })} placeholder="Slow start, not my mood..." />
+              <span className="muted">Where I got to</span>
+              <EditText label="Where I stopped" addLabel="Add where you stopped" value={read.stopped_where ?? null} onCommit={(v) => act.updateRead({ stopped_where: v.trim() || null })} placeholder="Page 120, 40%, chapter 9..." />
+            </Card>
+          )}
           {read && (
             <>
               {challenges && <ReasonCard reason={challenges.reason ?? { kind: null, sub: null, prompt: null }} items={challenges.items} choices={challenges.choices} challengeAct={challenges.act} act={challenges.reasonAct ?? { set: () => undefined, setPrompt: () => undefined }} />}

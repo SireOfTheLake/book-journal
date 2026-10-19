@@ -1,3 +1,4 @@
+import { byTitle } from './sortKey';
 export type SearchKind = 'book' | 'series' | 'author' | 'narrator' | 'character' | 'universe' | 'genre' | 'trope' | 'theme';
 
 export interface SearchItem { kind: SearchKind; id: string; label: string; sub?: string | null; extra?: string[] }
@@ -44,7 +45,7 @@ export function searchAll(items: SearchItem[], query: string, perGroup = 6): Sea
   return SEARCH_ORDER.flatMap(({ kind, title }) => {
     const hits = items.filter((i) => i.kind === kind)
       .flatMap((i) => { const s = score(i); return s === null ? [] : [{ i, s }]; })
-      .sort((a, b) => a.s - b.s || a.i.label.localeCompare(b.i.label))
+      .sort((a, b) => a.s - b.s || byTitle(a.i.label, b.i.label))
       .slice(0, perGroup).map((h) => h.i);
     return hits.length ? [{ kind, title, items: hits }] : [];
   });

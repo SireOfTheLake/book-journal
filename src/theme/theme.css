@@ -1045,3 +1045,26 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .locinline { max-width: 520px; }
 .flagbtn { border-color: var(--accent); color: var(--accent); }
 .serflag { color: var(--accent); }
+
+/* Reading orders */
+.ordernew { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ordernew .field:first-child { flex: 1 1 240px; }
+.orderlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.orderrow { display: grid; grid-template-columns: auto 28px 44px 1fr auto auto; gap: 10px; align-items: center; padding: 6px 8px; border: 1px solid var(--line2); border-radius: 6px; background: var(--panel, transparent); }
+.orderrow.dragging { opacity: .45; }
+.orderrow.over { border-color: var(--accent); box-shadow: 0 -2px 0 var(--accent); }
+.orderrow.isread .big { opacity: .7; }
+.draghandle { cursor: grab; color: var(--muted); letter-spacing: -2px; user-select: none; }
+.ordernum { color: var(--muted); text-align: right; }
+.ordercover { width: 44px; height: 66px; object-fit: cover; border-radius: 3px; border: 1px solid var(--line2); display: block; }
+.ordercover.blank { background: hsl(0 0% 50% / .12); }
+.ordermain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.orderstate { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line2); white-space: nowrap; color: var(--muted); }
+.orderstate.yes { color: hsl(150 45% 62%); border-color: hsl(150 45% 40%); }
+.orderacts { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.orderother { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.orderother .field { flex: 1 1 160px; }
+.orderother .field.num { flex: 0 0 70px; }
+.ordertable { width: 100%; border-collapse: collapse; }
+.ordertable th { text-align: left; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 4px 8px; }
+.ordertable td { padding: 8px; border-top: 1px solid var(--line2); vertical-align: top; }

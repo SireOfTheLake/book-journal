@@ -1,3 +1,4 @@
+import { byTitle } from './sortKey';
 import type { LibraryBook, LibraryStatus } from '../repo/library';
 
 export type StatusFilter = 'all' | LibraryStatus | 'none';
@@ -31,7 +32,7 @@ export function filterLibrary(books: LibraryBook[], f: LibraryFilters): LibraryB
     && (!f.favorites || b.is_favorite === 1) && (!f.noCover || b.has_cover === 0));
 }
 
-const text = (a: string | null, b: string | null) => (a ?? '￿').toLowerCase().localeCompare((b ?? '￿').toLowerCase());
+const text = (a: string | null, b: string | null) => (a == null || b == null) ? (a == null ? (b == null ? 0 : 1) : -1) : byTitle(a, b);
 const newestFirst = (a: string | null, b: string | null) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : a < b ? 1 : -1); // blanks last
 
 export function sortLibrary(books: LibraryBook[], key: SortKey): LibraryBook[] {

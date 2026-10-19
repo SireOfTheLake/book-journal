@@ -5,10 +5,10 @@ Rule for everything that adds to the Book Log: it gets an on/off switch in Setti
 ## To do, in the order I'd suggest
 1. ~~**Feature switches**~~ (done) (Settings > Features): the foundation for the items marked (switch).
 2. ~~**Quotes and favorite passages**~~ (done; per book) (switch): per read, with page or timestamp and an optional note; a random quote on Home.
-3. **Mood and pace tags** (switch): two new pick-lists, managed in Settings > Lists.
-4. **Content warnings** (switch): its own pick-list.
-5. **Why I stopped, for DNF reads** (switch): a short reason and the page or time where you stopped.
-6. **Where the recommendation came from, on the TBR** (switch): who or what recommended it, and the date added.
+3. ~~**Mood and pace tags** (switch): two new pick-lists, managed in Settings > Lists.~~ (done; off by default)
+4. ~~**Content warnings** (switch): its own pick-list.~~ (done; off by default)
+5. ~~**Why I stopped, for DNF reads** (switch): a short reason and the page or time where you stopped.~~ (done; off by default)
+6. ~~**Where the recommendation came from, on the TBR** (switch): who or what recommended it, and the date added.~~ (done; off by default; the date added is not shown)
 7. ~~**Owned vs. wanted, per format**~~ (done): mark whether you own a physical, ebook or audio copy; the Shelf and TBR views separate "own it" from "want it, don't have a copy". No price.
 8. **Reading heatmap**: a year grid of the days you read.
 9. **Reading speed**: pages or hours per day per book, from start and finish dates.

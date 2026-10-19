@@ -34,9 +34,9 @@ export async function narratorMergePlan(db: Db, keepId: string, dupId: string): 
   const items: MergePlan['items'] = [];
   const add = async (group: string, table: string, sql: string) => { for (const r of await db.select<{ id: string; label: string }>(sql, [dupId])) items.push({ key: `${table}:${r.id}`, group, label: r.label }); };
   await add('Other names', 'narrator_alias', 'SELECT id, name AS label FROM narrator_alias WHERE narrator_id = ? AND deleted_at IS NULL ORDER BY rowid');
-  await add('Usual accents', 'narrator_accent', 'SELECT na.id AS id, a.name AS label FROM narrator_accent na JOIN accent a ON a.id = na.accent_id WHERE na.narrator_id = ? AND na.deleted_at IS NULL ORDER BY a.name');
-  await add('Books', 'book_narrator', 'SELECT bn.id AS id, b.title AS label FROM book_narrator bn JOIN book b ON b.id = bn.book_id WHERE bn.narrator_id = ? AND bn.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY b.title');
-  await add('Listens', 'read_narrator', "SELECT rn.id AS id, b.title || COALESCE(' (' || r.finish_date || ')', '') AS label FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id WHERE rn.narrator_id = ? AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY b.title");
+  await add('Usual accents', 'narrator_accent', 'SELECT na.id AS id, a.name AS label FROM narrator_accent na JOIN accent a ON a.id = na.accent_id WHERE na.narrator_id = ? AND na.deleted_at IS NULL ORDER BY CASE WHEN lower(a.name) LIKE \'the %\' THEN lower(substr(a.name, 5)) ELSE lower(a.name) END');
+  await add('Books', 'book_narrator', 'SELECT bn.id AS id, b.title AS label FROM book_narrator bn JOIN book b ON b.id = bn.book_id WHERE bn.narrator_id = ? AND bn.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END');
+  await add('Listens', 'read_narrator', "SELECT rn.id AS id, b.title || COALESCE(' (' || r.finish_date || ')', '') AS label FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id WHERE rn.narrator_id = ? AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END");
   return { fields, items };
 }
 

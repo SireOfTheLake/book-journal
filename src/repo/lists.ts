@@ -3,7 +3,7 @@ import { newId } from '../domain/ids';
 
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 
-export type ListKind = 'genre' | 'theme' | 'trope' | 'source' | 'time_period' | 'accent' | 'name_type' | 'occupation' | 'sexuality' | 'character_tag';
+export type ListKind = 'genre' | 'theme' | 'trope' | 'source' | 'time_period' | 'accent' | 'name_type' | 'occupation' | 'sexuality' | 'character_tag' | 'mood' | 'pace' | 'content_warning';
 
 // Every pick-list you choose from in the journal, what it is for, and where its entries are in use.
 // "tables" are linking tables (their rows are removed when an entry goes); "columns" are single-choice fields (cleared when an entry goes).
@@ -12,6 +12,9 @@ export const LISTS: ListInfo[] = [
   { kind: 'genre', label: 'Genres', singular: 'genre', hint: 'On books and whole series.', tables: [{ table: 'book_genre', col: 'genre_id' }, { table: 'series_genre', col: 'genre_id' }], columns: [] },
   { kind: 'theme', label: 'Themes', singular: 'theme', hint: 'On books.', tables: [{ table: 'book_theme', col: 'theme_id' }], columns: [] },
   { kind: 'trope', label: 'Tropes', singular: 'trope', hint: 'On books.', tables: [{ table: 'book_trope', col: 'trope_id' }], columns: [] },
+  { kind: 'mood', label: 'Moods', singular: 'mood', hint: 'On books (needs the Mood and pace feature).', tables: [{ table: 'book_mood', col: 'mood_id' }], columns: [] },
+  { kind: 'pace', label: 'Pace', singular: 'pace', hint: 'On books (needs the Mood and pace feature).', tables: [{ table: 'book_pace', col: 'pace_id' }], columns: [] },
+  { kind: 'content_warning', label: 'Content warnings', singular: 'content warning', hint: 'On books (needs the Content warnings feature).', tables: [{ table: 'book_content_warning', col: 'content_warning_id' }], columns: [] },
   { kind: 'source', label: 'Sources', singular: 'source', hint: 'Where a read came from (Kindle Unlimited, Audible, Library...).', tables: [], columns: [{ table: 'read', col: 'source_id' }] },
   { kind: 'time_period', label: 'Time periods', singular: 'time period', hint: 'When a book is set. Recent History keeps its decade choices.', tables: [], columns: [{ table: 'book', col: 'time_period_id' }] },
   { kind: 'accent', label: 'Narrator accents', singular: 'accent', hint: 'On narrators and on each listen.', tables: [{ table: 'narrator_accent', col: 'accent_id' }], columns: [{ table: 'read_narrator', col: 'accent_id' }] },
@@ -27,7 +30,7 @@ const info = (kind: ListKind): ListInfo => { const i = LISTS.find((l) => l.kind 
 export async function listEntries(db: Db, kind: ListKind): Promise<ListRow[]> {
   const i = info(kind);
   const parts = [...i.tables, ...i.columns].map((u) => `(SELECT count(*) FROM ${u.table} WHERE ${u.col} = x.id AND deleted_at IS NULL)`);
-  return db.select<ListRow>(`SELECT x.id AS id, x.name AS name, ${parts.length ? parts.join(' + ') : '0'} AS uses FROM ${kind} x WHERE x.deleted_at IS NULL ORDER BY x.name COLLATE NOCASE`);
+  return db.select<ListRow>(`SELECT x.id AS id, x.name AS name, ${parts.length ? parts.join(' + ') : '0'} AS uses FROM ${kind} x WHERE x.deleted_at IS NULL ORDER BY CASE WHEN lower(x.name) LIKE \'the %\' THEN lower(substr(x.name, 5)) ELSE lower(x.name) END`);
 }
 
 export async function addEntry(db: Db, kind: ListKind, name: string): Promise<string> {

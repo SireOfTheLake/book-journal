@@ -65,6 +65,7 @@ export default function Shell() {
         <NavLink to="/library" className={link}><Icon name="books" />All books</NavLink>
         <NavLink to="/shelf" className={link}><Icon name="shelf" />TBR &amp; Up Next</NavLink>
         <NavLink to="/releases" className={link}><Icon name="releases" />Upcoming releases</NavLink>
+        <NavLink to="/reading-orders" className={link}><Icon name="order" />Reading orders</NavLink>
         <NavLink to="/series" className={link}><Icon name="series" />Series</NavLink>
         <NavLink to="/authors" className={link}><Icon name="authors" />Authors</NavLink>
         <NavLink to="/narrators" className={link}><Icon name="narrators" />Narrators</NavLink>

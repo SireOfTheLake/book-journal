@@ -1,3 +1,4 @@
+import { byTitle } from '../domain/sortKey';
 import type { Db } from '../db/adapter';
 import { autoLabel, metricInfo, paceOf, parseDisplay, parseFilters, parseIds, yearRange, type GoalDisplay, type GoalFilter, type Metric, type Pace } from '../domain/goals';
 import { TOTAL_SQL } from '../domain/challenges';
@@ -212,7 +213,7 @@ export function seriesContinued(f: Facts, from: string, to: string) {
     const books = new Set(f.reads.filter((r) => r.series_id === s.id && finished(r) && inRange(r.finish_date, from, to)).map((r) => r.book_id));
     if (books.size) out.push({ id: s.id, title: s.title, books: books.size });
   }
-  return out.sort((a, b) => a.title.localeCompare(b.title));
+  return out.sort((a, b) => byTitle(a.title, b.title));
 }
 
 export function measure(f: Facts, metric: Metric, filters: GoalFilter[], from: string, to: string): number {

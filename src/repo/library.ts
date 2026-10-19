@@ -22,7 +22,7 @@ export const listLibrary = (db: Db) => db.select<LibraryBook>(
      (SELECT group_concat(x.name, ', ') FROM (SELECT DISTINCT n.name AS name FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN narrator n ON n.id = rn.narrator_id
         WHERE r.book_id = b.id AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND n.deleted_at IS NULL) x) AS narrators,
      (SELECT group_concat(x.name, ', ') FROM (SELECT c.name AS name FROM book_character bc JOIN character c ON c.id = bc.character_id WHERE bc.book_id = b.id AND bc.deleted_at IS NULL AND c.deleted_at IS NULL) x) AS characters
-   FROM book b WHERE b.deleted_at IS NULL ORDER BY lower(b.title)`);
+   FROM book b WHERE b.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`);
 
 // The cover pictures for some books, as { bookId: picture }.
 export async function getCovers(db: Db, bookIds: string[]): Promise<Record<string, string>> {

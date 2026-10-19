@@ -21,7 +21,7 @@ const book = async (t: string, status: 'tbr' | 'up_next' = 'tbr') => (await quic
 
 describe('feature switches', () => {
   it('start on, can be turned off, and keep their data', async () => {
-    expect(await getFeatures(db)).toEqual({ quotes: true, owned: true });
+    expect(await getFeatures(db)).toEqual({ quotes: true, owned: true, moodpace: false, warnings: false, whystopped: false, recommender: false });
     const b = await book('One');
     await addQuote(db, b, { text: 'Hello' });
     await setFeature(db, 'quotes', false);

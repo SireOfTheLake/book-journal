@@ -12,7 +12,7 @@ const AUTHORS = `(SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name
 export interface UniverseRow { id: string; name: string; color: string | null; series: number; books: number; read: number; authors: number }
 
 export async function listUniverseRows(db: Db): Promise<UniverseRow[]> {
-  const unis = await db.select<{ id: string; name: string; color: string | null }>('SELECT id, name, color FROM universe WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE');
+  const unis = await db.select<{ id: string; name: string; color: string | null }>('SELECT id, name, color FROM universe WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END');
   const rows: UniverseRow[] = [];
   for (const u of unis) {
     const [{ n: series }] = await db.select<{ n: number }>('SELECT count(*) AS n FROM series WHERE universe_id = ? AND deleted_at IS NULL', [u.id]);
@@ -42,11 +42,11 @@ export async function getUniversePage(db: Db, universeId: string): Promise<Unive
     `SELECT b.id AS id, b.title AS title, ${AUTHORS} AS authors, s.title AS series, b.series_position AS position, ${FINISHED} AS read,
        (SELECT v.avg_stars FROM v_book_rating v WHERE v.book_id = b.id) AS rating,
        (SELECT i.file_path FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL) AS cover
-     ${FROM_BOOKS} AND b.universe_id = ? AND (b.series_id IS NULL OR s.universe_id IS NOT ?) ORDER BY lower(b.title)`, [universeId, universeId]);
+     ${FROM_BOOKS} AND b.universe_id = ? AND (b.series_id IS NULL OR s.universe_id IS NOT ?) ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`, [universeId, universeId]);
   const authors = await db.select<{ id: string; name: string; books: number }>(
     `SELECT au.id AS id, au.name AS name, count(DISTINCT b.id) AS books FROM book b LEFT JOIN series s ON s.id = b.series_id AND s.deleted_at IS NULL
        JOIN book_author ba ON ba.book_id = b.id AND ba.deleted_at IS NULL JOIN author au ON au.id = ba.author_id AND au.deleted_at IS NULL
-     WHERE b.deleted_at IS NULL AND ${EFFECTIVE} = ? GROUP BY au.id ORDER BY books DESC, au.name COLLATE NOCASE`, [universeId]);
+     WHERE b.deleted_at IS NULL AND ${EFFECTIVE} = ? GROUP BY au.id ORDER BY books DESC, CASE WHEN lower(au.name) LIKE \'the %\' THEN lower(substr(au.name, 5)) ELSE lower(au.name) END`, [universeId]);
   const [t] = await db.select<{ books: number; read: number; avg: number | null; rated: number }>(
     `SELECT count(*) AS books, coalesce(sum(${FINISHED}), 0) AS read,
        avg((SELECT v.avg_stars FROM v_book_rating v WHERE v.book_id = b.id)) AS avg,

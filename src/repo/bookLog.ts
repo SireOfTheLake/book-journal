@@ -9,7 +9,7 @@ import { findOrCreateAuthor } from './books';
 import { sortGenres } from '../domain/genres';
 
 export type Status = 'tbr' | 'up_next' | 'reading' | 'finished' | 'on_hold' | 'dnf';
-export type TagTable = 'genre' | 'theme' | 'trope';
+export type TagTable = 'genre' | 'theme' | 'trope' | 'mood' | 'pace' | 'content_warning';
 // Things a book can have several of; places (settings) share the same join-table shape.
 export type BookListTable = TagTable | 'place';
 export interface Item { id: string; name: string; color?: string | null }
@@ -20,7 +20,8 @@ export interface BookRow {
   time_period_id: string | null; time_period_detail: string | null; setting_text: string | null;
   original_publication_date: string | null; is_favorite: number; shelf: 'tbr' | 'up_next' | null;
   series_id: string | null; series_position: number | null; universe_id: string | null; cover_image_id: string | null;
-  own_physical?: number; own_ebook?: number; own_audio?: number; // 1 = you own that format
+  own_physical?: number; own_ebook?: number; recommended_by?: string | null;
+  own_audio?: number; // 1 = you own that format
   is_draft?: number; // 1 = a blank page made by the Prompt Randomizer, waiting for a book
 }
 export interface ReadRow {
@@ -28,6 +29,7 @@ export interface ReadRow {
   finish_time: string | null; rating: number | null; format: 'physical' | 'audio' | 'ebook' | null; source_id: string | null;
   audio_length_seconds: number | null; narration_style: 'solo' | 'dual' | 'duet' | 'full_cast' | 'immersive' | null;
   notes: string | null; color_index: number | null; year_number: number | null;
+  stopped_reason?: string | null; stopped_where?: string | null;
 }
 export interface LogCharacter {
   id: string; bc_id: string; name: string; origin: string | null; role: 'main' | 'side'; gender: string | null;
@@ -48,6 +50,7 @@ export interface BookLog {
   seriesUniverse: Item | null; // the universe the series is in, shown when the book has none of its own
   places: LogPlace[];
   genres: Item[]; themes: Item[]; tropes: Item[];
+  moods: Item[]; paces: Item[]; warnings: Item[];
   characters: LogCharacter[];
   makeup: string | null; bucket: string | null;
   reads: ReadRow[];
@@ -73,7 +76,7 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
   if (!book) return null;
   if (book.shelf === 'up_next' && !book.is_draft) await ensurePlannedRead(db, bookId); // books put on Up Next before this existed get their read now
   const items = (sql: string) => db.select<Item>(sql, [bookId]);
-  const tag = (t: TagTable) => items(`SELECT x.id AS id, x.name AS name, x.color AS color FROM book_${t} j JOIN ${t} x ON x.id = j.${t}_id WHERE j.book_id = ? AND j.deleted_at IS NULL ORDER BY x.name`);
+  const tag = (t: TagTable) => items(`SELECT x.id AS id, x.name AS name, x.color AS color FROM book_${t} j JOIN ${t} x ON x.id = j.${t}_id WHERE j.book_id = ? AND j.deleted_at IS NULL ORDER BY CASE WHEN lower(x.name) LIKE \'the %\' THEN lower(substr(x.name, 5)) ELSE lower(x.name) END`);
   const [seriesRow] = book.series_id ? await db.select<{ id: string; title: string; total_books: number | null }>('SELECT id, title, total_books FROM series WHERE id = ?', [book.series_id]) : [];
   // The series length counts the numbered books only; novellas (fractional positions) are extra.
   const [{ n: numbered }] = book.series_id ? await db.select<{ n: number }>('SELECT count(*) AS n FROM book WHERE series_id = ? AND deleted_at IS NULL AND (series_position IS NULL OR series_position = CAST(series_position AS INTEGER))', [book.series_id]) : [{ n: 0 }];
@@ -85,7 +88,7 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
     .map((r) => ({ id: r.id, name: r.name, city: r.city, area: r.area, country: r.country, fictional: !!r.fictional, needsUpdate: !!r.needs }));
   const [mk] = await db.select<{ makeup: string | null; dashboard_bucket: string }>('SELECT makeup, dashboard_bucket FROM v_book_bucket WHERE book_id = ?', [bookId]);
   const reads = await db.select<ReadRow>(
-    `SELECT r.id, r.status, r.start_date, r.finish_date, r.finish_time, r.rating, r.format, r.source_id, r.audio_length_seconds, r.narration_style, r.notes, r.color_index, n.year_number
+    `SELECT r.id, r.status, r.start_date, r.finish_date, r.finish_time, r.rating, r.format, r.source_id, r.audio_length_seconds, r.narration_style, r.notes, r.stopped_reason, r.stopped_where, r.color_index, n.year_number
      FROM read r LEFT JOIN v_read_year_number n ON n.read_id = r.id WHERE r.book_id = ? AND r.deleted_at IS NULL
      ORDER BY COALESCE(r.finish_date, '9999'), r.rowid`, [bookId]);
   const read = reads.find((r) => r.id === readId) ?? reads[reads.length - 1] ?? null;
@@ -104,6 +107,7 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
     seriesNav: await seriesNav(db, book),
     series: series ?? null, universe: universe ?? null, seriesUniverse: seriesUniverse ?? null, places,
     genres: sortGenres(await tag('genre')), themes: await tag('theme'), tropes: await tag('trope'),
+    moods: await tag('mood'), paces: await tag('pace'), warnings: await tag('content_warning'),
     characters: await db.select<LogCharacter>(
       `SELECT c.id, bc.id AS bc_id, c.name, c.origin_note AS origin, bc.role, c.gender, c.age_min, c.age_max,
          (SELECT group_concat(o.name, ', ') FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = c.id AND co.deleted_at IS NULL) AS occupations,
@@ -115,11 +119,11 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
 }
 
 export const listItems = (db: Db, table: 'source' | 'time_period' | 'accent' | 'place') =>
-  db.select<Item>(`SELECT id, name FROM ${table} WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE`);
+  db.select<Item>(`SELECT id, name FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
 
 // ---------- editing ----------
-const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position', 'own_physical', 'own_ebook', 'own_audio']);
-const READ_COLS = new Set(['status', 'start_date', 'finish_date', 'finish_time', 'rating', 'format', 'source_id', 'audio_length_seconds', 'narration_style', 'notes']);
+const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position', 'own_physical', 'own_ebook', 'own_audio', 'recommended_by']);
+const READ_COLS = new Set(['status', 'start_date', 'finish_date', 'finish_time', 'rating', 'format', 'source_id', 'audio_length_seconds', 'narration_style', 'notes', 'stopped_reason', 'stopped_where']);
 
 async function patch(db: Db, table: 'book' | 'read', allowed: Set<string>, id: string, fields: Record<string, SqlValue>) {
   const cols = Object.keys(fields).filter((c) => allowed.has(c));
@@ -167,7 +171,7 @@ export async function deleteBook(db: Db, bookId: string): Promise<void> {
   const [b] = await db.select<{ id: string }>('SELECT id FROM book WHERE id = ? AND deleted_at IS NULL', [bookId]);
   if (!b) throw new Error('That book has already been deleted.');
   for (const r of await db.select<{ id: string }>('SELECT id FROM read WHERE book_id = ? AND deleted_at IS NULL', [bookId])) await deleteRead(db, r.id);
-  for (const t of ['book_author', 'book_narrator', 'book_genre', 'book_theme', 'book_trope', 'book_character', 'book_place', 'format_release']) {
+  for (const t of ['book_author', 'book_narrator', 'book_genre', 'book_theme', 'book_trope', 'book_mood', 'book_pace', 'book_content_warning', 'book_character', 'book_place', 'format_release']) {
     await db.execute(`UPDATE ${t} SET deleted_at = ${NOW} WHERE book_id = ? AND deleted_at IS NULL`, [bookId]);
   }
   await db.execute(`UPDATE book SET deleted_at = ${NOW}, shelf = NULL, tbr_priority = NULL WHERE id = ?`, [bookId]);
@@ -212,7 +216,7 @@ async function findOrCreateItem(db: Db, table: BookListTable | 'accent' | 'sourc
   const id = await first(db, `SELECT id FROM ${table} WHERE lower(name) = lower(?) AND deleted_at IS NULL LIMIT 1`, [name.trim()]);
   if (id) return id;
   const nid = newId();
-  if (table === 'genre' || table === 'theme' || table === 'trope') await db.execute(`INSERT INTO ${table} (id, name, color) VALUES (?, ?, ?)`, [nid, name.trim(), randomTagColor()]);
+  if (table === 'genre' || table === 'theme' || table === 'trope' || table === 'mood' || table === 'pace' || table === 'content_warning') await db.execute(`INSERT INTO ${table} (id, name, color) VALUES (?, ?, ?)`, [nid, name.trim(), randomTagColor()]);
   else await db.execute(`INSERT INTO ${table} (id, name) VALUES (?, ?)`, [nid, name.trim()]);
   return nid;
 }
@@ -262,7 +266,7 @@ export const createListItem = (db: Db, table: 'source' | 'time_period', name: st
 
 // Every genre, theme, or trope you have, for the type-ahead list.
 export const listTagOptions = async (db: Db, table: TagTable) => {
-  const rows = await db.select<Item>(`SELECT id, name, color FROM ${table} WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE`);
+  const rows = await db.select<Item>(`SELECT id, name, color FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
   return table === 'genre' ? sortGenres(rows) : rows;
 };
 
@@ -299,7 +303,7 @@ export async function getNeighbors(db: Db, readId: string | null): Promise<Neigh
 }
 
 // ---------- authors on a book ----------
-export const listAuthorOptions = (db: Db) => db.select<Item>('SELECT id, name FROM author WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE');
+export const listAuthorOptions = (db: Db) => db.select<Item>('SELECT id, name FROM author WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END');
 
 export async function addBookAuthor(db: Db, bookId: string, who: { id?: string; name?: string }): Promise<void> {
   const authorId = who.id ?? (who.name?.trim() ? await findOrCreateAuthor(db, who.name.trim()) : null);
@@ -312,7 +316,7 @@ export const removeBookAuthor = (db: Db, bookId: string, authorId: string) =>
   db.execute(`UPDATE book_author SET deleted_at = ${NOW} WHERE book_id = ? AND author_id = ? AND deleted_at IS NULL`, [bookId, authorId]);
 
 // ---------- narrators on a book ----------
-export const listNarratorOptions = (db: Db) => db.select<Item>('SELECT id, name FROM narrator WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE');
+export const listNarratorOptions = (db: Db) => db.select<Item>('SELECT id, name FROM narrator WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END');
 
 export async function createNarrator(db: Db, name: string): Promise<string> {
   const n = name.trim();

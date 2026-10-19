@@ -136,6 +136,18 @@ pub fn run() {
         description: "series needs-a-change flag",
         sql: include_str!("../migrations/0024_series_flag.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 25,
+        description: "mood, pace, content warnings, stopped reason, recommended by",
+        sql: include_str!("../migrations/0025_mood_pace_warnings.sql"),
+        kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 26,
+        description: "reading orders",
+        sql: include_str!("../migrations/0026_reading_orders.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

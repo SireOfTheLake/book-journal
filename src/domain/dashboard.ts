@@ -1,3 +1,4 @@
+import { byTitle } from './sortKey';
 import { MONTH_NAMES } from './months';
 
 export const monthRange = (year: number, month: number) => {
@@ -13,7 +14,7 @@ export interface Counted { name: string; count: number }
 export function topCounts(values: (string | null | undefined)[], n = 3): Counted[] {
   const m = new Map<string, number>();
   for (const v of values) { const k = v?.trim(); if (k) m.set(k, (m.get(k) ?? 0) + 1); }
-  return [...m].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).slice(0, n);
+  return [...m].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count || byTitle(a.name, b.name)).slice(0, n);
 }
 
 export interface Split { before: number; month: number; rest: number } // widths in percent, adding up to 100

@@ -70,7 +70,7 @@ export const listAuthors = (db: Db) => db.select<PersonListRow>(
         AND EXISTS (SELECT 1 FROM read r WHERE r.book_id = b.id AND r.status = 'finished' AND r.deleted_at IS NULL)) AS read,
      (SELECT avg(v.avg_stars) FROM book_author ba JOIN v_book_rating v ON v.book_id = ba.book_id WHERE ba.author_id = a.id AND ba.deleted_at IS NULL) AS avg_stars,
      (SELECT count(DISTINCT b.series_id) FROM book_author ba JOIN book b ON b.id = ba.book_id WHERE ba.author_id = a.id AND ba.deleted_at IS NULL AND b.series_id IS NOT NULL AND b.deleted_at IS NULL) AS extra
-   FROM author a WHERE a.deleted_at IS NULL ORDER BY lower(a.name)`);
+   FROM author a WHERE a.deleted_at IS NULL ORDER BY CASE WHEN lower(a.name) LIKE \'the %\' THEN lower(substr(a.name, 5)) ELSE lower(a.name) END`);
 
 export const listNarrators = (db: Db) => db.select<PersonListRow>(
   `SELECT n.id, n.name, n.is_favorite,
@@ -78,7 +78,7 @@ export const listNarrators = (db: Db) => db.select<PersonListRow>(
      (SELECT count(*) FROM read_narrator rn JOIN read r ON r.id = rn.read_id WHERE rn.narrator_id = n.id AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND r.format = 'audio' AND r.status = 'finished') AS read,
      (SELECT avg(CASE rn.rating WHEN 'up' THEN 1.0 WHEN 'neutral' THEN 0.5 WHEN 'down' THEN 0.0 END) FROM read_narrator rn JOIN read r ON r.id = rn.read_id WHERE rn.narrator_id = n.id AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND r.format = 'audio' AND rn.rating IS NOT NULL) AS avg_stars,
      (SELECT coalesce(sum(r.audio_length_seconds), 0) FROM read_narrator rn JOIN read r ON r.id = rn.read_id WHERE rn.narrator_id = n.id AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND r.format = 'audio') AS extra
-   FROM narrator n WHERE n.deleted_at IS NULL ORDER BY lower(n.name)`);
+   FROM narrator n WHERE n.deleted_at IS NULL ORDER BY CASE WHEN lower(n.name) LIKE \'the %\' THEN lower(substr(n.name, 5)) ELSE lower(n.name) END`);
 
 // ---------- an author ----------
 export interface AuthorBook { id: string; title: string; series: string | null; series_id: string | null; position: number | null; shelf: string | null; is_read: number; finish_date: string | null; format: 'physical' | 'audio' | 'ebook' | null; rating: number | null; read_id: string | null; page_count: number | null }
@@ -92,7 +92,7 @@ export interface AuthorDetail {
 
 const tagCounts = (db: Db, kind: 'genre' | 'trope', whereBooks: string, params: SqlValue[]) => db.select<Counted>(
   `SELECT t.id AS id, t.name AS name, t.color AS color, count(DISTINCT b.id) AS n FROM book_${kind} j JOIN ${kind} t ON t.id = j.${kind}_id AND t.deleted_at IS NULL
-   JOIN book b ON b.id = j.book_id AND b.deleted_at IS NULL WHERE j.deleted_at IS NULL AND b.id IN (${whereBooks}) GROUP BY t.id ORDER BY n DESC, t.name LIMIT 6`, params);
+   JOIN book b ON b.id = j.book_id AND b.deleted_at IS NULL WHERE j.deleted_at IS NULL AND b.id IN (${whereBooks}) GROUP BY t.id ORDER BY n DESC, CASE WHEN lower(t.name) LIKE \'the %\' THEN lower(substr(t.name, 5)) ELSE lower(t.name) END LIMIT 6`, params);
 
 export async function getAuthor(db: Db, id: string): Promise<AuthorDetail | null> {
   const c = await core(db, 'author', id);
@@ -105,17 +105,17 @@ export async function getAuthor(db: Db, id: string): Promise<AuthorDetail | null
        (SELECT v.avg_stars FROM v_book_rating v WHERE v.book_id = b.id) AS rating,
        (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS read_id
      FROM book b JOIN book_author ba ON ba.book_id = b.id AND ba.deleted_at IS NULL WHERE ba.author_id = ? AND b.deleted_at IS NULL
-     ORDER BY finish_date IS NULL, finish_date DESC, lower(b.title)`, [id]);
+     ORDER BY finish_date IS NULL, finish_date DESC, CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`, [id]);
   const ids = `SELECT ba.book_id FROM book_author ba WHERE ba.author_id = ? AND ba.deleted_at IS NULL`;
   const rated = books.filter((b) => b.rating !== null);
   return {
     core: c,
     aliases: await listAliases(db, 'author', id),
     books,
-    series: await db.select<Item>(`SELECT DISTINCT s.id AS id, s.title AS name FROM series s JOIN book b ON b.series_id = s.id AND b.deleted_at IS NULL JOIN book_author ba ON ba.book_id = b.id AND ba.deleted_at IS NULL WHERE ba.author_id = ? AND s.deleted_at IS NULL ORDER BY s.title`, [id]),
+    series: await db.select<Item>(`SELECT DISTINCT s.id AS id, s.title AS name FROM series s JOIN book b ON b.series_id = s.id AND b.deleted_at IS NULL JOIN book_author ba ON ba.book_id = b.id AND ba.deleted_at IS NULL WHERE ba.author_id = ? AND s.deleted_at IS NULL ORDER BY CASE WHEN lower(s.title) LIKE \'the %\' THEN lower(substr(s.title, 5)) ELSE lower(s.title) END`, [id]),
     coAuthors: await db.select<Counted>(
       `SELECT a.id AS id, a.name AS name, count(*) AS n FROM book_author mine JOIN book_author other ON other.book_id = mine.book_id AND other.author_id != mine.author_id AND other.deleted_at IS NULL
-       JOIN author a ON a.id = other.author_id AND a.deleted_at IS NULL WHERE mine.author_id = ? AND mine.deleted_at IS NULL GROUP BY a.id ORDER BY n DESC, a.name`, [id]),
+       JOIN author a ON a.id = other.author_id AND a.deleted_at IS NULL WHERE mine.author_id = ? AND mine.deleted_at IS NULL GROUP BY a.id ORDER BY n DESC, CASE WHEN lower(a.name) LIKE \'the %\' THEN lower(substr(a.name, 5)) ELSE lower(a.name) END`, [id]),
     booksRead: books.filter((b) => b.is_read).length,
     totalPages: books.filter((b) => b.is_read).reduce((n, b) => n + (b.page_count ?? 0), 0),
     avgStars: rated.length ? rated.reduce((n, b) => n + b.rating!, 0) / rated.length : null, ratedBooks: rated.length,
@@ -125,7 +125,7 @@ export async function getAuthor(db: Db, id: string): Promise<AuthorDetail | null
     unread: books.filter((b) => !b.is_read),
     upcoming: await db.select<UpcomingRelease>(
       `SELECT f.book_id AS book_id, b.title AS title, f.format AS format, f.status AS status, f.release_date AS release_date FROM format_release f JOIN book b ON b.id = f.book_id AND b.deleted_at IS NULL
-       WHERE f.deleted_at IS NULL AND f.book_id IN (${ids}) AND (f.status = 'tba' OR f.release_date > date('now')) ORDER BY f.release_date IS NULL, f.release_date, b.title`, [id]),
+       WHERE f.deleted_at IS NULL AND f.book_id IN (${ids}) AND (f.status = 'tba' OR f.release_date > date('now')) ORDER BY f.release_date IS NULL, f.release_date, CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`, [id]),
   };
 }
 
@@ -151,24 +151,24 @@ export async function getNarrator(db: Db, id: string): Promise<NarratorDetail | 
   const books = `SELECT r.book_id FROM read_narrator rn JOIN read r ON r.id = rn.read_id WHERE ${LISTEN}`;
   return {
     core: c, aliases: await listAliases(db, 'narrator', id),
-    usualAccents: await db.select<Item>('SELECT a.id AS id, a.name AS name FROM narrator_accent na JOIN accent a ON a.id = na.accent_id WHERE na.narrator_id = ? AND na.deleted_at IS NULL ORDER BY a.name', [id]),
+    usualAccents: await db.select<Item>('SELECT a.id AS id, a.name AS name FROM narrator_accent na JOIN accent a ON a.id = na.accent_id WHERE na.narrator_id = ? AND na.deleted_at IS NULL ORDER BY CASE WHEN lower(a.name) LIKE \'the %\' THEN lower(substr(a.name, 5)) ELSE lower(a.name) END', [id]),
     listens,
     totalSeconds: listens.reduce((n, l) => n + (l.audio_length_seconds ?? 0), 0),
     tally: { up: listens.filter((l) => l.rating === 'up').length, neutral: listens.filter((l) => l.rating === 'neutral').length, down: listens.filter((l) => l.rating === 'down').length, unrated: listens.filter((l) => !l.rating).length },
     coNarrators: await db.select<Counted>(
       `SELECT n.id AS id, n.name AS name, count(*) AS n FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN read_narrator other ON other.read_id = r.id AND other.narrator_id != rn.narrator_id AND other.deleted_at IS NULL
-       JOIN narrator n ON n.id = other.narrator_id AND n.deleted_at IS NULL WHERE ${LISTEN} GROUP BY n.id ORDER BY n DESC, n.name`, [id]),
+       JOIN narrator n ON n.id = other.narrator_id AND n.deleted_at IS NULL WHERE ${LISTEN} GROUP BY n.id ORDER BY n DESC, CASE WHEN lower(n.name) LIKE \'the %\' THEN lower(substr(n.name, 5)) ELSE lower(n.name) END`, [id]),
     voiced: await db.select(
       `SELECT DISTINCT ch.id AS id, ch.name AS name, b.title AS book FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id JOIN read_narrator_character rnc ON rnc.read_narrator_id = rn.id AND rnc.deleted_at IS NULL
-       JOIN character ch ON ch.id = rnc.character_id AND ch.deleted_at IS NULL WHERE ${LISTEN} ORDER BY ch.name`, [id]),
+       JOIN character ch ON ch.id = rnc.character_id AND ch.deleted_at IS NULL WHERE ${LISTEN} ORDER BY CASE WHEN lower(ch.name) LIKE \'the %\' THEN lower(substr(ch.name, 5)) ELSE lower(ch.name) END`, [id]),
     commonAccents: await db.select<Counted>(
-      `SELECT a.id AS id, a.name AS name, count(*) AS n FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN accent a ON a.id = rn.accent_id WHERE ${LISTEN} GROUP BY a.id ORDER BY n DESC, a.name`, [id]),
+      `SELECT a.id AS id, a.name AS name, count(*) AS n FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN accent a ON a.id = rn.accent_id WHERE ${LISTEN} GROUP BY a.id ORDER BY n DESC, CASE WHEN lower(a.name) LIKE \'the %\' THEN lower(substr(a.name, 5)) ELSE lower(a.name) END`, [id]),
     genres: await tagCounts(db, 'genre', books, [id]), tropes: await tagCounts(db, 'trope', books, [id]),
     // Books where this narrator is a default narrator but you have not listened to them narrate.
     notListened: await db.select(
       `SELECT b.id AS id, b.title AS title FROM book_narrator bn JOIN book b ON b.id = bn.book_id AND b.deleted_at IS NULL
        WHERE bn.narrator_id = ? AND bn.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM read_narrator rn JOIN read r ON r.id = rn.read_id WHERE rn.narrator_id = bn.narrator_id AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND r.book_id = b.id AND r.format = 'audio')
-       ORDER BY lower(b.title)`, [id]),
+       ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`, [id]),
   };
 }
 

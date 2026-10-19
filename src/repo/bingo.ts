@@ -20,7 +20,7 @@ export async function listBanks(db: Db, year: number): Promise<BankSummary[]> {
   const rows = await db.select<{ id: string; name: string; count: number; last: number | null }>(
     `SELECT b.id AS id, b.name AS name, (SELECT count(*) FROM bingo_prompt p WHERE p.bank_id = b.id AND p.deleted_at IS NULL) AS count,
        (SELECT max(y.year) FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id WHERE c.bank_id = b.id AND c.deleted_at IS NULL AND y.year < ?) AS last
-     FROM bingo_bank b WHERE b.deleted_at IS NULL ORDER BY lower(b.name)`, [year]);
+     FROM bingo_bank b WHERE b.deleted_at IS NULL ORDER BY CASE WHEN lower(b.name) LIKE \'the %\' THEN lower(substr(b.name, 5)) ELSE lower(b.name) END`, [year]);
   return rows.map((r) => ({ id: r.id, name: r.name, count: r.count, lastYear: r.last }));
 }
 export async function getBank(db: Db, id: string): Promise<Bank | null> {

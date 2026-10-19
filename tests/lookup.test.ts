@@ -1,3 +1,4 @@
+import { byTitle } from '../src/domain/sortKey';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it, vi } from 'vitest';
 import { migrateNodeDb } from '../src/db/nodeDb';
@@ -186,7 +187,7 @@ describe('the books that need covers', () => {
     await applyNotionPlan(db, planNotionBooks(readFileSync(new URL('./fixtures/book-tracker.csv', import.meta.url), 'utf8')), { tagDestinations: {} });
     const all = await listBooksForCovers(db);
     expect(all.length).toBe(15);
-    expect(all.map((b) => b.title)).toEqual([...all.map((b) => b.title)].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())));
+    expect(all.map((b) => b.title)).toEqual([...all.map((b) => b.title)].sort(byTitle));
     const puck = all.find((b) => b.title === 'Egotistical Puckboy')!;
     expect(puck.authors).toEqual(['Eden Finley', 'Saxon James']);
     await setBookCover(db, puck.id, { dataUrl: 'data:image/png;base64,AAA' });

@@ -1,3 +1,4 @@
+import { byTitle } from '../domain/sortKey';
 import type { Db, SqlValue } from '../db/adapter';
 import { deleteRead } from './bookLog';
 import { combineText, SIMILAR_FROM, titleSimilarity } from '../domain/bookMerge';
@@ -17,7 +18,7 @@ export async function listMergeCandidates(db: Db, bookId: string): Promise<{ sim
   const me = await first<{ title: string }>(db, 'SELECT title FROM book WHERE id = ? AND deleted_at IS NULL', [bookId]);
   if (!me) throw new Error('That book could not be found.');
   const rows = await db.select<{ id: string; title: string; authors: string | null; reads: number }>(CANDIDATES, [bookId]);
-  const all = rows.map((r) => { const score = titleSimilarity(me.title, r.title); return { ...r, score, same: score >= 0.95 }; }).sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+  const all = rows.map((r) => { const score = titleSimilarity(me.title, r.title); return { ...r, score, same: score >= 0.95 }; }).sort((a, b) => b.score - a.score || byTitle(a.title, b.title));
   return { similar: all.filter((c) => c.score >= SIMILAR_FROM), all };
 }
 
@@ -94,6 +95,9 @@ const JOINS: { table: string; target: string; list: string; label: string }[] = 
   { table: 'book_genre', target: 'genre_id', list: 'genre', label: 'Genres' },
   { table: 'book_theme', target: 'theme_id', list: 'theme', label: 'Themes' },
   { table: 'book_trope', target: 'trope_id', list: 'trope', label: 'Tropes' },
+  { table: 'book_mood', target: 'mood_id', list: 'mood', label: 'Moods' },
+  { table: 'book_pace', target: 'pace_id', list: 'pace', label: 'Pace' },
+  { table: 'book_content_warning', target: 'content_warning_id', list: 'content_warning', label: 'Content warnings' },
   { table: 'book_character', target: 'character_id', list: 'character', label: 'Characters' },
   { table: 'book_place', target: 'place_id', list: 'place', label: 'Places' },
 ];

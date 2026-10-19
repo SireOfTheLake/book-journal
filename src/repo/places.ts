@@ -16,13 +16,13 @@ export async function listPlaces(db: Db): Promise<PlaceRow[]> {
     `SELECT p.id AS id, p.name AS name, p.city AS city, p.state_region AS area, p.country AS country, p.is_fictional AS fictional, ${NEEDS_UPDATE_SQL} AS needs,
        (SELECT count(*) FROM book_place bp JOIN book b ON b.id = bp.book_id AND b.deleted_at IS NULL WHERE bp.place_id = p.id AND bp.deleted_at IS NULL) AS books,
        (SELECT count(*) FROM character c WHERE c.deleted_at IS NULL AND (c.current_place_id = p.id OR EXISTS (SELECT 1 FROM character_previous_place cp WHERE cp.character_id = c.id AND cp.place_id = p.id AND cp.deleted_at IS NULL))) AS characters
-     FROM place p WHERE p.deleted_at IS NULL ORDER BY needs DESC, p.name COLLATE NOCASE`);
+     FROM place p WHERE p.deleted_at IS NULL ORDER BY needs DESC, CASE WHEN lower(p.name) LIKE \'the %\' THEN lower(substr(p.name, 5)) ELSE lower(p.name) END`);
   return rows.map((r) => ({ id: r.id, name: r.name, city: r.city, area: r.area, country: r.country, fictional: !!r.fictional, needsUpdate: !!r.needs, books: Number(r.books), characters: Number(r.characters) }));
 }
 
 // The locations you can pick for a book: the ones already sorted into city / area / country (or marked fictional), not loose plain text.
 export const listPickablePlaces = (db: Db) => db.select<{ id: string; name: string }>(
-  `SELECT p.id AS id, p.name AS name FROM place p WHERE p.deleted_at IS NULL AND NOT ${NEEDS_UPDATE_SQL} ORDER BY p.name COLLATE NOCASE`);
+  `SELECT p.id AS id, p.name AS name FROM place p WHERE p.deleted_at IS NULL AND NOT ${NEEDS_UPDATE_SQL} ORDER BY CASE WHEN lower(p.name) LIKE \'the %\' THEN lower(substr(p.name, 5)) ELSE lower(p.name) END`);
 
 // How many locations used by a book still need updating (this is what To Tidy shows). A tag that is removed from its books stops counting.
 export async function countPlacesNeedingUpdate(db: Db): Promise<number> {
@@ -151,11 +151,11 @@ export async function getPlaceDetail(db: Db, id: string): Promise<PlaceDetail | 
   const books = await db.select<{ id: string; title: string; authors: string | null }>(
     `SELECT b.id AS id, b.title AS title,
        (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.rowid) x) AS authors
-     FROM book_place bp JOIN book b ON b.id = bp.book_id AND b.deleted_at IS NULL WHERE bp.place_id = ? AND bp.deleted_at IS NULL ORDER BY b.title COLLATE NOCASE`, [id]);
+     FROM book_place bp JOIN book b ON b.id = bp.book_id AND b.deleted_at IS NULL WHERE bp.place_id = ? AND bp.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`, [id]);
   const chars = await db.select<{ id: string; name: string; cur: number; prev: number }>(
     `SELECT c.id AS id, c.name AS name, (c.current_place_id = ?1) AS cur,
        EXISTS (SELECT 1 FROM character_previous_place cp WHERE cp.character_id = c.id AND cp.place_id = ?1 AND cp.deleted_at IS NULL) AS prev
      FROM character c WHERE c.deleted_at IS NULL AND (c.current_place_id = ?1 OR EXISTS (SELECT 1 FROM character_previous_place cp WHERE cp.character_id = c.id AND cp.place_id = ?1 AND cp.deleted_at IS NULL))
-     ORDER BY c.name COLLATE NOCASE`, [id]);
+     ORDER BY CASE WHEN lower(c.name) LIKE \'the %\' THEN lower(substr(c.name, 5)) ELSE lower(c.name) END`, [id]);
   return { place, books, characters: chars.map((c) => ({ id: c.id, name: c.name, how: [c.cur ? 'Lives here now' : null, c.prev ? 'Lived here before' : null].filter(Boolean).join(', ') })) };
 }

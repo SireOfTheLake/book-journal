@@ -14,7 +14,7 @@ export type TagKind = 'genre' | 'theme' | 'trope';
 export interface TagColorRow { id: string; name: string; color: string | null; books: number }
 export const listTagColors = (db: Db, kind: TagKind) => db.select<TagColorRow>(
   `SELECT x.id AS id, x.name AS name, x.color AS color, (SELECT count(*) FROM book_${kind} j WHERE j.${kind}_id = x.id AND j.deleted_at IS NULL) AS books
-   FROM ${kind} x WHERE x.deleted_at IS NULL ORDER BY x.name COLLATE NOCASE`);
+   FROM ${kind} x WHERE x.deleted_at IS NULL ORDER BY CASE WHEN lower(x.name) LIKE \'the %\' THEN lower(substr(x.name, 5)) ELSE lower(x.name) END`);
 export async function setTagColor(db: Db, kind: TagKind, id: string, color: string) {
   if (!/^#[0-9a-f]{6}$/i.test(color)) throw new Error('That is not a color.');
   await db.execute(`UPDATE ${kind} SET color = ? WHERE id = ?`, [color.toLowerCase(), id]);

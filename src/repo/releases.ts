@@ -1,3 +1,4 @@
+import { byTitle } from '../domain/sortKey';
 import type { Db } from '../db/adapter';
 import { FMTS, type Fmt } from '../domain/releases';
 import { addToShelf } from './shelf';
@@ -38,7 +39,7 @@ export async function listUpcoming(db: Db, today: string): Promise<ReleaseBook[]
   if (!ids.length) return [];
   const rows = (await db.select<Row>(`${BOOKS} AND b.id IN (${ids.map(() => '?').join(',')})`, ids.map((i) => i.book_id)));
   const books = (await withFormats(db, rows)).map((b) => ({ ...b, next: futureDates(b, today).sort()[0] ?? null }));
-  return books.filter((b) => b.next || hasTba(b)).sort((a, b) => (a.next ?? '9999') < (b.next ?? '9999') ? -1 : (a.next ?? '9999') > (b.next ?? '9999') ? 1 : a.title.localeCompare(b.title));
+  return books.filter((b) => b.next || hasTba(b)).sort((a, b) => (a.next ?? '9999') < (b.next ?? '9999') ? -1 : (a.next ?? '9999') > (b.next ?? '9999') ? 1 : byTitle(a.title, b.title));
 }
 
 // Books that came out in the last `days` days that you have not read or started and that have nothing else still to come.

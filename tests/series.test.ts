@@ -1,3 +1,4 @@
+import { byTitle } from '../src/domain/sortKey';
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../src/db/adapter';
@@ -21,7 +22,7 @@ beforeEach(async () => {
 describe('the Series Ledger', () => {
   it('lists every series A to Z with a mark per book', async () => {
     const rows = await listSeriesLedger(db);
-    expect(rows.map((r) => r.title)).toEqual([...rows.map((r) => r.title)].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())));
+    expect(rows.map((r) => r.title)).toEqual([...rows.map((r) => r.title)].sort(byTitle));
     const puck = rows.find((r) => r.title === 'Puckboys')!;
     expect(puck.marks.map((m) => m.state)).toEqual(['read', 'read']);
     expect(puck).toMatchObject({ read: 2, total: 2, universe: 'Sadenverse' });

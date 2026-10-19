@@ -2,7 +2,21 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 -->
+
+## 0.1.12 — 2026-10-19
+
+### New
+- Mood and pace tags on each book (switch on in Settings > Features).
+- Content warnings on each book (switch on in Settings > Features).
+- "Why I stopped" and "Where I got to" on DNF reads (switch on in Settings > Features).
+- "Recommended by" on TBR and Up Next books (switch on in Settings > Features).
+- A series now shows every genre its books have, and you can still add your own genres to the series.
+- Reading Orders page under Library: make lists of books in the order you want to read them, drag to reorder, include books not in your library, and add them to your library with author, series, position and cover.
+
+### Improved
+- Alphabetical lists everywhere now ignore a leading "The", so "The Hobbit" files under H.
+- On a reading order, "Add to library" can now also link a line to a book you already added on its own.
 
 ## 0.1.11 — 2026-10-18
 

@@ -36,9 +36,9 @@ export default function BookLogPage() {
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
-    const [l, sources, timePeriods, accents, places, genres, themes, tropes, series, universes, characters, authors, narrators] = await Promise.all([
+    const [l, sources, timePeriods, accents, places, genres, themes, tropes, moods, paces, warnings, series, universes, characters, authors, narrators] = await Promise.all([
       repo.getBookLog(db, bookId, readId), repo.listItems(db, 'source'), repo.listItems(db, 'time_period'), repo.listItems(db, 'accent'), listPickablePlaces(db),
-      repo.listTagOptions(db, 'genre'), repo.listTagOptions(db, 'theme'), repo.listTagOptions(db, 'trope'), listSeriesOptions(db), listUniverses(db), listCharacterOptions(db), repo.listAuthorOptions(db), repo.listNarratorOptions(db),
+      repo.listTagOptions(db, 'genre'), repo.listTagOptions(db, 'theme'), repo.listTagOptions(db, 'trope'), repo.listTagOptions(db, 'mood'), repo.listTagOptions(db, 'pace'), repo.listTagOptions(db, 'content_warning'), listSeriesOptions(db), listUniverses(db), listCharacterOptions(db), repo.listAuthorOptions(db), repo.listNarratorOptions(db),
     ]);
     setLog(l);
     setQuotes(flags.quotes ? await listBookQuotes(db, bookId) : []);
@@ -50,7 +50,7 @@ export default function BookLogPage() {
     } else setChData({ items: [], choices: [] });
     setShelf(l?.book.is_draft ? await listShelf(db) : []);
     setNeighbors(await repo.getNeighbors(db, l?.read?.id ?? null));
-    setLists({ sources, timePeriods, accents, places, genres, themes, tropes, series, universes, characters, authors, narrators });
+    setLists({ sources, timePeriods, accents, places, genres, themes, tropes, moods, paces, warnings, series, universes, characters, authors, narrators });
   }, [db, bookId, readId, flags.quotes]);
   useEffect(() => { reload().catch((e) => setError(String(e))); }, [reload]);
 

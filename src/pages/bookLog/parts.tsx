@@ -239,7 +239,7 @@ export function Thumbs({ value, onChange }: { value: 'up' | 'neutral' | 'down' |
 // Tags for a book. "+ Add genre" opens a search box: matches appear as you type, Enter picks or creates.
 // Click a tag's name to rename it everywhere; the x removes it from this book only.
 export function TagEditor({ label, items, options, onAdd, onRemove, onRename }:
-  { label: string; items: Item[]; options: Item[]; onAdd: (name: string) => void; onRemove: (id: string) => void; onRename: (id: string, name: string) => void }) {
+  { label: string; items: (Item & { locked?: boolean })[]; options: Item[]; onAdd: (name: string) => void; onRemove: (id: string) => void; onRename: (id: string, name: string) => void }) {
   const one = label.toLowerCase().replace(/s$/, '');
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
@@ -265,7 +265,7 @@ export function TagEditor({ label, items, options, onAdd, onRemove, onRename }:
             ) : (
               <button type="button" className="chipname" title="Rename (changes it everywhere)" onClick={() => { setDraft(t.name); setRenaming(t.id); }}>{t.name}</button>
             )}
-            <button type="button" className="x" aria-label={`Remove ${t.name}`} onClick={() => onRemove(t.id)}>&times;</button>
+            {t.locked ? <span className="muted small" title="Comes from this series' books">&#8226;</span> : <button type="button" className="x" aria-label={`Remove ${t.name}`} onClick={() => onRemove(t.id)}>&times;</button>}
           </span>
         ))}
       </div>

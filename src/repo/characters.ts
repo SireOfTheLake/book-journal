@@ -1,3 +1,4 @@
+import { byTitle } from '../domain/sortKey';
 import { voicingCandidates, voicingsOf, type Voicing } from './voicing';
 import type { Db, SqlValue } from '../db/adapter';
 import { newId } from '../domain/ids';
@@ -22,10 +23,10 @@ export const listCharacters = (db: Db) => db.select<CharacterListRow>(
      ${PARTNERS_SQL} AS partners,
      (SELECT group_concat(t.name, ', ') FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = c.id AND l.deleted_at IS NULL) AS tags,
      (SELECT p.name FROM place p WHERE p.id = c.current_place_id) AS place,
-     (SELECT json_group_array(json_object('id', x.id, 'title', x.title)) FROM (SELECT b.id AS id, b.title AS title FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = c.id AND bc.role = 'main' AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY b.title) x) AS main_titles,
+     (SELECT json_group_array(json_object('id', x.id, 'title', x.title)) FROM (SELECT b.id AS id, b.title AS title FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = c.id AND bc.role = 'main' AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END) x) AS main_titles,
      (SELECT count(*) FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = c.id AND bc.role = 'main' AND bc.deleted_at IS NULL AND b.deleted_at IS NULL) AS main_books,
      (SELECT count(*) FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = c.id AND bc.role = 'side' AND bc.deleted_at IS NULL AND b.deleted_at IS NULL) AS side_books
-   FROM character c WHERE c.deleted_at IS NULL ORDER BY lower(c.name)`);
+   FROM character c WHERE c.deleted_at IS NULL ORDER BY CASE WHEN lower(c.name) LIKE \'the %\' THEN lower(substr(c.name, 5)) ELSE lower(c.name) END`);
 
 // ---------- one character ----------
 export interface CharacterCore {
@@ -59,7 +60,7 @@ export async function getCharacter(db: Db, id: string): Promise<CharacterDetail 
     const [o] = await db.select<{ name: string; origin_note: string | null; is_featured: number; life_status: Relationship['other_life'] }>('SELECT name, origin_note, is_featured, life_status FROM character WHERE id = ? AND deleted_at IS NULL', [otherId]);
     if (o) relationships.push({ id: r.id, other_id: otherId, other_name: o.name, other_origin: o.origin_note, other_featured: o.is_featured, rel_type: r.rel_type, is_current: r.is_current, label: r.a === id ? r.b_is_to_a : r.a_is_to_b, status: r.a === id ? r.b_status : r.a_status, other_life: o.life_status });
   }
-  relationships.sort((x, y) => x.other_name.localeCompare(y.other_name));
+  relationships.sort((x, y) => byTitle(x.other_name, y.other_name));
   const images = await db.select<{ id: string; data: string; is_main: number }>(
     `SELECT i.id AS id, i.file_path AS data, ci.is_main AS is_main FROM character_image ci JOIN image i ON i.id = ci.image_id
      WHERE ci.character_id = ? AND ci.deleted_at IS NULL AND i.deleted_at IS NULL ORDER BY ci.is_main DESC, ci.sort_order, ci.rowid`, [id]);
@@ -68,18 +69,18 @@ export async function getCharacter(db: Db, id: string): Promise<CharacterDetail 
     sexuality: core.sexuality_id ? await one('SELECT id, name FROM sexuality WHERE id = ?', [core.sexuality_id]) : null,
     place: core.current_place_id ? await one('SELECT id, name FROM place WHERE id = ?', [core.current_place_id]) : null,
     previousPlaces: await db.select<Item>('SELECT p.id AS id, p.name AS name FROM character_previous_place cp JOIN place p ON p.id = cp.place_id WHERE cp.character_id = ? AND cp.deleted_at IS NULL ORDER BY cp.sort_order', [id]),
-    occupations: await db.select<Item>('SELECT o.id AS id, o.name AS name FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = ? AND co.deleted_at IS NULL ORDER BY o.name', [id]),
-    tags: await db.select<Item>('SELECT t.id AS id, t.name AS name, t.color AS color FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = ? AND l.deleted_at IS NULL ORDER BY t.name', [id]),
+    occupations: await db.select<Item>('SELECT o.id AS id, o.name AS name FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = ? AND co.deleted_at IS NULL ORDER BY CASE WHEN lower(o.name) LIKE \'the %\' THEN lower(substr(o.name, 5)) ELSE lower(o.name) END', [id]),
+    tags: await db.select<Item>('SELECT t.id AS id, t.name AS name, t.color AS color FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = ? AND l.deleted_at IS NULL ORDER BY CASE WHEN lower(t.name) LIKE \'the %\' THEN lower(substr(t.name, 5)) ELSE lower(t.name) END', [id]),
     altNames: await db.select('SELECT a.id AS id, a.name AS name, t.name AS type FROM character_alt_name a LEFT JOIN name_type t ON t.id = a.name_type_id WHERE a.character_id = ? AND a.deleted_at IS NULL ORDER BY a.rowid', [id]),
     relationships,
     people: await db.select<RelatedPerson>('SELECT id, name, rel_type, is_current, label, status FROM related_person WHERE character_id = ? AND deleted_at IS NULL ORDER BY sort_order, rowid', [id]),
     books: await db.select<CharacterBook>(
       `SELECT bc.id AS id, b.id AS book_id, b.title AS title, bc.role AS role, bc.notes AS notes,
          (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS read_id
-       FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY bc.role, b.title`, [id]),
-    series: await db.select<Item>('SELECT DISTINCT s.id AS id, s.title AS name FROM book_character bc JOIN book b ON b.id = bc.book_id JOIN series s ON s.id = b.series_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY s.title', [id]),
+       FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY bc.role, CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`, [id]),
+    series: await db.select<Item>('SELECT DISTINCT s.id AS id, s.title AS name FROM book_character bc JOIN book b ON b.id = bc.book_id JOIN series s ON s.id = b.series_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY CASE WHEN lower(s.title) LIKE \'the %\' THEN lower(substr(s.title, 5)) ELSE lower(s.title) END', [id]),
     voicings: await voicingsOf(db, id), voiceOptions: await voicingCandidates(db, id),
-    narrators: await db.select<Item>('SELECT DISTINCT n.id AS id, n.name AS name FROM v_character_voiced_by v JOIN narrator n ON n.id = v.narrator_id WHERE v.character_id = ? ORDER BY n.name', [id]),
+    narrators: await db.select<Item>('SELECT DISTINCT n.id AS id, n.name AS name FROM v_character_voiced_by v JOIN narrator n ON n.id = v.narrator_id WHERE v.character_id = ? ORDER BY CASE WHEN lower(n.name) LIKE \'the %\' THEN lower(substr(n.name, 5)) ELSE lower(n.name) END', [id]),
     images: await Promise.all(images.map(async (im) => ({ ...im, tagged: await db.select<Item>('SELECT c.id AS id, c.name AS name FROM character_image ci JOIN character c ON c.id = ci.character_id WHERE ci.image_id = ? AND ci.character_id != ? AND ci.deleted_at IS NULL', [im.id, id]) }))),
   };
 }
@@ -115,12 +116,12 @@ export async function renameNamed(db: Db, table: Named, id: string, name: string
   await db.execute(`UPDATE ${table} SET name = ? WHERE id = ?`, [n, id]);
 }
 
-export const listNamed = (db: Db, table: Named | 'place') => db.select<Item>(`SELECT id, name${table === 'character_tag' ? ', color' : ''} FROM ${table} WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE`);
+export const listNamed = (db: Db, table: Named | 'place') => db.select<Item>(`SELECT id, name${table === 'character_tag' ? ', color' : ''} FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
 export const listCharacterOptions = (db: Db) => db.select<Item & { tags: string | null }>(
   `SELECT c.id AS id, c.name AS name,
      (SELECT group_concat(t.name, ', ') FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = c.id AND l.deleted_at IS NULL) AS tags
-   FROM character c WHERE c.deleted_at IS NULL ORDER BY lower(c.name)`);
-export const listCharacterNames = (db: Db) => db.select<Item>('SELECT id, name FROM character WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE');
+   FROM character c WHERE c.deleted_at IS NULL ORDER BY CASE WHEN lower(c.name) LIKE \'the %\' THEN lower(substr(c.name, 5)) ELSE lower(c.name) END`);
+export const listCharacterNames = (db: Db) => db.select<Item>('SELECT id, name FROM character WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END');
 
 export async function addAltName(db: Db, characterId: string, name: string, typeName: string | null) {
   if (!name.trim()) return;
@@ -222,7 +223,7 @@ export async function convertPerson(db: Db, personId: string, target: { id?: str
 export const listBookOptions = (db: Db) => db.select<Item & { authors: string | null }>(
   `SELECT b.id AS id, b.title AS name,
      (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors
-   FROM book b WHERE b.deleted_at IS NULL ORDER BY lower(b.title)`);
+   FROM book b WHERE b.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`);
 
 export async function addCharacterToBook(db: Db, characterId: string, bookId: string, role: 'main' | 'side'): Promise<void> {
   const existing = await first(db, 'SELECT id FROM book_character WHERE book_id = ? AND character_id = ? AND deleted_at IS NULL', [bookId, characterId]);
@@ -268,14 +269,14 @@ export async function characterMergePlan(db: Db, keepId: string, dupId: string):
   // sexuality and setting are stored as ids; the screen shows names but the choice is by key
   const items: MergePlan['items'] = [];
   const add = async (group: string, table: string, sql: string) => { for (const r of await db.select<{ id: string; label: string }>(sql, [dupId])) items.push({ key: `${table}:${r.id}`, group, label: r.label }); };
-  await add('Books', 'book_character', "SELECT bc.id AS id, b.title || ' (' || bc.role || ')' AS label FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY b.title");
+  await add('Books', 'book_character', "SELECT bc.id AS id, b.title || ' (' || bc.role || ')' AS label FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END");
   await add('Other names', 'character_alt_name', 'SELECT id, name AS label FROM character_alt_name WHERE character_id = ? AND deleted_at IS NULL ORDER BY rowid');
-  await add('Occupations', 'character_occupation', 'SELECT co.id AS id, o.name AS label FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = ? AND co.deleted_at IS NULL ORDER BY o.name');
-  await add('Tags', 'character_tag_link', 'SELECT l.id AS id, t.name AS label FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = ? AND l.deleted_at IS NULL ORDER BY t.name');
-  await add('Previous places', 'character_previous_place', 'SELECT cp.id AS id, p.name AS label FROM character_previous_place cp JOIN place p ON p.id = cp.place_id WHERE cp.character_id = ? AND cp.deleted_at IS NULL ORDER BY p.name');
-  await add('Family and friends', 'related_person', 'SELECT id, name || \' (\' || rel_type || \')\' AS label FROM related_person WHERE character_id = ? AND deleted_at IS NULL ORDER BY name');
+  await add('Occupations', 'character_occupation', 'SELECT co.id AS id, o.name AS label FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = ? AND co.deleted_at IS NULL ORDER BY CASE WHEN lower(o.name) LIKE \'the %\' THEN lower(substr(o.name, 5)) ELSE lower(o.name) END');
+  await add('Tags', 'character_tag_link', 'SELECT l.id AS id, t.name AS label FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = ? AND l.deleted_at IS NULL ORDER BY CASE WHEN lower(t.name) LIKE \'the %\' THEN lower(substr(t.name, 5)) ELSE lower(t.name) END');
+  await add('Previous places', 'character_previous_place', 'SELECT cp.id AS id, p.name AS label FROM character_previous_place cp JOIN place p ON p.id = cp.place_id WHERE cp.character_id = ? AND cp.deleted_at IS NULL ORDER BY CASE WHEN lower(p.name) LIKE \'the %\' THEN lower(substr(p.name, 5)) ELSE lower(p.name) END');
+  await add('Family and friends', 'related_person', 'SELECT id, name || \' (\' || rel_type || \')\' AS label FROM related_person WHERE character_id = ? AND deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END');
   await add('Relationships', 'character_relationship', `SELECT r.id AS id, o.name || ' (' || r.rel_type || ')' AS label FROM character_relationship r JOIN character o ON o.id = CASE WHEN r.character_a_id = '${dupId}' THEN r.character_b_id ELSE r.character_a_id END
-    WHERE (r.character_a_id = '${dupId}' OR r.character_b_id = '${dupId}') AND r.deleted_at IS NULL AND o.id <> '${keepId}' AND ? IS NOT NULL ORDER BY o.name`);
+    WHERE (r.character_a_id = '${dupId}' OR r.character_b_id = '${dupId}') AND r.deleted_at IS NULL AND o.id <> '${keepId}' AND ? IS NOT NULL ORDER BY CASE WHEN lower(o.name) LIKE \'the %\' THEN lower(substr(o.name, 5)) ELSE lower(o.name) END`);
   await add('Pictures', 'character_image', "SELECT id, 'Picture ' || (rowid) AS label FROM character_image WHERE character_id = ? AND deleted_at IS NULL ORDER BY rowid");
   return { fields, items };
 }

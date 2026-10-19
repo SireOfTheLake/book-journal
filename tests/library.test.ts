@@ -1,3 +1,4 @@
+import { byTitle } from '../src/domain/sortKey';
 import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../src/db/adapter';
@@ -94,7 +95,7 @@ describe('searching, filtering, and sorting', () => {
     await updateRead(db, (await db.select<{ id: string }>('SELECT r.id AS id FROM read r JOIN book b ON b.id = r.book_id WHERE b.title = ?', ['Bro Doll']))[0].id, { rating: 12 });
     const books = await lib();
     const t = (k: Parameters<typeof sortLibrary>[1]) => sortLibrary(books, k).map((b) => b.title);
-    expect(t('title')).toEqual([...books.map((b) => b.title)].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())));
+    expect(t('title')).toEqual([...books.map((b) => b.title)].sort(byTitle));
     expect(t('rating').slice(0, 2)).toEqual(['Hush', 'Bro Doll']);
     expect(sortLibrary(books, 'rating').at(-1)!.rating).toBeNull();
     const finished = sortLibrary(books, 'finished');

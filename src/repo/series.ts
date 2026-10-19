@@ -70,7 +70,7 @@ export function seriesStatus(series: SeriesDbRow, books: BookDbRow[]): SeriesSta
 
 export async function listSeriesLedger(db: Db): Promise<LedgerRow[]> {
   const series = await db.select<SeriesDbRow & { universe: string | null }>(
-    `SELECT s.*, (SELECT u.name FROM universe u WHERE u.id = s.universe_id) AS universe FROM series s WHERE s.deleted_at IS NULL ORDER BY lower(s.title)`);
+    `SELECT s.*, (SELECT u.name FROM universe u WHERE u.id = s.universe_id) AS universe FROM series s WHERE s.deleted_at IS NULL ORDER BY CASE WHEN lower(s.title) LIKE \'the %\' THEN lower(substr(s.title, 5)) ELSE lower(s.title) END`);
   const books = await db.select<BookDbRow>(BOOKS_SQL);
   return series.map((s) => {
     const mine = books.filter((b) => b.series_id === s.id);
@@ -91,7 +91,7 @@ export interface SeriesBook {
 }
 export interface SeriesPage {
   series: SeriesDbRow; universe: { id: string; name: string } | null; authors: { id: string; name: string }[];
-  books: SeriesBook[]; genres: { id: string; name: string; color: string | null }[];
+  books: SeriesBook[]; genres: { id: string; name: string; color: string | null; locked?: boolean }[];
   read: number; total: number; allBooks: number; novellas: number; avgStars: number | null; ratedBooks: number; status: SeriesStatus;
 }
 
@@ -120,7 +120,7 @@ export async function getSeriesPage(db: Db, seriesId: string): Promise<SeriesPag
   const authors = await seriesAuthors(db, seriesId);
   return {
     series, universe: universe ?? null, authors, books,
-    genres: sortGenres(await db.select<{ id: string; name: string; color: string | null }>('SELECT g.id AS id, g.name AS name, g.color AS color FROM series_genre sg JOIN genre g ON g.id = sg.genre_id WHERE sg.series_id = ? AND sg.deleted_at IS NULL ORDER BY g.name', [seriesId])),
+    genres: sortGenres(await seriesGenres(db, seriesId)),
     ...(() => { const l = seriesLength(series, rows.map((b) => ({ position: b.position, is_read: b.is_read }))); return { read: l.mainRead, total: l.mainTotal, allBooks: l.allBooks, novellas: l.novellas }; })(),
     avgStars: rated.length ? rated.reduce((n, b) => n + b.rating!, 0) / rated.length : null, ratedBooks: rated.length,
     status: seriesStatus(series, rows),
@@ -145,8 +145,8 @@ export async function createSeries(db: Db, title: string, opts: { authors?: stri
   return id;
 }
 
-export const listSeriesOptions = (db: Db) => db.select<{ id: string; name: string }>('SELECT id, title AS name FROM series WHERE deleted_at IS NULL ORDER BY title COLLATE NOCASE');
-export const listUniverses = (db: Db) => db.select<{ id: string; name: string }>('SELECT id, name FROM universe WHERE deleted_at IS NULL ORDER BY name COLLATE NOCASE');
+export const listSeriesOptions = (db: Db) => db.select<{ id: string; name: string }>('SELECT id, title AS name FROM series WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(title) LIKE \'the %\' THEN lower(substr(title, 5)) ELSE lower(title) END');
+export const listUniverses = (db: Db) => db.select<{ id: string; name: string }>('SELECT id, name FROM universe WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END');
 export async function createUniverse(db: Db, name: string): Promise<string> {
   const existing = await first(db, 'SELECT id FROM universe WHERE lower(name) = lower(?) AND deleted_at IS NULL', [name.trim()]);
   if (existing) return existing;
@@ -241,4 +241,14 @@ export async function addSeriesAuthor(db: Db, seriesId: string, who: { id?: stri
 export async function removeSeriesAuthor(db: Db, seriesId: string, authorId: string): Promise<void> {
   await materializeAuthors(db, seriesId);
   await db.execute("UPDATE series_author SET deleted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE series_id = ? AND author_id = ? AND deleted_at IS NULL", [seriesId, authorId]);
+}
+
+// A series shows every genre its books have (these follow the books and cannot be removed here) plus any you added to the series yourself.
+async function seriesGenres(db: Db, seriesId: string) {
+  type G = { id: string; name: string; color: string | null; locked?: boolean };
+  const own = await db.select<G>('SELECT g.id AS id, g.name AS name, g.color AS color FROM series_genre sg JOIN genre g ON g.id = sg.genre_id WHERE sg.series_id = ? AND sg.deleted_at IS NULL', [seriesId]);
+  const fromBooks = await db.select<G>('SELECT DISTINCT g.id AS id, g.name AS name, g.color AS color FROM book b JOIN book_genre bg ON bg.book_id = b.id AND bg.deleted_at IS NULL JOIN genre g ON g.id = bg.genre_id AND g.deleted_at IS NULL WHERE b.series_id = ? AND b.deleted_at IS NULL', [seriesId]);
+  const map = new Map<string, G>(own.map((g) => [g.id, g]));
+  for (const g of fromBooks) map.set(g.id, { ...g, locked: true });
+  return [...map.values()];
 }

@@ -154,6 +154,12 @@ pub fn run() {
         description: "placeholder reads for Up Next books",
         sql: include_str!("../migrations/0027_planned_reads.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 28,
+        description: "permanent placeholder covers",
+        sql: include_str!("../migrations/0028_placeholder_permanent.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

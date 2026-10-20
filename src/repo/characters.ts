@@ -4,7 +4,7 @@ import type { Db, SqlValue } from '../db/adapter';
 import { newId } from '../domain/ids';
 import { first } from '../import/writer';
 import { makeField, resolveValue, type MergeChoice, type MergePlan } from './mergeReview';
-import type { Item } from './bookLog';
+import type { Item, LogPlace } from './bookLog';
 import { PARTNERS_SQL } from './sql';
 
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
@@ -41,10 +41,15 @@ export interface CharacterBook { id: string; book_id: string; title: string; rol
 export interface CharacterImage { id: string; data: string; is_main: number; tagged: Item[] }
 export interface RelatedPerson { id: string; name: string; rel_type: 'partner' | 'family' | 'friend' | 'other'; is_current: number | null; label: string | null; status: RelStatus | null }
 export interface CharacterDetail {
-  core: CharacterCore; people: RelatedPerson[]; sexuality: Item | null; place: Item | null; previousPlaces: Item[]; occupations: Item[]; tags: Item[];
+  core: CharacterCore; people: RelatedPerson[]; sexuality: Item | null; place: LogPlace | null; previousPlaces: LogPlace[]; occupations: Item[]; tags: Item[];
   altNames: { id: string; name: string; type: string | null }[]; relationships: Relationship[]; books: CharacterBook[];
   series: Item[]; narrators: Item[]; voicings: Voicing[]; voiceOptions: Voicing[]; images: CharacterImage[];
 }
+
+// Places with what the location editor needs: the parts of the address and whether it still needs updating.
+const placesOf = async (db: Db, sql: string, params: SqlValue[]): Promise<LogPlace[]> =>
+  (await db.select<{ id: string; name: string; city: string | null; area: string | null; country: string | null; fictional: number; needs: number }>(sql, params))
+    .map((r) => ({ id: r.id, name: r.name, city: r.city, area: r.area, country: r.country, fictional: !!r.fictional, needsUpdate: !!r.needs }));
 
 export async function getCharacter(db: Db, id: string): Promise<CharacterDetail | null> {
   const [core] = await db.select<CharacterCore>(
@@ -67,8 +72,8 @@ export async function getCharacter(db: Db, id: string): Promise<CharacterDetail 
   return {
     core,
     sexuality: core.sexuality_id ? await one('SELECT id, name FROM sexuality WHERE id = ?', [core.sexuality_id]) : null,
-    place: core.current_place_id ? await one('SELECT id, name FROM place WHERE id = ?', [core.current_place_id]) : null,
-    previousPlaces: await db.select<Item>('SELECT p.id AS id, p.name AS name FROM character_previous_place cp JOIN place p ON p.id = cp.place_id WHERE cp.character_id = ? AND cp.deleted_at IS NULL ORDER BY cp.sort_order', [id]),
+    place: core.current_place_id ? (await placesOf(db, 'SELECT x.id AS id, x.name AS name, x.city AS city, x.state_region AS area, x.country AS country, x.is_fictional AS fictional, (x.located = 0 AND x.is_fictional = 0) AS needs FROM place x WHERE x.id = ? AND x.deleted_at IS NULL', [core.current_place_id]))[0] ?? null : null,
+    previousPlaces: await placesOf(db, 'SELECT x.id AS id, x.name AS name, x.city AS city, x.state_region AS area, x.country AS country, x.is_fictional AS fictional, (x.located = 0 AND x.is_fictional = 0) AS needs FROM character_previous_place cp JOIN place x ON x.id = cp.place_id WHERE cp.character_id = ? AND cp.deleted_at IS NULL AND x.deleted_at IS NULL ORDER BY cp.sort_order, cp.created_at, cp.rowid', [id]),
     occupations: await db.select<Item>('SELECT o.id AS id, o.name AS name FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = ? AND co.deleted_at IS NULL ORDER BY CASE WHEN lower(o.name) LIKE \'the %\' THEN lower(substr(o.name, 5)) ELSE lower(o.name) END', [id]),
     tags: await db.select<Item>('SELECT t.id AS id, t.name AS name, t.color AS color FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = ? AND l.deleted_at IS NULL ORDER BY CASE WHEN lower(t.name) LIKE \'the %\' THEN lower(substr(t.name, 5)) ELSE lower(t.name) END', [id]),
     altNames: await db.select('SELECT a.id AS id, a.name AS name, t.name AS type FROM character_alt_name a LEFT JOIN name_type t ON t.id = a.name_type_id WHERE a.character_id = ? AND a.deleted_at IS NULL ORDER BY a.created_at, a.rowid', [id]),

@@ -29,7 +29,7 @@ export function filterLibrary(books: LibraryBook[], f: LibraryFilters): LibraryB
   const tagOk = (id: string) => { const t = f.tags ?? []; if (!t.length) return true; const has = (k: string) => lookup.get(k)?.has(id) ?? false; return (f.tagMode ?? 'all') === 'all' ? t.every(has) : t.some(has); };
   return books.filter((b) => tagOk(b.id) && matchesSearch(b, f.query)
     && (f.status === 'all' || (f.status === 'none' ? b.status === null : b.status === f.status))
-    && (!f.favorites || b.is_favorite === 1) && (!f.noCover || b.has_cover === 0));
+    && (!f.favorites || b.is_favorite === 1) && (!f.noCover || (b.has_cover === 0 && !b.placeholder_permanent)));
 }
 
 const text = (a: string | null, b: string | null) => (a == null || b == null) ? (a == null ? (b == null ? 0 : 1) : -1) : byTitle(a, b);

@@ -71,7 +71,7 @@ export async function getHome(db: Db, today: string): Promise<HomeData> {
   const pages = (await getMonthChart(db, year)).reduce((n, m) => n + m.pages, 0);
 
   const [{ n: noCover }] = await db.select<{ n: number }>(
-    `SELECT count(*) AS n FROM book b WHERE b.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL)`);
+    `SELECT count(*) AS n FROM book b WHERE b.deleted_at IS NULL AND b.placeholder_permanent = 0 AND NOT EXISTS (SELECT 1 FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL)`);
   const [{ n: unassigned }] = await db.select<{ n: number }>(
     `SELECT count(*) AS n FROM character c WHERE c.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM book_character bc WHERE bc.character_id = c.id AND bc.deleted_at IS NULL)`);
   const [last] = await db.select<{ value: string }>("SELECT value FROM app_setting WHERE key = 'last_backup_at'");

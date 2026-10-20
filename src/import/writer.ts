@@ -64,7 +64,7 @@ export class Writer {
   }
 }
 
-export async function startBatch(db: Db, source: 'notion_books' | 'notion_characters' | 'pdf_journal', note: string): Promise<Writer> {
+export async function startBatch(db: Db, source: 'notion_books' | 'notion_characters' | 'pdf_journal' | 'other', note: string): Promise<Writer> {
   const id = newId();
   await db.execute('INSERT INTO import_batch (id, source, note) VALUES (?, ?, ?)', [id, source, note]);
   return new Writer(db, id);

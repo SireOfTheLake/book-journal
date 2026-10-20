@@ -2,9 +2,9 @@ import { assignVoice, unassignVoice } from '../../repo/voicing';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useDb } from '../../db/DbContext';
-import { newId } from '../../domain/ids';
 import { fileToDataUrl, urlToDataUrl } from '../../ui/imageFile';
 import * as repo from '../../repo/characters';
+import { savePlace } from '../../repo/places';
 import CharacterMenu from './CharacterMenu';
 import CharacterView, { type CharacterActions, type CharacterLists } from './CharacterView';
 
@@ -39,7 +39,8 @@ export default function CharacterPageContainer() {
       addTag: (n) => quiet(() => repo.addCharacterTag(db, id, n)), removeTag: (t) => quiet(() => repo.removeCharacterTag(db, id, t)),
       renameTag: (t, n) => quiet(() => repo.renameNamed(db, 'character_tag', t, n)),
       addPreviousPlace: (p) => quiet(() => repo.addPreviousPlace(db, id, p)), removePreviousPlace: (p) => quiet(() => repo.removePreviousPlace(db, id, p)),
-      createPlace: (n) => quiet(async () => { const pid = newId(); await db.execute('INSERT INTO place (id, name) VALUES (?, ?)', [pid, n.trim()]); await repo.updateCharacter(db, id, { current_place_id: pid }); }),
+      saveCurrentPlace: (pid, input) => run(async () => { const saved = await savePlace(db, pid, input); if (!pid) await repo.updateCharacter(db, id, { current_place_id: saved }); }),
+      savePreviousPlace: (pid, input) => run(async () => { const saved = await savePlace(db, pid, input); if (!pid) await repo.addPreviousPlace(db, id, saved); }),
       addAltName: (n, t) => quiet(() => repo.addAltName(db, id, n, t)), removeAltName: (a) => quiet(() => repo.removeAltName(db, a)),
       linkCharacter: async (other, kind, label) => { await run(() => repo.addRelationship(db, id, { id: other }, kind.startsWith('partner') ? 'partner' : (kind as 'family' | 'friend' | 'other'), kind === 'partner_current' ? 1 : kind === 'partner_previous' ? 0 : null, label)); },
       addPerson: async (name, kind, label) => { await run(() => repo.addPerson(db, id, name, kind.startsWith('partner') ? 'partner' : (kind as 'family' | 'friend' | 'other'), kind === 'partner_current' ? 1 : kind === 'partner_previous' ? 0 : null, label)); },

@@ -113,6 +113,12 @@ function Cover({ log, act }: { log: BookLog; act: Actions }) {
         <LinkImageForm label="Cover from a link" onUrl={act.setCoverUrl} />
         {log.cover && <button type="button" className="mini" onClick={act.removeCover}>Remove</button>}
       </div>
+      {!log.cover && (
+        <label className="chk" title="Leave this book out of the No cover filter and the missing-cover warnings.">
+          <input type="checkbox" checked={log.book.placeholder_permanent === 1} onChange={(e) => act.updateBook({ placeholder_permanent: e.target.checked ? 1 : 0 })} />
+          <span>This placeholder cover is permanent</span>
+        </label>
+      )}
       {finding && <CoverFinder initial={{ title: log.book.title, authors: log.authors.map((a) => a.name) }} onUse={act.setCoverCandidate} onClose={() => setFinding(false)} />}
     </>
   );

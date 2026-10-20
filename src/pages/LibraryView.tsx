@@ -46,7 +46,7 @@ export default function LibraryView({ books, covers, requestCovers, act, pageSiz
 
   const list = useMemo(() => sortLibrary(filterLibrary(books, { query, status, favorites, noCover, tags, tagMode, bookTags }), sort), [books, query, status, favorites, noCover, sort, tags, tagMode, bookTags]);
   const visible = list.slice(0, shown);
-  const missing = books.filter((b) => b.has_cover === 0).length;
+  const missing = books.filter((b) => b.has_cover === 0 && !b.placeholder_permanent).length;
 
   // Whenever the filters or sort change, start again from the first page.
   useEffect(() => setShown(pageSize), [query, status, favorites, noCover, sort, pageSize, tags, tagMode]);

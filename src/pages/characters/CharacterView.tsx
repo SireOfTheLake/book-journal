@@ -4,6 +4,8 @@ import { ageText } from '../../domain/format';
 import { chipStyle } from '../../domain/colors';
 import type { Item } from '../../repo/bookLog';
 import type { CharacterDetail, CharacterImage, RelStatus, Relationship, RelatedPerson } from '../../repo/characters';
+import type { PlaceInput } from '../../repo/places';
+import { PlacePicker } from '../bookLog/LocationEditor';
 import { Card, Combo, EditNotes, EditSelect, EditText, LinkImageForm, Seg, TagEditor, ZoomImage } from '../bookLog/parts';
 
 export interface CharacterLists { sexualities: Item[]; occupations: Item[]; places: Item[]; nameTypes: Item[]; tags: Item[]; characters: (Item & { tags?: string | null })[]; books: (Item & { authors: string | null })[] }
@@ -14,7 +16,8 @@ export interface CharacterActions {
   createSexuality(name: string): void;
   addOccupation(name: string): void; removeOccupation(id: string): void; renameOccupation(id: string, name: string): void;
   addTag(name: string): void; removeTag(id: string): void; renameTag(id: string, name: string): void;
-  addPreviousPlace(placeId: string): void; removePreviousPlace(placeId: string): void; createPlace(name: string): void;
+  addPreviousPlace(placeId: string): void; removePreviousPlace(placeId: string): void;
+  saveCurrentPlace(placeId: string | null, input: PlaceInput): Promise<void>; savePreviousPlace(placeId: string | null, input: PlaceInput): Promise<void>; // a new or changed location, then use it
   addAltName(name: string, type: string): void; removeAltName(id: string): void;
   linkCharacter(otherId: string, kind: RelKind, label: string): void | Promise<void>;
   addPerson(name: string, kind: RelKind, label: string): void | Promise<void>;
@@ -188,10 +191,11 @@ export default function CharacterView({ d, lists, act }: { d: CharacterDetail; l
             <span className="muted">Organization</span>
             <EditText label="Organization" addLabel="Add organization" value={c.organization} onCommit={(v) => act.update({ organization: v.trim() || null })} />
             <span className="muted">Current place</span>
-            <EditSelect label="Current place" addLabel="Add current place" value={c.current_place_id} options={lists.places.map((p) => ({ value: p.id, label: p.name }))} onChange={(id) => act.update({ current_place_id: id })} onCreate={act.createPlace} />
+            <PlacePicker single label="current place" places={d.place ? [d.place] : []} options={lists.places}
+              onPick={(pid) => act.update({ current_place_id: pid })} onRemove={() => act.update({ current_place_id: null })} onSave={act.saveCurrentPlace} />
             <span className="muted">Previous places</span>
-            <div className="chips">{d.previousPlaces.map((p) => <span key={p.id} className="chip" style={{ borderColor: 'var(--line2)' }}>{p.name}<button type="button" className="x" aria-label={`Remove ${p.name}`} onClick={() => act.removePreviousPlace(p.id)}>&times;</button></span>)}</div>
-            <EditSelect label="Previous place" addLabel="Add previous place" value={null} options={lists.places.filter((p) => !d.previousPlaces.some((x) => x.id === p.id)).map((p) => ({ value: p.id, label: p.name }))} onChange={(id) => id && act.addPreviousPlace(id)} />
+            <PlacePicker label="previous place" places={d.previousPlaces} options={lists.places}
+              onPick={act.addPreviousPlace} onRemove={act.removePreviousPlace} onSave={act.savePreviousPlace} />
           </Card>
           <Card label="Alternative names">
             {d.altNames.map((a) => <div className="relline" key={a.id}><b>{a.name}</b><span className="muted small">{a.type ?? ''}</span><span className="grow" /><button type="button" className="mini" aria-label={`Remove ${a.name}`} onClick={() => act.removeAltName(a.id)}>&times;</button></div>)}

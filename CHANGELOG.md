@@ -2,7 +2,17 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 -->
+
+## 0.2.6 — 2026-10-20
+
+### New
+- Import > Book list (CSV): upload a spreadsheet with Title, Author, Series, Position, Page Number and Copies I Own (Physical, Audio, Ebook). A review page shows which authors and series already exist (it matches "AJ Sherwood" to "A.J. Sherwood") and which are new, and you press a button to create each new one (or all at once, or pick an existing one instead). Books already in the library are left out. You can put the books on the TBR or Up Next shelf, and undo the import. "Download example CSV" gives you a file to fill in.
+- On a book with no real cover you can tick "This placeholder cover is permanent". Those books no longer appear under the No cover filter, in the "no cover" notice on All Books and Home, or in the cover finder.
+
+### Improved
+- [changed] Database change 28 (permanent placeholder covers). After updating the computer, run `npm run supabase-sql` and paste the new supabase/schema.sql into Supabase, then update the other devices (see supabase/README.md).
+- [changed] On a character, Current place and Previous places now work like locations on a book: search your locations, add a new one with its city, area and country (or mark it fictional), click one to edit it, and see the warning on plain-text ones. Current place holds one location (picking another replaces it); Previous places holds as many as you like.
 
 ## 0.2.5 — 2026-10-20
 

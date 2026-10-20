@@ -4,7 +4,7 @@ export type LibraryStatus = 'tbr' | 'up_next' | 'reading' | 'finished' | 'on_hol
 export interface LibraryBook {
   id: string; title: string; authors: string | null; series: string | null; series_id: string | null; position: number | null;
   status: LibraryStatus | null; // where the book is now: a shelf, or the state of its latest read
-  finish_date: string | null; rating: number | null; is_favorite: number; has_cover: number; read_id: string | null; added: string;
+  finish_date: string | null; rating: number | null; is_favorite: number; has_cover: number; placeholder_permanent?: number; read_id: string | null; added: string;
   format: 'physical' | 'audio' | 'ebook' | null; narrators: string | null; characters: string | null;
 }
 
@@ -16,7 +16,7 @@ export const listLibrary = (db: Db) => db.select<LibraryBook>(
      COALESCE(b.shelf, (SELECT r.status FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1)) AS status,
      (SELECT r.finish_date FROM read r WHERE r.book_id = b.id AND r.status = 'finished' AND r.deleted_at IS NULL ORDER BY r.finish_date DESC LIMIT 1) AS finish_date,
      (SELECT v.avg_stars FROM v_book_rating v WHERE v.book_id = b.id) AS rating,
-     EXISTS (SELECT 1 FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL) AS has_cover,
+     EXISTS (SELECT 1 FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL) AS has_cover, b.placeholder_permanent AS placeholder_permanent,
      (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS read_id,
      (SELECT r.format FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS format,
      (SELECT group_concat(x.name, ', ') FROM (SELECT DISTINCT n.name AS name FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN narrator n ON n.id = rn.narrator_id

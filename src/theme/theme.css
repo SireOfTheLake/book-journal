@@ -1076,3 +1076,10 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .syncdot.idle { background: hsl(150 45% 55%); }
 .syncdot.syncing { background: var(--accent); }
 .syncdot.problem { background: hsl(0 65% 60%); }
+
+/* CSV book import */
+.csvrows td, .csvrows th { vertical-align: top; }
+.csvrows tr.off td { opacity: .5; }
+.csvent { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 0; border-top: 1px solid var(--line); }
+.csvent .grow { flex: 1 1 220px; min-width: 0; }
+.csvent input[list] { width: 190px; }

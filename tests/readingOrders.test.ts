@@ -73,4 +73,15 @@ describe('reading orders', () => {
     const linked = await addLibraryItem(db, o, b);
     await expect(updateCustomItem(db, linked, { title: 'X' })).rejects.toThrow();
   });
+  it('uses an existing author or series when the typed name is a close match', async () => {
+    await quickAdd(db, { title: 'Known', authors: ['A.J. Sherwood'], status: 'tbr' });
+    await createSeries(db, 'The Gray Wolves');
+    const o = await createOrder(db, 'P');
+    const it = await addCustomItem(db, o, { title: 'New One' });
+    const id = await addItemToLibrary(db, it, { title: 'New One', author: 'AJ Sherwood', series: 'Gray Wolves', position: 1 });
+    const d = (await getOrder(db, o))!;
+    expect([d.items[0].authors, d.items[0].series_name]).toEqual(['A.J. Sherwood', 'The Gray Wolves']);
+    expect((await db.select<{ n: number }>("SELECT count(*) AS n FROM author WHERE deleted_at IS NULL"))[0].n).toBe(1);
+    expect(id).toBeTruthy();
+  });
 });

@@ -1,15 +1,21 @@
 import { useState } from 'react';
 import { norm } from '../../domain/geo';
+import { bestMatch, nameKey } from '../../domain/nameMatch';
 
 // A text box that suggests what already exists as you type. Anything you type is accepted: pick a suggestion, or keep your own words as a new one.
-export default function FieldCombo({ label, value, onChange, options, noun, placeholder = 'Optional', limit = 8 }: { label: string; value: string; onChange(v: string): void; options: string[]; noun: string; placeholder?: string; limit?: number }) {
+export default function FieldCombo({ label, value, onChange, options, noun, placeholder = 'Optional', limit = 8, multi = false, loose = false }: { label: string; value: string; onChange(v: string): void; options: string[]; noun: string; placeholder?: string; limit?: number; multi?: boolean; loose?: boolean }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
-  const q = norm(value);
-  const shown = (q ? options.filter((o) => norm(o).includes(q)) : options).slice(0, limit);
-  const exact = options.some((o) => norm(o) === q);
-  const rows: { text: string; isNew: boolean }[] = [...shown.map((text) => ({ text, isNew: false })), ...(value.trim() && !exact ? [{ text: value.trim(), isNew: true }] : [])];
-  const pick = (r: { text: string }) => { onChange(r.text); setOpen(false); setActive(0); };
+  // With "multi", several names are separated by commas and the suggestions work on the last one.
+  const cut = multi ? value.lastIndexOf(',') + 1 : 0;
+  const head = value.slice(0, cut);
+  const current = value.slice(cut).trim();
+  const q = norm(current);
+  const hit = (o: string) => norm(o).includes(q) || (loose && nameKey(current) !== '' && nameKey(o).includes(nameKey(current)));
+  const shown = (q ? options.filter(hit) : options).slice(0, limit);
+  const exact = loose ? bestMatch(options, current) !== null && nameKey(bestMatch(options, current)!) === nameKey(current) : options.some((o) => norm(o) === q);
+  const rows: { text: string; isNew: boolean }[] = [...shown.map((text) => ({ text, isNew: false })), ...(current && !exact ? [{ text: current, isNew: true }] : [])];
+  const pick = (r: { text: string }) => { onChange(multi && head ? `${head.trimEnd()} ${r.text}` : r.text); setOpen(false); setActive(0); };
   return (
     <div className="combo">
       <input className="field" role="combobox" aria-label={label} aria-expanded={open} autoComplete="off" value={value} placeholder={placeholder}

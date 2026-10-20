@@ -2,8 +2,11 @@ import { useEffect, useState } from 'react';
 import { useDb } from '../../db/DbContext';
 import { addItemToLibrary, linkItemToBook, searchLibraryBooks } from '../../repo/readingOrders';
 import { listSeriesOptions } from '../../repo/series';
-import { fileToDataUrl, type ShrunkImage } from '../../ui/imageFile';
-import { FilePicker } from '../bookLog/parts';
+import { fileToDataUrl, urlToDataUrl, type ShrunkImage } from '../../ui/imageFile';
+import { listAuthorOptions } from '../../repo/bookLog';
+import { bestMatch } from '../../domain/nameMatch';
+import FieldCombo from '../locations/FieldCombo';
+import { FilePicker, LinkImageForm } from '../bookLog/parts';
 
 export interface LibraryStart { itemId: string; title: string; author: string; series: string; position: number | null }
 
@@ -16,6 +19,7 @@ export default function AddToLibraryDialog({ start, onDone, onClose }: { start: 
   const [position, setPosition] = useState(start.position === null ? '' : String(start.position));
   const [cover, setCover] = useState<ShrunkImage | null>(null);
   const [seriesNames, setSeriesNames] = useState<string[]>([]);
+  const [authorNames, setAuthorNames] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [tab, setTab] = useState<'link' | 'new'>('new');
@@ -26,7 +30,11 @@ export default function AddToLibraryDialog({ start, onDone, onClose }: { start: 
     setError(null); setBusy(true);
     try { await linkItemToBook(db, start.itemId, bookId); onDone(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); setBusy(false); }
   };
-  useEffect(() => { listSeriesOptions(db).then((s) => setSeriesNames(s.map((x) => x.name)), () => undefined); }, [db]);
+  useEffect(() => {
+    listSeriesOptions(db).then((s) => setSeriesNames(s.map((x) => x.name)), () => undefined);
+    listAuthorOptions(db).then((a) => setAuthorNames(a.map((x) => x.name)), () => undefined);
+  }, [db]);
+  const authorList = author.split(',').map((a) => a.trim()).filter(Boolean);
   const save = async () => {
     setError(null);
     const pos = position.trim() === '' ? null : Number(position);
@@ -57,18 +65,23 @@ export default function AddToLibraryDialog({ start, onDone, onClose }: { start: 
           </>
         ) : (<>
         <label className="stack"><span className="lbl2">Title</span><input className="field big" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
-        <label className="stack"><span className="lbl2">Author (separate with commas)</span><input className="field" value={author} onChange={(e) => setAuthor(e.target.value)} /></label>
-        <label className="stack"><span className="lbl2">Series</span>
-          <input className="field" list="ao-series" value={series} placeholder="Optional" onChange={(e) => setSeries(e.target.value)} />
-          <datalist id="ao-series">{seriesNames.map((n) => <option key={n} value={n} />)}</datalist>
-        </label>
+        <div className="stack"><span className="lbl2">Author (separate with commas)</span>
+          <FieldCombo label="Author" noun="author" multi loose value={author} onChange={setAuthor} options={authorNames} placeholder="Optional" />
+          {authorList.length > 0 && <span className="small" aria-label="Author status">{authorList.map((a, n) => { const m = bestMatch(authorNames, a); return (
+            <span key={a + n}>{n > 0 && '; '}{a} <span className={m ? 'muted' : 'newtag'}>({m ? (m === a ? 'existing author' : `existing author: ${m}`) : 'new author'})</span></span>); })}</span>}
+        </div>
+        <div className="stack"><span className="lbl2">Series</span>
+          <FieldCombo label="Series" noun="series" loose value={series} onChange={setSeries} options={seriesNames} placeholder="Optional" />
+          {series.trim() && (() => { const m = bestMatch(seriesNames, series); return <span className="small" aria-label="Series status"><span className={m ? 'muted' : 'newtag'}>{m ? (m === series.trim() ? 'Existing series' : `Existing series: ${m}`) : 'New series: it will be created'}</span></span>; })()}
+        </div>
         <label className="stack"><span className="lbl2">Position in series</span>
           <input className="field num" type="number" min="0" step="0.5" value={position} placeholder="Optional" onChange={(e) => setPosition(e.target.value)} />
         </label>
         <div className="stack"><span className="lbl2">Cover</span>
           <div className="actions">
             {cover && <img className="ordercover" src={cover.dataUrl} alt="Chosen cover" />}
-            <FilePicker label={cover ? 'Change cover' : 'Choose cover'} onFile={(f) => void fileToDataUrl(f).then(setCover, (e) => setError(e instanceof Error ? e.message : String(e)))} />
+            <FilePicker label={cover ? 'Upload a different cover' : 'Upload a cover'} onFile={(f) => void fileToDataUrl(f).then(setCover, (e) => setError(e instanceof Error ? e.message : String(e)))} />
+            <LinkImageForm label="Cover from a link" onUrl={async (u) => setCover(await urlToDataUrl(u, 900))} />
             {cover && <button type="button" className="mini" onClick={() => setCover(null)}>Remove</button>}
           </div>
         </div>

@@ -1,6 +1,7 @@
 import type { Db } from '../db/adapter';
 import { newId } from '../domain/ids';
 import { byTitle } from '../domain/sortKey';
+import { bestMatch } from '../domain/nameMatch';
 import { createBook } from './books';
 import { setBookCover } from './bookLog';
 import { createSeries, setBookSeries } from './series';
@@ -139,7 +140,11 @@ export async function addItemToLibrary(db: Db, itemId: string, input: NewLibrary
   if (item.book_id) throw new Error('That book is already in the library.');
   const title = input.title.trim();
   if (!title) throw new Error('A book needs a title.');
-  const authors = input.author.split(',').map((a) => a.trim()).filter(Boolean);
+  // A typed name that is clearly an author or series you already have (AJ Sherwood / A.J. Sherwood) uses the existing one.
+  const knownAuthors = (await db.select<{ name: string }>('SELECT name FROM author WHERE deleted_at IS NULL')).map((r) => r.name);
+  const authors = [...new Set(input.author.split(',').map((a) => a.trim()).filter(Boolean).map((a) => bestMatch(knownAuthors, a) ?? a))];
+  const knownSeries = (await db.select<{ title: string }>('SELECT title FROM series WHERE deleted_at IS NULL')).map((r) => r.title);
+  input = { ...input, series: bestMatch(knownSeries, input.series) ?? input.series };
   const bookId = await createBook(db, { title, authors, shelf: 'tbr' });
   if (input.series.trim()) await setBookSeries(db, bookId, await createSeries(db, input.series, { authors }), input.position);
   if (input.cover) await setBookCover(db, bookId, input.cover);

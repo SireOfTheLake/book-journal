@@ -52,3 +52,35 @@ describe('reading order pages', () => {
     await waitFor(async () => expect((await getOrder(db, o))!.items[0].title).toBe('Final'));
   });
 });
+
+describe('add to library dialog', () => {
+  it('says whether the author and series already exist', async () => {
+    await quickAdd(db, { title: 'Known', authors: ['Ann'], status: 'tbr' });
+    const { createSeries } = await import('../src/repo/series');
+    await createSeries(db, 'Saga');
+    const o = await createOrder(db, 'P');
+    await addCustomItem(db, o, { title: 'Out', author: 'Ann, Newbie', series: 'Saga' });
+    ui(`/reading-orders/${o}`);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to library' }));
+    const dlg = await screen.findByRole('dialog', { name: 'Add to library' });
+    await waitFor(() => expect(within(dlg).getByLabelText('Author status').textContent).toBe('Ann (existing author); Newbie (new author)'));
+    expect(within(dlg).getByLabelText('Series status').textContent).toBe('Existing series');
+    fireEvent.change(within(dlg).getByRole('combobox', { name: 'Series' }), { target: { value: 'Brand New' } });
+    expect(within(dlg).getByLabelText('Series status').textContent).toContain('New series');
+    const box = await within(dlg).findByRole('listbox', { name: 'Series suggestions' });
+    expect(box.textContent).toBe('Add Brand New as a new series');
+    expect(within(dlg).getByRole('button', { name: 'Cover from a link' })).toBeTruthy();
+  });
+});
+
+describe('name matching', () => {
+  it('treats AJ Sherwood as A.J. Sherwood', async () => {
+    await quickAdd(db, { title: 'Known', authors: ['A.J. Sherwood'], status: 'tbr' });
+    const o = await createOrder(db, 'P');
+    await addCustomItem(db, o, { title: 'Out', author: 'AJ Sherwood' });
+    ui(`/reading-orders/${o}`);
+    fireEvent.click(await screen.findByRole('button', { name: 'Add to library' }));
+    const dlg = await screen.findByRole('dialog', { name: 'Add to library' });
+    await waitFor(() => expect(within(dlg).getByLabelText('Author status').textContent).toBe('AJ Sherwood (existing author: A.J. Sherwood)'));
+  });
+});

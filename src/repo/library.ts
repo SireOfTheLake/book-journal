@@ -13,12 +13,12 @@ export const listLibrary = (db: Db) => db.select<LibraryBook>(
   `SELECT b.id AS id, b.title AS title, b.series_id AS series_id, b.series_position AS position, b.is_favorite AS is_favorite, b.created_at AS added,
      (SELECT s.title FROM series s WHERE s.id = b.series_id) AS series,
      (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors,
-     COALESCE(b.shelf, (SELECT r.status FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1)) AS status,
+     COALESCE(b.shelf, (SELECT r.status FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1)) AS status,
      (SELECT r.finish_date FROM read r WHERE r.book_id = b.id AND r.status = 'finished' AND r.deleted_at IS NULL ORDER BY r.finish_date DESC LIMIT 1) AS finish_date,
      (SELECT v.avg_stars FROM v_book_rating v WHERE v.book_id = b.id) AS rating,
      EXISTS (SELECT 1 FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL) AS has_cover,
-     (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS read_id,
-     (SELECT r.format FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS format,
+     (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS read_id,
+     (SELECT r.format FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS format,
      (SELECT group_concat(x.name, ', ') FROM (SELECT DISTINCT n.name AS name FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN narrator n ON n.id = rn.narrator_id
         WHERE r.book_id = b.id AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND n.deleted_at IS NULL) x) AS narrators,
      (SELECT group_concat(x.name, ', ') FROM (SELECT c.name AS name FROM book_character bc JOIN character c ON c.id = bc.character_id WHERE bc.book_id = b.id AND bc.deleted_at IS NULL AND c.deleted_at IS NULL) x) AS characters

@@ -42,7 +42,7 @@ async function loadMonthBooks(db: Db, from: string, to: string): Promise<MonthBo
        (SELECT s.name FROM source s WHERE s.id = r.source_id) AS source, (SELECT s.color FROM source s WHERE s.id = r.source_id) AS source_color, r.start_date AS start_date, r.finish_date AS finish_date, b.is_favorite AS favorite,
        (SELECT v.dashboard_bucket FROM v_book_bucket v WHERE v.book_id = b.id) AS bucket
      FROM read r JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL
-     WHERE r.deleted_at IS NULL AND r.status = 'finished' AND r.finish_date BETWEEN ? AND ? ORDER BY r.finish_date, COALESCE(r.finish_time, ''), r.rowid`, [from, to]);
+     WHERE r.deleted_at IS NULL AND r.status = 'finished' AND r.finish_date BETWEEN ? AND ? ORDER BY r.finish_date, COALESCE(r.finish_time, ''), r.created_at, r.rowid`, [from, to]);
   if (!rows.length) return [];
   const ids = [...new Set(rows.map((r) => r.book_id))];
   const authors = await db.select<{ b: string; n: string }>(`SELECT ba.book_id AS b, au.name AS n FROM book_author ba JOIN author au ON au.id = ba.author_id AND au.deleted_at IS NULL WHERE ba.deleted_at IS NULL AND ba.book_id IN (${marks(ids)}) ORDER BY ba.sort_order`, ids);
@@ -68,7 +68,7 @@ async function loadCompletions(db: Db, year: number) {
      FROM challenge_completion k JOIN challenge_slot s ON s.id = k.slot_id AND s.deleted_at IS NULL
        JOIN challenge c ON c.id = k.challenge_id AND c.deleted_at IS NULL JOIN journal_year y ON y.id = c.journal_year_id AND y.year = ? AND y.deleted_at IS NULL
        JOIN read r ON r.id = k.read_id AND r.deleted_at IS NULL JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL
-     WHERE k.deleted_at IS NULL AND r.status = 'finished' ORDER BY COALESCE(r.finish_date, r.start_date), COALESCE(r.finish_time, ''), r.rowid, c.sort_order, c.rowid, s.position`, [year]);
+     WHERE k.deleted_at IS NULL AND r.status = 'finished' ORDER BY COALESCE(r.finish_date, r.start_date), COALESCE(r.finish_time, ''), r.created_at, r.rowid, c.sort_order, c.created_at, c.rowid, s.position`, [year]);
 }
 
 function goalSplit(f: Facts, g: Awaited<ReturnType<typeof listGoals>>[number], year: number, from: string, to: string, prevEnd: string, completions: Awaited<ReturnType<typeof loadCompletions>>, totals: Map<string, number>): GoalSplit | null {

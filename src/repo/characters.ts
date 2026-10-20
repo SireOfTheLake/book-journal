@@ -63,7 +63,7 @@ export async function getCharacter(db: Db, id: string): Promise<CharacterDetail 
   relationships.sort((x, y) => byTitle(x.other_name, y.other_name));
   const images = await db.select<{ id: string; data: string; is_main: number }>(
     `SELECT i.id AS id, i.file_path AS data, ci.is_main AS is_main FROM character_image ci JOIN image i ON i.id = ci.image_id
-     WHERE ci.character_id = ? AND ci.deleted_at IS NULL AND i.deleted_at IS NULL ORDER BY ci.is_main DESC, ci.sort_order, ci.rowid`, [id]);
+     WHERE ci.character_id = ? AND ci.deleted_at IS NULL AND i.deleted_at IS NULL ORDER BY ci.is_main DESC, ci.sort_order, ci.created_at, ci.rowid`, [id]);
   return {
     core,
     sexuality: core.sexuality_id ? await one('SELECT id, name FROM sexuality WHERE id = ?', [core.sexuality_id]) : null,
@@ -71,12 +71,12 @@ export async function getCharacter(db: Db, id: string): Promise<CharacterDetail 
     previousPlaces: await db.select<Item>('SELECT p.id AS id, p.name AS name FROM character_previous_place cp JOIN place p ON p.id = cp.place_id WHERE cp.character_id = ? AND cp.deleted_at IS NULL ORDER BY cp.sort_order', [id]),
     occupations: await db.select<Item>('SELECT o.id AS id, o.name AS name FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = ? AND co.deleted_at IS NULL ORDER BY CASE WHEN lower(o.name) LIKE \'the %\' THEN lower(substr(o.name, 5)) ELSE lower(o.name) END', [id]),
     tags: await db.select<Item>('SELECT t.id AS id, t.name AS name, t.color AS color FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = ? AND l.deleted_at IS NULL ORDER BY CASE WHEN lower(t.name) LIKE \'the %\' THEN lower(substr(t.name, 5)) ELSE lower(t.name) END', [id]),
-    altNames: await db.select('SELECT a.id AS id, a.name AS name, t.name AS type FROM character_alt_name a LEFT JOIN name_type t ON t.id = a.name_type_id WHERE a.character_id = ? AND a.deleted_at IS NULL ORDER BY a.rowid', [id]),
+    altNames: await db.select('SELECT a.id AS id, a.name AS name, t.name AS type FROM character_alt_name a LEFT JOIN name_type t ON t.id = a.name_type_id WHERE a.character_id = ? AND a.deleted_at IS NULL ORDER BY a.created_at, a.rowid', [id]),
     relationships,
-    people: await db.select<RelatedPerson>('SELECT id, name, rel_type, is_current, label, status FROM related_person WHERE character_id = ? AND deleted_at IS NULL ORDER BY sort_order, rowid', [id]),
+    people: await db.select<RelatedPerson>('SELECT id, name, rel_type, is_current, label, status FROM related_person WHERE character_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at, rowid', [id]),
     books: await db.select<CharacterBook>(
       `SELECT bc.id AS id, b.id AS book_id, b.title AS title, bc.role AS role, bc.notes AS notes,
-         (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS read_id
+         (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS read_id
        FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY bc.role, CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`, [id]),
     series: await db.select<Item>('SELECT DISTINCT s.id AS id, s.title AS name FROM book_character bc JOIN book b ON b.id = bc.book_id JOIN series s ON s.id = b.series_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY CASE WHEN lower(s.title) LIKE \'the %\' THEN lower(substr(s.title, 5)) ELSE lower(s.title) END', [id]),
     voicings: await voicingsOf(db, id), voiceOptions: await voicingCandidates(db, id),
@@ -270,14 +270,14 @@ export async function characterMergePlan(db: Db, keepId: string, dupId: string):
   const items: MergePlan['items'] = [];
   const add = async (group: string, table: string, sql: string) => { for (const r of await db.select<{ id: string; label: string }>(sql, [dupId])) items.push({ key: `${table}:${r.id}`, group, label: r.label }); };
   await add('Books', 'book_character', "SELECT bc.id AS id, b.title || ' (' || bc.role || ')' AS label FROM book_character bc JOIN book b ON b.id = bc.book_id WHERE bc.character_id = ? AND bc.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END");
-  await add('Other names', 'character_alt_name', 'SELECT id, name AS label FROM character_alt_name WHERE character_id = ? AND deleted_at IS NULL ORDER BY rowid');
+  await add('Other names', 'character_alt_name', 'SELECT id, name AS label FROM character_alt_name WHERE character_id = ? AND deleted_at IS NULL ORDER BY created_at, rowid');
   await add('Occupations', 'character_occupation', 'SELECT co.id AS id, o.name AS label FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = ? AND co.deleted_at IS NULL ORDER BY CASE WHEN lower(o.name) LIKE \'the %\' THEN lower(substr(o.name, 5)) ELSE lower(o.name) END');
   await add('Tags', 'character_tag_link', 'SELECT l.id AS id, t.name AS label FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = ? AND l.deleted_at IS NULL ORDER BY CASE WHEN lower(t.name) LIKE \'the %\' THEN lower(substr(t.name, 5)) ELSE lower(t.name) END');
   await add('Previous places', 'character_previous_place', 'SELECT cp.id AS id, p.name AS label FROM character_previous_place cp JOIN place p ON p.id = cp.place_id WHERE cp.character_id = ? AND cp.deleted_at IS NULL ORDER BY CASE WHEN lower(p.name) LIKE \'the %\' THEN lower(substr(p.name, 5)) ELSE lower(p.name) END');
   await add('Family and friends', 'related_person', 'SELECT id, name || \' (\' || rel_type || \')\' AS label FROM related_person WHERE character_id = ? AND deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END');
   await add('Relationships', 'character_relationship', `SELECT r.id AS id, o.name || ' (' || r.rel_type || ')' AS label FROM character_relationship r JOIN character o ON o.id = CASE WHEN r.character_a_id = '${dupId}' THEN r.character_b_id ELSE r.character_a_id END
     WHERE (r.character_a_id = '${dupId}' OR r.character_b_id = '${dupId}') AND r.deleted_at IS NULL AND o.id <> '${keepId}' AND ? IS NOT NULL ORDER BY CASE WHEN lower(o.name) LIKE \'the %\' THEN lower(substr(o.name, 5)) ELSE lower(o.name) END`);
-  await add('Pictures', 'character_image', "SELECT id, 'Picture ' || (rowid) AS label FROM character_image WHERE character_id = ? AND deleted_at IS NULL ORDER BY rowid");
+  await add('Pictures', 'character_image', "SELECT id, 'Picture ' || (rowid) AS label FROM character_image WHERE character_id = ? AND deleted_at IS NULL ORDER BY created_at, rowid");
   return { fields, items };
 }
 

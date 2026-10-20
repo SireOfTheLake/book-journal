@@ -1,7 +1,8 @@
+import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../src/db/adapter';
 import { migrateNodeDb } from '../src/db/nodeDb';
-import { getBookLog, quickAdd, setStatus, updateRead } from '../src/repo/bookLog';
+import { ensurePlannedRead, getBookLog, quickAdd, setStatus, updateRead } from '../src/repo/bookLog';
 import { getHome } from '../src/repo/home';
 import { createSeries, getSeriesPage, listSeriesLedger, updateSeries } from '../src/repo/series';
 import { moveToShelf, removeFromShelf, startFromShelf } from '../src/repo/shelf';
@@ -31,8 +32,19 @@ describe('Up Next books have a planned read', () => {
     expect(home.paused).toHaveLength(0); expect(home.reading).toHaveLength(0);
     const { bookId: old } = await quickAdd(db, { title: 'Old shelf', authors: ['A'], status: 'tbr' });
     await db.execute("UPDATE book SET shelf = 'up_next' WHERE id = ?", [old]);
-    expect((await getBookLog(db, old))!.read).not.toBeNull();
-    expect(await reads(old)).toHaveLength(1);
+    // Opening the page never writes anything.
+    expect((await getBookLog(db, old))!.read).toBeNull();
+    expect(await reads(old)).toHaveLength(0);
+    // The migration gives older Up Next books their read, with an id made from the book's.
+    await db.execute(readFileSync('src-tauri/migrations/0027_planned_reads.sql', 'utf8'));
+    expect((await reads(old)).map((r) => r.id)).toEqual([`planned-${old}`]);
+    expect((await getBookLog(db, old))!.read?.id).toBe(`planned-${old}`);
+    expect((await reads(bookId)).map((r) => r.id)).toEqual([`planned-${bookId}`]);
+  });
+  it('a second device making the same placeholder gets the same row', async () => {
+    const { bookId } = await quickAdd(db, { title: 'Twice', authors: ['A'], status: 'up_next' });
+    expect(await ensurePlannedRead(db, bookId)).toBe(`planned-${bookId}`);
+    expect(await reads(bookId)).toHaveLength(1);
   });
   it('starting the book turns the planned read into the real one, keeping what was entered', async () => {
     const { bookId } = await quickAdd(db, { title: 'Go', authors: ['A'], status: 'up_next' });

@@ -25,7 +25,7 @@ export async function getCalendarMonth(db: Db, year: number, month: number, toda
      FROM read r JOIN book b ON b.id = r.book_id
      WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL
        AND ((r.finish_date BETWEEN ? AND ?) OR (r.start_date IS NOT NULL AND r.start_date <= ? AND (r.finish_date IS NULL OR r.finish_date >= ?)))
-     ORDER BY COALESCE(r.finish_date, r.start_date), r.rowid`, [start, end, end, start]);
+     ORDER BY COALESCE(r.finish_date, r.start_date), r.created_at, r.rowid`, [start, end, end, start]);
   const ids = reads.map((r) => r.read_id);
   const entries = ids.length ? await db.select<CalEntry & { read_id: string }>(
     `SELECT e.read_id AS read_id, r.book_id AS book_id, b.title AS title, e.entry_date AS date, e.position_page AS page, e.position_percent AS percent, e.position_seconds AS seconds, e.text AS text

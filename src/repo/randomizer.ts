@@ -14,7 +14,7 @@ export interface RandomizerData { trick: SavedPrompt[]; treat: SavedPrompt[]; ch
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 
 export const listPrompts = (db: Db, kind: PromptKind) =>
-  db.select<SavedPrompt>('SELECT id, text FROM randomizer_prompt WHERE kind = ? AND deleted_at IS NULL ORDER BY rowid', [kind]);
+  db.select<SavedPrompt>('SELECT id, text FROM randomizer_prompt WHERE kind = ? AND deleted_at IS NULL ORDER BY created_at, rowid', [kind]);
 
 // Adds a prompt to the randomizer. A prompt you have already completed can be added too. The same words are only kept once per category.
 export async function addPrompt(db: Db, kind: PromptKind, text: string): Promise<string> {
@@ -58,10 +58,10 @@ export const listDrafts = (db: Db) => db.select<DraftRow>(
   `SELECT b.id AS book_id, r.id AS read_id, c.name AS reason, r.prompt AS prompt,
      (SELECT ch.name || ': ' || s.label FROM challenge_completion k JOIN challenge_slot s ON s.id = k.slot_id JOIN challenge ch ON ch.id = k.challenge_id WHERE k.read_id = r.id AND k.deleted_at IS NULL LIMIT 1) AS challenge
    FROM book b JOIN read r ON r.book_id = b.id AND r.deleted_at IS NULL LEFT JOIN category c ON c.id = r.category_id
-   WHERE b.is_draft = 1 AND b.deleted_at IS NULL ORDER BY b.rowid`);
+   WHERE b.is_draft = 1 AND b.deleted_at IS NULL ORDER BY b.created_at, b.rowid`);
 
 async function draftRead(db: Db, bookId: string): Promise<string> {
-  const [r] = await db.select<{ id: string; draft: number }>('SELECT r.id AS id, b.is_draft AS draft FROM book b JOIN read r ON r.book_id = b.id AND r.deleted_at IS NULL WHERE b.id = ? AND b.deleted_at IS NULL ORDER BY r.rowid LIMIT 1', [bookId]);
+  const [r] = await db.select<{ id: string; draft: number }>('SELECT r.id AS id, b.is_draft AS draft FROM book b JOIN read r ON r.book_id = b.id AND r.deleted_at IS NULL WHERE b.id = ? AND b.deleted_at IS NULL ORDER BY r.created_at, r.rowid LIMIT 1', [bookId]);
   if (!r?.draft) throw new Error('That page is no longer waiting for a book.');
   return r.id;
 }

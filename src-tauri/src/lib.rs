@@ -148,6 +148,12 @@ pub fn run() {
         description: "reading orders",
         sql: include_str!("../migrations/0026_reading_orders.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 27,
+        description: "placeholder reads for Up Next books",
+        sql: include_str!("../migrations/0027_planned_reads.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

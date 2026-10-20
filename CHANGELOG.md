@@ -2,7 +2,12 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 -->
+
+## 0.2.0 — 2026-10-19
+
+### Improved
+- Behind-the-scenes preparation for syncing to a phone and a second computer: lists no longer depend on a per-device row number, opening an Up Next book no longer writes data, and settings are sorted into shared and per-device. Settings > Backup and Export now shows how much of the journal is pictures.
 
 ## 0.1.15 — 2026-10-19
 

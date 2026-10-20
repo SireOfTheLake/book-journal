@@ -59,7 +59,7 @@ export function listBookList(db: Db, year: number): Promise<BookListRow[]> {
      LEFT JOIN v_read_year_number n ON n.read_id = r.id
      WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status = 'finished'
        AND substr(r.finish_date, 1, 4) = ?
-     ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.rowid DESC`,
+     ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.created_at DESC, r.rowid DESC`,
     [String(year)],
   );
 }

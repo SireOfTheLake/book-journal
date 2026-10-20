@@ -28,7 +28,7 @@ async function loadRaw(db: Db, year: number): Promise<Raw> {
        (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors,
        (SELECT i.file_path FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL) AS cover
      FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status = 'finished' AND substr(r.finish_date, 1, 4) = ?
-     ORDER BY r.rating IS NULL, r.rating DESC, r.finish_date, r.rowid`, [String(year)]);
+     ORDER BY r.rating IS NULL, r.rating DESC, r.finish_date, r.created_at, r.rowid`, [String(year)]);
   const candidates: Cand[][] = Array.from({ length: 12 }, () => []);
   for (const r of rows) candidates[Number(r.finish_date.slice(5, 7)) - 1].push(r);
   const raw: Raw = { yearId, candidates, month: new Map(), match: new Map(), quarter: new Map(), half: new Map(), year: null };

@@ -7,13 +7,13 @@ export interface QuoteWithBook extends Quote { title: string; authors: string | 
 export interface QuoteInput { text: string; page?: number | null; audio_seconds?: number | null; note?: string | null }
 
 export const listBookQuotes = (db: Db, bookId: string) =>
-  db.select<Quote>('SELECT id, book_id, text, page, audio_seconds, note, is_favorite FROM quote WHERE book_id = ? AND deleted_at IS NULL ORDER BY is_favorite DESC, COALESCE(page, 999999), created_at, rowid', [bookId]);
+  db.select<Quote>('SELECT id, book_id, text, page, audio_seconds, note, is_favorite FROM quote WHERE book_id = ? AND deleted_at IS NULL ORDER BY is_favorite DESC, COALESCE(page, 999999), created_at, created_at, rowid', [bookId]);
 
 export const listAllQuotes = (db: Db) =>
   db.select<QuoteWithBook>(
     `SELECT q.id, q.book_id, q.text, q.page, q.audio_seconds, q.note, q.is_favorite, b.title,
-       (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.rowid) x) AS authors
-     FROM quote q JOIN book b ON b.id = q.book_id AND b.deleted_at IS NULL WHERE q.deleted_at IS NULL ORDER BY q.created_at DESC, q.rowid DESC`);
+       (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.created_at, ba.rowid) x) AS authors
+     FROM quote q JOIN book b ON b.id = q.book_id AND b.deleted_at IS NULL WHERE q.deleted_at IS NULL ORDER BY q.created_at DESC, q.created_at DESC, q.rowid DESC`);
 
 export async function addQuote(db: Db, bookId: string, input: QuoteInput): Promise<string> {
   const text = input.text.trim();

@@ -7,6 +7,7 @@ import TagColorsCard from './settings/TagColorsCard';
 import UpdatesCard from './settings/UpdatesCard';
 import ListsCard from './settings/ListsCard';
 import FeaturesCard from './settings/FeaturesCard';
+import { dataSize, megabytes, type DataSize } from '../sync/size';
 
 const KIND_LABEL: Record<BackupKind, string> = { manual: 'Backed up by you', 'before-import': 'Before an import', 'before-upgrade': 'Before an upgrade' };
 const parentOf = (dir: string) => dir.replace(/[\\/][^\\/]*[\\/]?$/, '');
@@ -21,10 +22,12 @@ export default function SettingsPage() {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pictures, setPictures] = useState(false);
   const [unavailable, setUnavailable] = useState<string | null>(null);
+  const [size, setSize] = useState<DataSize | null>(null);
   const [tab, setTab] = useState<'backup' | 'appearance' | 'lists' | 'features' | 'updates'>('backup');
 
   const load = useCallback(async () => {
     setLast(await lastBackupAt(db));
+    dataSize(db).then(setSize, () => undefined);
     try { const env = await getEnv(); setDir(await env.backupsDir()); setFiles(await listBackups(env)); setUnavailable(null); }
     catch (e) { setUnavailable(`Backups can only be made inside the app window. (${e instanceof Error ? e.message : String(e)})`); }
   }, [db, getEnv]);
@@ -72,6 +75,14 @@ export default function SettingsPage() {
         {message && <div className={message.ok ? 'notice' : 'muted'} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
         {unavailable && <div className="muted" role="alert">{unavailable}</div>}
       </div>
+
+      {size && (
+        <div className="bcard">
+          <span className="lbl2">How big your journal is</span>
+          <p className="muted">{`${size.pictures} ${size.pictures === 1 ? 'picture' : 'pictures'} take about ${megabytes(size.pictureBytes)} MB. Everything else (books, characters, notes and the rest) takes about ${megabytes(size.textBytes)} MB.`}</p>
+          <span className="muted small">This matters for syncing to another device: pictures are the heavy part, so they will travel separately from the text.</span>
+        </div>
+      )}
 
       <div className="bcard">
         <span className="lbl2">Your backups</span>

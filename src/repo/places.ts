@@ -150,7 +150,7 @@ export async function getPlaceDetail(db: Db, id: string): Promise<PlaceDetail | 
   if (!place) return null;
   const books = await db.select<{ id: string; title: string; authors: string | null }>(
     `SELECT b.id AS id, b.title AS title,
-       (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.rowid) x) AS authors
+       (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.created_at, ba.rowid) x) AS authors
      FROM book_place bp JOIN book b ON b.id = bp.book_id AND b.deleted_at IS NULL WHERE bp.place_id = ? AND bp.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`, [id]);
   const chars = await db.select<{ id: string; name: string; cur: number; prev: number }>(
     `SELECT c.id AS id, c.name AS name, (c.current_place_id = ?1) AS cur,

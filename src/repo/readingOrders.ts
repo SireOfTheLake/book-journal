@@ -36,12 +36,12 @@ export async function createOrder(db: Db, name: string, from: { seriesId?: strin
   const id = newId();
   await db.execute('INSERT INTO reading_order (id, name, series_id, author_id) VALUES (?, ?, ?, ?)', [id, n, from.seriesId ?? null, from.authorId ?? null]);
   let books: { id: string }[] = [];
-  if (from.seriesId) books = await db.select<{ id: string }>('SELECT id FROM book WHERE series_id = ? AND deleted_at IS NULL ORDER BY series_position IS NULL, series_position, rowid', [from.seriesId]);
+  if (from.seriesId) books = await db.select<{ id: string }>('SELECT id FROM book WHERE series_id = ? AND deleted_at IS NULL ORDER BY series_position IS NULL, series_position, created_at, rowid', [from.seriesId]);
   else if (from.authorId) {
     books = await db.select<{ id: string }>(
       `SELECT b.id AS id FROM book b JOIN book_author ba ON ba.book_id = b.id AND ba.deleted_at IS NULL LEFT JOIN series s ON s.id = b.series_id
        WHERE ba.author_id = ? AND b.deleted_at IS NULL
-       ORDER BY s.id IS NULL, CASE WHEN lower(s.title) LIKE 'the %' THEN lower(substr(s.title, 5)) ELSE lower(s.title) END, b.series_position IS NULL, b.series_position, b.original_publication_date, b.rowid`, [from.authorId]);
+       ORDER BY s.id IS NULL, CASE WHEN lower(s.title) LIKE 'the %' THEN lower(substr(s.title, 5)) ELSE lower(s.title) END, b.series_position IS NULL, b.series_position, b.original_publication_date, b.created_at, b.rowid`, [from.authorId]);
   }
   for (const b of books) await addLibraryItem(db, id, b.id);
   return id;
@@ -62,7 +62,7 @@ export async function getOrder(db: Db, id: string): Promise<OrderDetail | null> 
      LEFT JOIN book b ON b.id = i.book_id AND b.deleted_at IS NULL
      LEFT JOIN series s ON s.id = b.series_id AND s.deleted_at IS NULL
      LEFT JOIN image im ON im.id = b.cover_image_id AND im.deleted_at IS NULL
-     WHERE i.order_id = ? AND i.deleted_at IS NULL ORDER BY i.position, i.rowid`, [id]);
+     WHERE i.order_id = ? AND i.deleted_at IS NULL ORDER BY i.position, i.created_at, i.rowid`, [id]);
   const items: OrderItem[] = rows.map((r) => r.live ? {
     id: r.id, position: r.position, book_id: r.live, title: r.b_title ?? r.title, authors: r.b_authors ?? r.author_name,
     series_id: r.b_series_id, series_name: r.b_series ?? null, series_position: r.b_pos, is_read: !!r.read, cover: r.cover, note: r.note,
@@ -119,12 +119,12 @@ export async function removeItem(db: Db, orderId: string, itemId: string) {
   await renumber(db, orderId);
 }
 async function renumber(db: Db, orderId: string) {
-  const ids = await db.select<{ id: string }>('SELECT id FROM reading_order_item WHERE order_id = ? AND deleted_at IS NULL ORDER BY position, rowid', [orderId]);
+  const ids = await db.select<{ id: string }>('SELECT id FROM reading_order_item WHERE order_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [orderId]);
   for (let i = 0; i < ids.length; i++) await db.execute('UPDATE reading_order_item SET position = ? WHERE id = ?', [i, ids[i].id]);
 }
 // Moves one line to a new place in the list (0 is first).
 export async function moveItem(db: Db, orderId: string, itemId: string, toIndex: number) {
-  const ids = (await db.select<{ id: string }>('SELECT id FROM reading_order_item WHERE order_id = ? AND deleted_at IS NULL ORDER BY position, rowid', [orderId])).map((r) => r.id);
+  const ids = (await db.select<{ id: string }>('SELECT id FROM reading_order_item WHERE order_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [orderId])).map((r) => r.id);
   const from = ids.indexOf(itemId);
   if (from < 0) return;
   ids.splice(from, 1);
@@ -180,7 +180,7 @@ export async function linkItemToBook(db: Db, itemId: string, bookId: string): Pr
 
 // Adds every book of a series, in series order, to the end of the list. Books already on the list are skipped. Returns how many were added.
 export async function addSeriesToOrder(db: Db, orderId: string, seriesId: string): Promise<number> {
-  const books = await db.select<{ id: string }>('SELECT id FROM book WHERE series_id = ? AND deleted_at IS NULL ORDER BY series_position IS NULL, series_position, rowid', [seriesId]);
+  const books = await db.select<{ id: string }>('SELECT id FROM book WHERE series_id = ? AND deleted_at IS NULL ORDER BY series_position IS NULL, series_position, created_at, rowid', [seriesId]);
   if (!books.length) throw new Error('That series has no books yet.');
   let added = 0;
   for (const b of books) {

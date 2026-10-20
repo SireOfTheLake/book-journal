@@ -67,7 +67,7 @@ export const isTimed = (g: Pick<Goal, 'start_date' | 'end_date'>) => !!(g.start_
 export async function listGoals(db: Db, year: number): Promise<Goal[]> {
   const rows = await db.select<GoalRow>(
     `SELECT ${GOAL_COLS} FROM goal g JOIN journal_year y ON y.id = g.journal_year_id
-     WHERE y.year = ? AND y.deleted_at IS NULL AND g.deleted_at IS NULL ORDER BY g.sort_order, g.rowid`, [year]);
+     WHERE y.year = ? AND y.deleted_at IS NULL AND g.deleted_at IS NULL ORDER BY g.sort_order, g.created_at, g.rowid`, [year]);
   return rows.map(toGoal);
 }
 
@@ -142,7 +142,7 @@ export interface SeriesTimeline { id: string; title: string; firstDate: string |
 export async function loadFacts(db: Db): Promise<Facts> {
   const reads = await db.select<ReadRow>(
     `SELECT r.id, r.book_id, r.status, r.start_date, r.finish_date, r.format, r.audio_length_seconds, r.rating, b.page_count, b.series_id, b.series_position
-     FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY r.rowid`);
+     FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY r.created_at, r.rowid`);
   const entryRows = await db.select<{ read_id: string; date: string; page: number | null; percent: number | null }>(
     'SELECT read_id, entry_date AS date, position_page AS page, position_percent AS percent FROM day_entry WHERE deleted_at IS NULL');
   const entries = new Map<string, { date: string; page: number | null; percent: number | null }[]>();

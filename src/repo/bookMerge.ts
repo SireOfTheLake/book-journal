@@ -124,7 +124,7 @@ export async function planMerge(db: Db, keepId: string, otherId: string): Promis
   if (rel.length) adds.push({ label: 'Release dates', names: rel });
   const reads: MergeRead[] = [];
   for (const [which, id] of [['a', keepId], ['b', otherId]] as const) {
-    for (const r of await db.select<Omit<MergeRead, 'side' | 'days' | 'challenges'>>("SELECT id, status, start_date, finish_date, rating, format, notes FROM read WHERE book_id = ? AND deleted_at IS NULL ORDER BY COALESCE(finish_date, start_date, '9999'), rowid", [id])) {
+    for (const r of await db.select<Omit<MergeRead, 'side' | 'days' | 'challenges'>>("SELECT id, status, start_date, finish_date, rating, format, notes FROM read WHERE book_id = ? AND deleted_at IS NULL ORDER BY COALESCE(finish_date, start_date, '9999'), created_at, rowid", [id])) {
       const days = (await first<{ n: number }>(db, 'SELECT count(*) AS n FROM day_entry WHERE read_id = ? AND deleted_at IS NULL', [r.id]))?.n ?? 0;
       const challenges = (await db.select<{ n: string }>('SELECT c.name AS n FROM challenge_completion k JOIN challenge c ON c.id = k.challenge_id AND c.deleted_at IS NULL WHERE k.read_id = ? AND k.deleted_at IS NULL', [r.id])).map((x) => x.n);
       reads.push({ ...r, side: which, days, challenges });
@@ -197,7 +197,7 @@ export async function mergeBooks(db: Db, keepId: string, otherId: string, picks:
   // planned reads (Up Next placeholders): only one is kept, and none if the merged book is not on Up Next
   {
     const shelfNow = (await first<{ shelf: string | null }>(db, 'SELECT shelf FROM book WHERE id = ?', [keepId]))?.shelf ?? null;
-    const planned = await db.select<{ id: string }>("SELECT id FROM read WHERE book_id = ? AND status = 'on_hold' AND start_date IS NULL AND finish_date IS NULL AND deleted_at IS NULL ORDER BY rowid", [keepId]);
+    const planned = await db.select<{ id: string }>("SELECT id FROM read WHERE book_id = ? AND status = 'on_hold' AND start_date IS NULL AND finish_date IS NULL AND deleted_at IS NULL ORDER BY created_at, rowid", [keepId]);
     for (const [i, r] of planned.entries()) if (shelfNow !== 'up_next' || i > 0) await deleteRead(db, r.id);
   }
   // a book that is being read is not on a shelf

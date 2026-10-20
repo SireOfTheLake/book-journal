@@ -40,14 +40,14 @@ export async function listJournalYear(db: Db, year: number): Promise<JournalYear
   const finished = await db.select<ListRow>(
     `${READ_SELECT}
      WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status = 'finished' AND substr(r.finish_date, 1, 4) = ?
-     ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.rowid DESC`, [String(year)]);
+     ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.created_at DESC, r.rowid DESC`, [String(year)]);
   const reading = await db.select<ListRow>(
     `${READ_SELECT}
      WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status IN ('reading', 'on_hold') AND b.shelf IS NULL
-     ORDER BY r.start_date DESC, r.rowid DESC`);
+     ORDER BY r.start_date DESC, r.created_at DESC, r.rowid DESC`);
   const upNext = await db.select<ListRow>(
     `SELECT b.id AS book_id, NULL AS read_id, b.title, NULL AS status, NULL AS start_date, NULL AS finish_date, NULL AS format, NULL AS rating, NULL AS year_number,
        NULL AS narrators, ${PEOPLE}
-     FROM book b WHERE b.deleted_at IS NULL AND b.shelf = 'up_next' ORDER BY b.tbr_priority, b.rowid`);
+     FROM book b WHERE b.deleted_at IS NULL AND b.shelf = 'up_next' ORDER BY b.tbr_priority, b.created_at, b.rowid`);
   return { finished, reading, upNext };
 }

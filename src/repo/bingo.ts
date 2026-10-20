@@ -28,7 +28,7 @@ export async function getBank(db: Db, id: string): Promise<Bank | null> {
   if (!b) return null;
   const rows = await db.select<{ id: string; text: string; image: string | null }>(
     `SELECT p.id AS id, p.text AS text, im.file_path AS image FROM bingo_prompt p LEFT JOIN image im ON im.id = p.image_id AND im.deleted_at IS NULL
-     WHERE p.bank_id = ? AND p.deleted_at IS NULL ORDER BY p.position, p.rowid`, [id]);
+     WHERE p.bank_id = ? AND p.deleted_at IS NULL ORDER BY p.position, p.created_at, p.rowid`, [id]);
   const used = await db.select<{ pid: string; year: number }>(
     `SELECT DISTINCT s.bank_prompt_id AS pid, y.year AS year FROM challenge_slot s JOIN challenge c ON c.id = s.challenge_id JOIN journal_year y ON y.id = c.journal_year_id
      WHERE c.bank_id = ? AND c.deleted_at IS NULL AND s.deleted_at IS NULL AND s.bank_prompt_id IS NOT NULL ORDER BY y.year`, [id]);
@@ -85,7 +85,7 @@ async function usedLastYear(db: Db, bankId: string, year: number): Promise<Set<s
 }
 // Random prompts from the bank, none of `exclude`. With `prefer`, prompts that were not on last year's board come first.
 async function draw(db: Db, bankId: string, year: number, n: number, prefer: boolean, exclude: Set<string>, rng: Rng): Promise<Row[]> {
-  const all = (await db.select<Row>('SELECT id, text, image_id FROM bingo_prompt WHERE bank_id = ? AND deleted_at IS NULL ORDER BY position, rowid', [bankId])).filter((r) => !exclude.has(r.id));
+  const all = (await db.select<Row>('SELECT id, text, image_id FROM bingo_prompt WHERE bank_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [bankId])).filter((r) => !exclude.has(r.id));
   const used = prefer ? await usedLastYear(db, bankId, year) : new Set<string>();
   const fresh = shuffled(all.filter((r) => !used.has(r.id)), rng);
   const old = shuffled(all.filter((r) => used.has(r.id)), rng);
@@ -163,7 +163,7 @@ export async function listAvailablePrompts(db: Db, challengeId: string): Promise
   if (!b.bank_id) return [];
   return db.select(`SELECT p.id AS id, p.text AS text, im.file_path AS image FROM bingo_prompt p LEFT JOIN image im ON im.id = p.image_id AND im.deleted_at IS NULL
     WHERE p.bank_id = ? AND p.deleted_at IS NULL AND p.id NOT IN (SELECT bank_prompt_id FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL AND bank_prompt_id IS NOT NULL)
-    ORDER BY p.position, p.rowid`, [b.bank_id, challengeId]);
+    ORDER BY p.position, p.created_at, p.rowid`, [b.bank_id, challengeId]);
 }
 async function setFromBank(db: Db, slotId: string, p: Row) {
   const s = await squareBoard(db, slotId);

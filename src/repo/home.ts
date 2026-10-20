@@ -35,11 +35,11 @@ export async function getHome(db: Db, today: string): Promise<HomeData> {
     `SELECT r.id AS read_id, b.id AS book_id, b.title AS title, r.status AS status, r.format AS format, r.start_date AS start_date, b.page_count AS page_count, r.audio_length_seconds AS audio_length_seconds,
        ${AUTHORS}, ${SERIES}, ${COVER}
      FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status IN ('reading', 'on_hold') AND b.shelf IS NULL
-     ORDER BY r.status = 'on_hold', r.start_date DESC, r.rowid DESC`);
+     ORDER BY r.status = 'on_hold', r.start_date DESC, r.created_at DESC, r.rowid DESC`);
   const ids = raw.map((r) => r.read_id);
   const entries = ids.length ? await db.select<{ read_id: string; entry_date: string; page: number | null; percent: number | null; seconds: number | null }>(
     `SELECT read_id, entry_date, position_page AS page, position_percent AS percent, position_seconds AS seconds FROM day_entry
-     WHERE deleted_at IS NULL AND read_id IN (${ids.map(() => '?').join(',')}) ORDER BY entry_date DESC, rowid DESC`, ids) : [];
+     WHERE deleted_at IS NULL AND read_id IN (${ids.map(() => '?').join(',')}) ORDER BY entry_date DESC, created_at DESC, rowid DESC`, ids) : [];
   const current: CurrentRead[] = raw.map((r) => {
     const mine = entries.filter((e) => e.read_id === r.read_id);
     const last = mine[0] ?? null;
@@ -52,12 +52,12 @@ export async function getHome(db: Db, today: string): Promise<HomeData> {
   });
 
   const upNext = await db.select<HomeBook>(
-    `SELECT b.id AS id, b.title AS title, ${AUTHORS}, ${SERIES}, ${COVER} FROM book b WHERE b.deleted_at IS NULL AND b.shelf = 'up_next' ORDER BY b.tbr_priority, b.rowid LIMIT 6`);
+    `SELECT b.id AS id, b.title AS title, ${AUTHORS}, ${SERIES}, ${COVER} FROM book b WHERE b.deleted_at IS NULL AND b.shelf = 'up_next' ORDER BY b.tbr_priority, b.created_at, b.rowid LIMIT 6`);
   const [{ n: upNextCount }] = await db.select<{ n: number }>("SELECT count(*) AS n FROM book WHERE deleted_at IS NULL AND shelf = 'up_next'");
   const recent = await db.select<RecentRead>(
     `SELECT r.id AS read_id, b.id AS id, b.title AS title, r.finish_date AS finish_date, r.format AS format, r.rating / 4.0 AS rating, ${AUTHORS}, ${SERIES}, ${COVER}
      FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status = 'finished'
-     ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.rowid DESC LIMIT 16`); // more than one row can hold; the card shows as many as fit across
+     ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.created_at DESC, r.rowid DESC LIMIT 16`); // more than one row can hold; the card shows as many as fit across
 
   const upcoming = await db.select<HomeData['upcoming'][number]>(
     `SELECT f.book_id AS book_id, b.title AS title, f.format AS format, f.status AS status, f.release_date AS release_date, ${AUTHORS}

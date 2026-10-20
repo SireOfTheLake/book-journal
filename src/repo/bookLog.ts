@@ -66,7 +66,7 @@ const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 // The books before and after this one in the series, in series order (unnumbered books last). Novellas are in the order too.
 async function seriesNav(db: Db, book: BookRow): Promise<BookLog['seriesNav']> {
   if (!book.series_id) return { prev: null, next: null };
-  const all = await db.select<SeriesStep>('SELECT id, title FROM book WHERE series_id = ? AND deleted_at IS NULL ORDER BY series_position IS NULL, series_position, rowid', [book.series_id]);
+  const all = await db.select<SeriesStep>('SELECT id, title FROM book WHERE series_id = ? AND deleted_at IS NULL ORDER BY series_position IS NULL, series_position, created_at, rowid', [book.series_id]);
   const i = all.findIndex((b) => b.id === book.id);
   return { prev: i > 0 ? all[i - 1] : null, next: i >= 0 && i < all.length - 1 ? all[i + 1] : null };
 }
@@ -74,7 +74,6 @@ async function seriesNav(db: Db, book: BookRow): Promise<BookLog['seriesNav']> {
 export async function getBookLog(db: Db, bookId: string, readId?: string | null): Promise<BookLog | null> {
   const [book] = await db.select<BookRow>('SELECT * FROM book WHERE id = ? AND deleted_at IS NULL', [bookId]);
   if (!book) return null;
-  if (book.shelf === 'up_next' && !book.is_draft) await ensurePlannedRead(db, bookId); // books put on Up Next before this existed get their read now
   const items = (sql: string) => db.select<Item>(sql, [bookId]);
   const tag = (t: TagTable) => items(`SELECT x.id AS id, x.name AS name, x.color AS color FROM book_${t} j JOIN ${t} x ON x.id = j.${t}_id WHERE j.book_id = ? AND j.deleted_at IS NULL ORDER BY CASE WHEN lower(x.name) LIKE \'the %\' THEN lower(substr(x.name, 5)) ELSE lower(x.name) END`);
   const [seriesRow] = book.series_id ? await db.select<{ id: string; title: string; total_books: number | null }>('SELECT id, title, total_books FROM series WHERE id = ?', [book.series_id]) : [];
@@ -84,13 +83,13 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
   const [universe] = book.universe_id ? await db.select<Item>('SELECT id, name FROM universe WHERE id = ?', [book.universe_id]) : [];
   const [seriesUniverse] = seriesRow ? await db.select<Item>('SELECT u.id AS id, u.name AS name FROM series s JOIN universe u ON u.id = s.universe_id AND u.deleted_at IS NULL WHERE s.id = ?', [seriesRow.id]) : [];
   const places: LogPlace[] = (await db.select<{ id: string; name: string; city: string | null; area: string | null; country: string | null; fictional: number; needs: number }>(
-    'SELECT x.id AS id, x.name AS name, x.city AS city, x.state_region AS area, x.country AS country, x.is_fictional AS fictional, (x.located = 0 AND x.is_fictional = 0) AS needs FROM book_place j JOIN place x ON x.id = j.place_id WHERE j.book_id = ? AND j.deleted_at IS NULL AND x.deleted_at IS NULL ORDER BY j.sort_order, j.rowid', [bookId]))
+    'SELECT x.id AS id, x.name AS name, x.city AS city, x.state_region AS area, x.country AS country, x.is_fictional AS fictional, (x.located = 0 AND x.is_fictional = 0) AS needs FROM book_place j JOIN place x ON x.id = j.place_id WHERE j.book_id = ? AND j.deleted_at IS NULL AND x.deleted_at IS NULL ORDER BY j.sort_order, j.created_at, j.rowid', [bookId]))
     .map((r) => ({ id: r.id, name: r.name, city: r.city, area: r.area, country: r.country, fictional: !!r.fictional, needsUpdate: !!r.needs }));
   const [mk] = await db.select<{ makeup: string | null; dashboard_bucket: string }>('SELECT makeup, dashboard_bucket FROM v_book_bucket WHERE book_id = ?', [bookId]);
   const reads = await db.select<ReadRow>(
     `SELECT r.id, r.status, r.start_date, r.finish_date, r.finish_time, r.rating, r.format, r.source_id, r.audio_length_seconds, r.narration_style, r.notes, r.stopped_reason, r.stopped_where, r.color_index, n.year_number
      FROM read r LEFT JOIN v_read_year_number n ON n.read_id = r.id WHERE r.book_id = ? AND r.deleted_at IS NULL
-     ORDER BY COALESCE(r.finish_date, '9999'), r.rowid`, [bookId]);
+     ORDER BY COALESCE(r.finish_date, '9999'), r.created_at, r.rowid`, [bookId]);
   const read = reads.find((r) => r.id === readId) ?? reads[reads.length - 1] ?? null;
   const narrators = read ? await db.select<LogNarrator>(
     `SELECT rn.id, rn.narrator_id, n.name, rn.accent_id, a.name AS accent, rn.rating,
@@ -142,13 +141,13 @@ export async function updateRead(db: Db, id: string, fields: Record<string, SqlV
   await patch(db, 'read', READ_COLS, id, f);
 }
 
-export async function createRead(db: Db, bookId: string, status: ReadRow['status'] = 'reading'): Promise<string> {
+export async function createRead(db: Db, bookId: string, status: ReadRow['status'] = 'reading', fixedId?: string): Promise<string> {
   const [{ n }] = await db.select<{ n: number }>('SELECT count(*) AS n FROM read WHERE deleted_at IS NULL');
-  const id = newId();
+  const id = fixedId ?? newId();
   await db.execute('INSERT INTO read (id, book_id, status, color_index) VALUES (?, ?, ?, ?)', [id, bookId, 'reading', Number(n) % 10]);
   // Narrators on the book are the starting point for this listen.
   const defaults = await db.select<{ narrator_id: string; sort_order: number }>('SELECT narrator_id, sort_order FROM book_narrator WHERE book_id = ? AND deleted_at IS NULL ORDER BY sort_order', [bookId]);
-  for (const d of defaults) await db.execute('INSERT INTO read_narrator (id, read_id, narrator_id, sort_order) VALUES (?, ?, ?, ?)', [newId(), id, d.narrator_id, d.sort_order]);
+  for (const d of defaults) await db.execute('INSERT INTO read_narrator (id, read_id, narrator_id, sort_order) VALUES (?, ?, ?, ?)', [fixedId ? `${fixedId}:${d.narrator_id}` : newId(), id, d.narrator_id, d.sort_order]);
   await updateRead(db, id, { status });
   return id;
 }
@@ -161,7 +160,7 @@ export async function deleteRead(db: Db, readId: string): Promise<{ bookId: stri
   await db.execute(`UPDATE read_narrator_character SET deleted_at = ${NOW} WHERE deleted_at IS NULL AND read_narrator_id IN (SELECT id FROM read_narrator WHERE read_id = ?)`, [readId]);
   for (const t of ['read_narrator', 'day_entry', 'challenge_completion', 'bracket_pick']) await db.execute(`UPDATE ${t} SET deleted_at = ${NOW} WHERE read_id = ? AND deleted_at IS NULL`, [readId]);
   await db.execute(`UPDATE read SET deleted_at = ${NOW} WHERE id = ?`, [readId]);
-  const left = await db.select<{ id: string }>("SELECT id FROM read WHERE book_id = ? AND deleted_at IS NULL ORDER BY COALESCE(finish_date, '9999') DESC, rowid DESC", [r.book_id]);
+  const left = await db.select<{ id: string }>("SELECT id FROM read WHERE book_id = ? AND deleted_at IS NULL ORDER BY COALESCE(finish_date, '9999') DESC, created_at DESC, rowid DESC", [r.book_id]);
   return { bookId: r.book_id, nextReadId: left[0]?.id ?? null };
 }
 
@@ -181,11 +180,15 @@ export async function deleteBook(db: Db, bookId: string): Promise<void> {
 // An Up Next book carries a "planned" read: a paused read with no dates, so the Why I'm Reading This, Format and Source cards have somewhere to live.
 // Starting the book turns that same read into the real one; moving the book back to TBR deletes it.
 export async function plannedReadId(db: Db, bookId: string): Promise<string | null> {
-  return first(db, "SELECT id FROM read WHERE book_id = ? AND status = 'on_hold' AND start_date IS NULL AND finish_date IS NULL AND deleted_at IS NULL ORDER BY rowid LIMIT 1", [bookId]);
+  return first(db, "SELECT id FROM read WHERE book_id = ? AND status = 'on_hold' AND start_date IS NULL AND finish_date IS NULL AND deleted_at IS NULL ORDER BY created_at, rowid LIMIT 1", [bookId]);
 }
 export async function ensurePlannedRead(db: Db, bookId: string): Promise<string> {
-  const open = await first(db, "SELECT id FROM read WHERE book_id = ? AND status IN ('reading', 'on_hold') AND deleted_at IS NULL ORDER BY rowid LIMIT 1", [bookId]);
-  return open ?? createRead(db, bookId, 'on_hold');
+  const open = await first(db, "SELECT id FROM read WHERE book_id = ? AND status IN ('reading', 'on_hold') AND deleted_at IS NULL ORDER BY created_at, rowid LIMIT 1", [bookId]);
+  if (open) return open;
+  // The placeholder read gets an id made from the book's, so two devices that each make one end up with the same row.
+  const fixed = `planned-${bookId}`;
+  const taken = await first(db, 'SELECT id FROM read WHERE id = ?', [fixed]);
+  return createRead(db, bookId, 'on_hold', taken ? undefined : fixed);
 }
 export async function dropPlannedReads(db: Db, bookId: string): Promise<void> {
   for (const r of await db.select<{ id: string }>("SELECT id FROM read WHERE book_id = ? AND status = 'on_hold' AND start_date IS NULL AND finish_date IS NULL AND deleted_at IS NULL", [bookId])) await deleteRead(db, r.id);
@@ -287,18 +290,18 @@ export interface Neighbors { prev: Neighbor | null; next: Neighbor | null }
 // has the most recently finished book as its previous one, and no next one.
 export async function getNeighbors(db: Db, readId: string | null): Promise<Neighbors> {
   if (!readId) return { prev: null, next: null };
-  const [cur] = await db.select<{ status: string; finish_date: string | null; ft: string; rid: number }>("SELECT status, finish_date, COALESCE(finish_time, '') AS ft, rowid AS rid FROM read WHERE id = ?", [readId]);
+  const [cur] = await db.select<{ status: string; finish_date: string | null; ft: string; ca: string }>("SELECT status, finish_date, COALESCE(finish_time, '') AS ft, created_at AS ca FROM read WHERE id = ?", [readId]);
   if (!cur) return { prev: null, next: null };
   const base = `SELECT r.id AS read_id, b.id AS book_id, b.title AS title FROM read r JOIN book b ON b.id = r.book_id
     WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status = 'finished' AND r.finish_date IS NOT NULL`;
-  const key = "(r.finish_date, COALESCE(r.finish_time, ''), r.rowid)";
+  const key = "(r.finish_date, COALESCE(r.finish_time, ''), r.created_at, r.id)";
   if (cur.status !== 'finished' || !cur.finish_date) {
-    return { prev: (await db.select<Neighbor>(`${base} ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.rowid DESC LIMIT 1`))[0] ?? null, next: null };
+    return { prev: (await db.select<Neighbor>(`${base} ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.created_at DESC, r.rowid DESC LIMIT 1`))[0] ?? null, next: null };
   }
-  const args = [cur.finish_date, cur.ft, cur.rid];
+  const args = [cur.finish_date, cur.ft, cur.ca, readId];
   return {
-    prev: (await db.select<Neighbor>(`${base} AND ${key} < (?, ?, ?) ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.rowid DESC LIMIT 1`, args))[0] ?? null,
-    next: (await db.select<Neighbor>(`${base} AND ${key} > (?, ?, ?) ORDER BY r.finish_date, COALESCE(r.finish_time, ''), r.rowid LIMIT 1`, args))[0] ?? null,
+    prev: (await db.select<Neighbor>(`${base} AND ${key} < (?, ?, ?, ?) ORDER BY r.finish_date DESC, COALESCE(r.finish_time, '') DESC, r.created_at DESC, r.id DESC LIMIT 1`, args))[0] ?? null,
+    next: (await db.select<Neighbor>(`${base} AND ${key} > (?, ?, ?, ?) ORDER BY r.finish_date, COALESCE(r.finish_time, ''), r.created_at, r.id LIMIT 1`, args))[0] ?? null,
   };
 }
 
@@ -371,7 +374,7 @@ export interface InProgressRead { read_id: string; book_id: string; title: strin
 export const listInProgressReads = (db: Db) => db.select<InProgressRead>(
   `SELECT r.id AS read_id, b.id AS book_id, b.title AS title, r.start_date AS start_date,
      (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors
-   FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status = 'reading' ORDER BY r.start_date DESC, r.rowid DESC`);
+   FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status = 'reading' ORDER BY r.start_date DESC, r.created_at DESC, r.rowid DESC`);
 
 // ---------- time periods ----------
 export const RECENT_DECADES = ['1950s', '1960s', '1970s', '1980s', '1990s', '2000s', '2010s'];

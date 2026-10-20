@@ -28,10 +28,10 @@ export const listShelf = (db: Db) => db.select<ShelfBook>(
      (SELECT MAX(f.release_date) FROM format_release f WHERE f.book_id = b.id AND f.deleted_at IS NULL AND f.status = 'dated' AND f.release_date <= date('now') AND f.release_date >= date('now', '-30 days')
         AND NOT EXISTS (SELECT 1 FROM format_release g WHERE g.book_id = b.id AND g.deleted_at IS NULL AND (g.status = 'tba' OR g.release_date > date('now')))) AS released
    FROM book b WHERE b.deleted_at IS NULL AND b.shelf IS NOT NULL
-   ORDER BY b.shelf = 'tbr', b.tbr_priority IS NULL, b.tbr_priority, b.rowid`);
+   ORDER BY b.shelf = 'tbr', b.tbr_priority IS NULL, b.tbr_priority, b.created_at, b.rowid`);
 
 async function orderOf(db: Db, shelf: Shelf): Promise<string[]> {
-  const rows = await db.select<{ id: string }>('SELECT id FROM book WHERE shelf = ? AND deleted_at IS NULL ORDER BY tbr_priority IS NULL, tbr_priority, rowid', [shelf]);
+  const rows = await db.select<{ id: string }>('SELECT id FROM book WHERE shelf = ? AND deleted_at IS NULL ORDER BY tbr_priority IS NULL, tbr_priority, created_at, rowid', [shelf]);
   return rows.map((r) => r.id);
 }
 

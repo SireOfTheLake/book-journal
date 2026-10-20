@@ -37,7 +37,7 @@ export async function seriesMergePlan(db: Db, keepId: string, dupId: string): Pr
   }
   const items: MergePlan['items'] = [];
   const mine = await db.select<{ position: number | null; title: string }>('SELECT series_position AS position, title FROM book WHERE series_id = ? AND deleted_at IS NULL', [keepId]);
-  for (const b of await db.select<{ id: string; title: string; position: number | null }>('SELECT id, title, series_position AS position FROM book WHERE series_id = ? AND deleted_at IS NULL ORDER BY series_position IS NULL, series_position, rowid', [dupId])) {
+  for (const b of await db.select<{ id: string; title: string; position: number | null }>('SELECT id, title, series_position AS position FROM book WHERE series_id = ? AND deleted_at IS NULL ORDER BY series_position IS NULL, series_position, created_at, rowid', [dupId])) {
     const clash = b.position !== null ? mine.find((m) => m.position === b.position) : undefined;
     items.push({ key: `book:${b.id}`, group: 'Books', label: `${b.title}${b.position !== null ? ` (#${b.position})` : ''}${clash ? ` — same number as "${clash.title}"` : ''}` });
   }

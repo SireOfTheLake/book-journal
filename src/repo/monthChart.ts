@@ -14,7 +14,7 @@ export async function getMonthChart(db: Db, year: number): Promise<ChartMonth[]>
      FROM read r JOIN book b ON b.id = r.book_id
      WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL
        AND ((r.finish_date BETWEEN ? AND ?) OR (r.start_date IS NOT NULL AND r.start_date <= ? AND (r.finish_date IS NULL OR r.finish_date >= ?)))
-     ORDER BY r.finish_date, COALESCE(r.finish_time, ''), r.rowid`, [start, end, end, start]);
+     ORDER BY r.finish_date, COALESCE(r.finish_time, ''), r.created_at, r.rowid`, [start, end, end, start]);
   const ids = reads.map((r) => r.read_id);
   const entries = ids.length ? await db.select<{ read_id: string; date: string; page: number | null; percent: number | null }>(
     `SELECT read_id, entry_date AS date, position_page AS page, position_percent AS percent FROM day_entry WHERE deleted_at IS NULL AND read_id IN (${ids.map(() => '?').join(',')})`, ids) : [];

@@ -37,7 +37,7 @@ export async function listChallenges(db: Db, year: number): Promise<ChallengeSum
           JOIN read kr ON kr.id = k.read_id AND kr.deleted_at IS NULL AND kr.status = 'finished'
           WHERE s.challenge_id = c.id AND s.deleted_at IS NULL AND (s.is_free = 0 OR s.label <> '' OR s.art_image_id IS NOT NULL)) AS done
      FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
-     WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY c.sort_order, c.rowid`, [year]);
+     WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY c.sort_order, c.created_at, c.rowid`, [year]);
   return rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, color: r.color, published: !!r.published, word: !!r.word, usMap: !!r.usMap, ...tracker(r.done, r.total) }));
 }
 
@@ -47,7 +47,7 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
        (SELECT b.name FROM bingo_bank b WHERE b.id = c.bank_id AND b.deleted_at IS NULL) AS bank_name, y.year AS year FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id WHERE c.id = ? AND c.deleted_at IS NULL`, [id]);
   if (!c) return null;
   const groups = await db.select<{ id: string; name: string; color: string | null }>(
-    'SELECT id, name, color FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position, rowid', [id]);
+    'SELECT id, name, color FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [id]);
   const rows = await db.select<{ id: string; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: number; bank_prompt_id: string | null; ask_note: number | null; note: string | null; read_id: string | null; book_id: string | null; title: string | null; authors: string | null; status: string | null }>(
     `SELECT s.id AS id, s.label AS label, s.position AS position, s.group_id AS group_id, im.file_path AS art, s.color AS color, s.is_free AS is_free, s.bank_prompt_id AS bank_prompt_id, s.ask_note AS ask_note, k.note AS note, k.read_id AS read_id, r.book_id AS book_id, b.title AS title, r.status AS status,
        (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors
@@ -288,7 +288,7 @@ export async function searchReads(db: Db, challengeId: string, query: string, li
        (SELECT cs.label FROM challenge_completion k JOIN challenge_slot cs ON cs.id = k.slot_id WHERE k.read_id = r.id AND k.challenge_id = ? AND k.deleted_at IS NULL AND cs.deleted_at IS NULL) AS used_on
      FROM read r JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL
      WHERE r.deleted_at IS NULL ${where ? `AND ${where}` : ''}
-     ORDER BY (r.status IN ('reading','on_hold') AND b.shelf IS NULL) DESC, COALESCE(r.finish_date, r.start_date, '') DESC, r.rowid DESC LIMIT ?`,
+     ORDER BY (r.status IN ('reading','on_hold') AND b.shelf IS NULL) DESC, COALESCE(r.finish_date, r.start_date, '') DESC, r.created_at DESC, r.rowid DESC LIMIT ?`,
     [challengeId, ...words.map((w) => `%${w}%`), limit]);
 }
 
@@ -296,7 +296,7 @@ export async function searchReads(db: Db, challengeId: string, query: string, li
 async function loadLayout(db: Db, challengeId: string): Promise<Layout> {
   const c = await first<{ kind: ChallengeKind; layout: string | null }>(db, 'SELECT kind, layout FROM challenge WHERE id = ? AND deleted_at IS NULL', [challengeId]);
   if (!c) throw new Error('That challenge no longer exists.');
-  const groups = await db.select<{ id: string }>('SELECT id FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position, rowid', [challengeId]);
+  const groups = await db.select<{ id: string }>('SELECT id FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [challengeId]);
   return resolveLayout(c.kind, groups.map((g) => g.id), c.layout);
 }
 const saveLayout = (db: Db, challengeId: string, l: Layout) => db.execute('UPDATE challenge SET layout = ? WHERE id = ?', [serializeLayout(l), challengeId]);
@@ -365,7 +365,7 @@ export async function listReadChallenges(db: Db, readId: string): Promise<ReadCh
        (SELECT g.name FROM challenge_group g WHERE g.id = s.group_id AND g.deleted_at IS NULL) AS "group"
      FROM challenge_completion k JOIN challenge_slot s ON s.id = k.slot_id AND s.deleted_at IS NULL
        JOIN challenge c ON c.id = k.challenge_id AND c.deleted_at IS NULL JOIN journal_year y ON y.id = c.journal_year_id
-     WHERE k.read_id = ? AND k.deleted_at IS NULL ORDER BY y.year DESC, c.sort_order, c.rowid`, [readId]);
+     WHERE k.read_id = ? AND k.deleted_at IS NULL ORDER BY y.year DESC, c.sort_order, c.created_at, c.rowid`, [readId]);
   if (!rows.length) return [];
   const progress = new Map((await listChallengesAnyYear(db)).map((c) => [c.id, c]));
   return rows.map(({ rstatus, ...r }) => ({ ...r, planned: rstatus !== 'finished', word: !!r.word, label: r.label || `Square ${r.position + 1}`, done: progress.get(r.challenge_id)?.done ?? 0, total: progress.get(r.challenge_id)?.total ?? 0 }));
@@ -384,7 +384,7 @@ export async function listChallengeChoices(db: Db, readId: string, years: number
   if (!years.length) return [];
   const cs = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; word: number; theme: string | null; limit: number | null }>(
     `SELECT c.word_builder AS word, c.word_theme AS theme, c.word_target AS "limit", c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, y.year AS year FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
-     WHERE c.deleted_at IS NULL AND y.deleted_at IS NULL AND c.published = 1 AND y.year IN (${years.map(() => '?').join(',')}) ORDER BY y.year DESC, c.sort_order, c.rowid`, years);
+     WHERE c.deleted_at IS NULL AND y.deleted_at IS NULL AND c.published = 1 AND y.year IN (${years.map(() => '?').join(',')}) ORDER BY y.year DESC, c.sort_order, c.created_at, c.rowid`, years);
   const out: ChallengeChoice[] = [];
   for (const c of cs) {
     const rows = await db.select<{ id: string; label: string; position: number; is_free: number; art: string | null; group: string | null; taken: string | null; taken_read: string | null }>(
@@ -393,7 +393,7 @@ export async function listChallengeChoices(db: Db, readId: string, years: number
          (SELECT b.title FROM challenge_completion k JOIN read r ON r.id = k.read_id AND r.deleted_at IS NULL JOIN book b ON b.id = r.book_id WHERE k.slot_id = s.id AND k.deleted_at IS NULL) AS taken,
          (SELECT k.read_id FROM challenge_completion k WHERE k.slot_id = s.id AND k.deleted_at IS NULL) AS taken_read
        FROM challenge_slot s LEFT JOIN challenge_group g ON g.id = s.group_id AND g.deleted_at IS NULL
-       WHERE s.challenge_id = ? AND s.deleted_at IS NULL ORDER BY (g.id IS NOT NULL), g.position, g.rowid, s.position`, [c.id]);
+       WHERE s.challenge_id = ? AND s.deleted_at IS NULL ORDER BY (g.id IS NOT NULL), g.position, g.created_at, g.rowid, s.position`, [c.id]);
     const counted = rows.filter((r) => countsTowardTracker({ is_free: !!r.is_free, label: r.label, art: r.art }));
     out.push({
       id: c.id, name: c.name, kind: c.kind, color: c.color, year: c.year, word: !!c.word, theme: c.theme, limit: c.word ? c.limit : null, used: counted.length, letters: c.word ? await letterMap(db, c.id) : {}, current_slot_id: counted.find((r) => r.taken_read === readId)?.id ?? null,

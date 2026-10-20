@@ -10,7 +10,7 @@ export async function authorMergePlan(db: Db, keepId: string, dupId: string): Pr
   if (!keep || !dup) throw new Error('One of those authors no longer exists.');
   const items: MergePlan['items'] = [];
   const add = async (group: string, table: string, sql: string) => { for (const r of await db.select<{ id: string; label: string }>(sql, [dupId])) items.push({ key: `${table}:${r.id}`, group, label: r.label }); };
-  await add('Other names', 'author_alias', 'SELECT id, name AS label FROM author_alias WHERE author_id = ? AND deleted_at IS NULL ORDER BY rowid');
+  await add('Other names', 'author_alias', 'SELECT id, name AS label FROM author_alias WHERE author_id = ? AND deleted_at IS NULL ORDER BY created_at, rowid');
   await add('Books', 'book_author', `SELECT ba.id AS id, b.title || COALESCE(' (' || (SELECT s.title FROM series s WHERE s.id = b.series_id) || ')', '') AS label
     FROM book_author ba JOIN book b ON b.id = ba.book_id WHERE ba.author_id = ? AND ba.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`);
   await add('Series', 'series_author', 'SELECT sa.id AS id, s.title AS label FROM series_author sa JOIN series s ON s.id = sa.series_id WHERE sa.author_id = ? AND sa.deleted_at IS NULL AND s.deleted_at IS NULL ORDER BY CASE WHEN lower(s.title) LIKE \'the %\' THEN lower(substr(s.title, 5)) ELSE lower(s.title) END');

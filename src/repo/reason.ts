@@ -25,7 +25,7 @@ export async function promptSuggestions(db: Db, kind: 'trick' | 'treat', current
   const rows = await db.select<{ prompt: string }>(
     `SELECT r.prompt AS prompt FROM read r JOIN category c ON c.id = r.category_id AND c.deleted_at IS NULL
      WHERE r.deleted_at IS NULL AND lower(c.name) = ? AND r.prompt IS NOT NULL AND trim(r.prompt) <> ''
-     GROUP BY lower(trim(r.prompt)) ORDER BY COUNT(*) DESC, MAX(r.rowid) DESC`, [kind]);
+     GROUP BY lower(trim(r.prompt)) ORDER BY COUNT(*) DESC, MAX(r.created_at, r.rowid) DESC`, [kind]);
   const cur = current?.trim().toLowerCase();
   return rows.map((x) => x.prompt.trim()).filter((p) => p.toLowerCase() !== cur).slice(0, limit);
 }

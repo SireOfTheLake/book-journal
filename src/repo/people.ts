@@ -34,7 +34,7 @@ export async function addAlias(db: Db, kind: PersonKind, id: string, name: strin
   await db.execute(`INSERT INTO ${kind}_alias (id, ${kind}_id, name) VALUES (?, ?, ?)`, [newId(), id, n]);
 }
 export const removeAlias = (db: Db, kind: PersonKind, aliasId: string) => db.execute(`UPDATE ${kind}_alias SET deleted_at = ${NOW} WHERE id = ?`, [aliasId]);
-export const listAliases = (db: Db, kind: PersonKind, id: string) => db.select<Item>(`SELECT id, name FROM ${kind}_alias WHERE ${kind}_id = ? AND deleted_at IS NULL ORDER BY rowid`, [id]);
+export const listAliases = (db: Db, kind: PersonKind, id: string) => db.select<Item>(`SELECT id, name FROM ${kind}_alias WHERE ${kind}_id = ? AND deleted_at IS NULL ORDER BY created_at, rowid`, [id]);
 
 export async function addLink(db: Db, kind: PersonKind, id: string, label: string, url: string) {
   if (!url.trim()) throw new Error('Type the address of the link.');
@@ -101,9 +101,9 @@ export async function getAuthor(db: Db, id: string): Promise<AuthorDetail | null
     `SELECT b.id, b.title, b.series_id, (SELECT s.title FROM series s WHERE s.id = b.series_id) AS series, b.series_position AS position, b.shelf, b.page_count,
        EXISTS (SELECT 1 FROM read r WHERE r.book_id = b.id AND r.status = 'finished' AND r.deleted_at IS NULL) AS is_read,
        (SELECT r.finish_date FROM read r WHERE r.book_id = b.id AND r.status = 'finished' AND r.deleted_at IS NULL ORDER BY r.finish_date DESC LIMIT 1) AS finish_date,
-       (SELECT r.format FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS format,
+       (SELECT r.format FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS format,
        (SELECT v.avg_stars FROM v_book_rating v WHERE v.book_id = b.id) AS rating,
-       (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS read_id
+       (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS read_id
      FROM book b JOIN book_author ba ON ba.book_id = b.id AND ba.deleted_at IS NULL WHERE ba.author_id = ? AND b.deleted_at IS NULL
      ORDER BY finish_date IS NULL, finish_date DESC, CASE WHEN lower(b.title) LIKE \'the %\' THEN lower(substr(b.title, 5)) ELSE lower(b.title) END`, [id]);
   const ids = `SELECT ba.book_id FROM book_author ba WHERE ba.author_id = ? AND ba.deleted_at IS NULL`;
@@ -146,7 +146,7 @@ export async function getNarrator(db: Db, id: string): Promise<NarratorDetail | 
     `SELECT rn.id AS rn_id, r.id AS read_id, b.id AS book_id, b.title, r.finish_date, r.status, r.narration_style, r.audio_length_seconds, a.name AS accent, rn.rating,
        (SELECT group_concat(ch.name, ', ') FROM read_narrator_character rnc JOIN character ch ON ch.id = rnc.character_id WHERE rnc.read_narrator_id = rn.id AND rnc.deleted_at IS NULL) AS voiced
      FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL LEFT JOIN accent a ON a.id = rn.accent_id
-     WHERE ${LISTEN} ORDER BY COALESCE(r.finish_date, '9999') DESC, r.rowid DESC`, [id]);
+     WHERE ${LISTEN} ORDER BY COALESCE(r.finish_date, '9999') DESC, r.created_at DESC, r.rowid DESC`, [id]);
   for (const l of listens) { l.chars = await voicesOf(db, l.rn_id); l.options = (await bookCharacters(db, l.book_id)).filter((o) => !l.chars.some((c) => c.id === o.id)); }
   const books = `SELECT r.book_id FROM read_narrator rn JOIN read r ON r.id = rn.read_id WHERE ${LISTEN}`;
   return {
@@ -188,7 +188,7 @@ export const removeUsualAccent = (db: Db, narratorId: string, accentId: string) 
 export async function addBookToNarrator(db: Db, narratorId: string, bookId: string): Promise<void> {
   const { ensureBookNarrator } = await import('./bookLog');
   await ensureBookNarrator(db, bookId, narratorId);
-  const [latest] = await db.select<{ id: string; format: string | null }>('SELECT id, format FROM read WHERE book_id = ? AND deleted_at IS NULL ORDER BY rowid DESC LIMIT 1', [bookId]);
+  const [latest] = await db.select<{ id: string; format: string | null }>('SELECT id, format FROM read WHERE book_id = ? AND deleted_at IS NULL ORDER BY created_at DESC, rowid DESC LIMIT 1', [bookId]);
   if (latest?.format === 'audio' && !(await first(db, 'SELECT id FROM read_narrator WHERE read_id = ? AND narrator_id = ? AND deleted_at IS NULL', [latest.id, narratorId]))) {
     const [{ n }] = await db.select<{ n: number }>('SELECT count(*) AS n FROM read_narrator WHERE read_id = ? AND deleted_at IS NULL', [latest.id]);
     await db.execute('INSERT INTO read_narrator (id, read_id, narrator_id, sort_order) VALUES (?, ?, ?, ?)', [newId(), latest.id, narratorId, Number(n)]);

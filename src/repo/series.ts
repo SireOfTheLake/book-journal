@@ -39,7 +39,7 @@ const BOOKS_SQL = `
     EXISTS (SELECT 1 FROM read r WHERE r.book_id = b.id AND r.status IN ('reading', 'on_hold') AND b.shelf IS NULL AND r.deleted_at IS NULL) AS is_reading,
     (SELECT is_unreleased FROM v_book_release v WHERE v.book_id = b.id) AS unreleased
   FROM book b WHERE b.series_id IS NOT NULL AND b.deleted_at IS NULL
-  ORDER BY b.series_id, b.series_position IS NULL, b.series_position, b.rowid`;
+  ORDER BY b.series_id, b.series_position IS NULL, b.series_position, b.created_at, b.rowid`;
 
 const stateOf = (b: BookDbRow): MarkState => (b.is_read ? 'read' : b.is_dnf ? 'dnf' : b.unreleased ? 'unreleased' : 'unread');
 
@@ -104,11 +104,11 @@ export async function getSeriesPage(db: Db, seriesId: string): Promise<SeriesPag
     const [info] = await db.select<{ authors: string | null; finish_date: string | null; format: SeriesBook['format']; rating: number | null; tropes: string | null; read_id: string | null; read_status: SeriesBook['status'] }>(
       `SELECT (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors,
          (SELECT r.finish_date FROM read r WHERE r.book_id = b.id AND r.status = 'finished' AND r.deleted_at IS NULL ORDER BY r.finish_date DESC LIMIT 1) AS finish_date,
-         (SELECT r.format FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS format,
+         (SELECT r.format FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS format,
          (SELECT avg_stars FROM v_book_rating v WHERE v.book_id = b.id) AS rating,
          (SELECT group_concat(t.name, ', ') FROM book_trope bt JOIN trope t ON t.id = bt.trope_id WHERE bt.book_id = b.id AND bt.deleted_at IS NULL) AS tropes,
-         (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS read_id,
-         (SELECT r.status FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.rowid DESC LIMIT 1) AS read_status
+         (SELECT r.id FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS read_id,
+         (SELECT r.status FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL ORDER BY r.created_at DESC, r.rowid DESC LIMIT 1) AS read_status
        FROM book b WHERE b.id = ?`, [b.id]);
     const releases = await db.select<Release>("SELECT format, status, release_date FROM format_release WHERE book_id = ? AND deleted_at IS NULL ORDER BY format", [b.id]);
     const [cv] = await db.select<{ cover: string | null }>('SELECT (SELECT i.file_path FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL) AS cover FROM book b WHERE b.id = ?', [b.id]);
@@ -216,11 +216,11 @@ export async function setFormatRelease(db: Db, bookId: string, format: Release['
 // ---------- a series' own authors ----------
 const derivedAuthors = (db: Db, seriesId: string) => db.select<{ id: string; name: string }>(
   `SELECT a.id AS id, a.name AS name FROM book b JOIN book_author ba ON ba.book_id = b.id AND ba.deleted_at IS NULL JOIN author a ON a.id = ba.author_id AND a.deleted_at IS NULL
-   WHERE b.series_id = ? AND b.deleted_at IS NULL GROUP BY a.id ORDER BY min(b.rowid * 1000 + ba.sort_order)`, [seriesId]);
+   WHERE b.series_id = ? AND b.deleted_at IS NULL GROUP BY a.id ORDER BY min(b.created_at), min(ba.sort_order), a.created_at`, [seriesId]);
 
 // The series' authors: the ones set on the series, or (if none are set) the authors of its books.
 export async function seriesAuthors(db: Db, seriesId: string): Promise<{ id: string; name: string }[]> {
-  const set = await db.select<{ id: string; name: string }>('SELECT a.id AS id, a.name AS name FROM series_author sa JOIN author a ON a.id = sa.author_id WHERE sa.series_id = ? AND sa.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY sa.sort_order, sa.rowid', [seriesId]);
+  const set = await db.select<{ id: string; name: string }>('SELECT a.id AS id, a.name AS name FROM series_author sa JOIN author a ON a.id = sa.author_id WHERE sa.series_id = ? AND sa.deleted_at IS NULL AND a.deleted_at IS NULL ORDER BY sa.sort_order, sa.created_at, sa.rowid', [seriesId]);
   return set.length ? set : derivedAuthors(db, seriesId);
 }
 

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useDb } from '../db/DbContext';
+import { useSync } from '../sync/SyncContext';
 import { DEFAULTS, getFeatures, setFeature, type FeatureFlags, type FeatureKey } from '../repo/features';
 
 interface Ctx { flags: FeatureFlags; set(key: FeatureKey, on: boolean): Promise<void> }
@@ -9,7 +10,8 @@ export const useFeatures = () => useContext(Features);
 export function FeaturesProvider({ children }: { children: ReactNode }) {
   const db = useDb();
   const [flags, setFlags] = useState<FeatureFlags | null>(null);
-  useEffect(() => { getFeatures(db).then(setFlags, () => setFlags(DEFAULTS)); }, [db]);
+  const { dataVersion } = useSync(); // another device may have switched a feature
+  useEffect(() => { getFeatures(db).then(setFlags, () => setFlags(DEFAULTS)); }, [db, dataVersion]);
   const set = useCallback(async (key: FeatureKey, on: boolean) => {
     await setFeature(db, key, on);
     setFlags((f) => ({ ...(f ?? DEFAULTS), [key]: on }));

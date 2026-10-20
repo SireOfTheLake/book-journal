@@ -72,3 +72,17 @@ describe('journal size', () => {
     expect(megabytes(1572864)).toBe('1.5');
   });
 });
+
+import { cloudTables, generateSupabaseSql } from '../src/sync/supabaseSchema';
+describe('Supabase setup script', () => {
+  it('is up to date with the app database, and covers every synced table', async () => {
+    const sql = generateSupabaseSql(await cloudTables(db), SCHEMA_VERSION);
+    expect(readFileSync('supabase/schema.sql', 'utf8'), 'run: npm run supabase-sql').toBe(sql);
+    const tables = await syncedTables(db);
+    for (const t of tables) expect(sql).toContain(`create table if not exists public."${t.name}"`);
+    expect(sql).toContain('public."app_setting" ("key" text primary key');
+    expect(sql).toContain(`insert into public.sync_schema (version) values (${SCHEMA_VERSION});`);
+    // No app column may clash with the two the cloud adds.
+    for (const t of tables) expect(t.columns.filter((c) => c === 'user_id' || c === 'synced_at')).toEqual([]);
+  });
+});

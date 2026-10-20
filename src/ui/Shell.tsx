@@ -7,6 +7,7 @@ import SearchBox from './SearchBox';
 import QuickLog from './QuickLog';
 import QuickSeries from './QuickSeries';
 import { Icon } from './icons';
+import { useSync } from '../sync/SyncContext';
 import { useFeatures } from '../features/FeaturesContext';
 import UpdateToast from '../update/UpdateToast';
 import ChangelogModal, { useChangelog } from '../changelog/ChangelogModal';
@@ -49,6 +50,17 @@ export default function Shell() {
   const [addTitle, setAddTitle] = useState('');
   const [addingSeries, setAddingSeries] = useState(false);
   const [logging, setLogging] = useState(false);
+  const sync = useSync();
+  const [shownData, setShownData] = useState(0);
+  // Changes from another device are shown by reloading the page you are on, but not while you are typing.
+  useEffect(() => {
+    if (sync.dataVersion === shownData) return;
+    const typing = () => { const el = document.activeElement; return !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName); };
+    if (!typing()) { setShownData(sync.dataVersion); return; }
+    const later = () => setTimeout(() => setShownData(sync.dataVersion), 150);
+    document.addEventListener('focusout', later, { once: true });
+    return () => document.removeEventListener('focusout', later);
+  }, [sync.dataVersion, shownData]);
   const [refresh, setRefresh] = useState(0); // changes after a quick log, so the page you are on shows the new entry
 
   return (
@@ -96,6 +108,11 @@ export default function Shell() {
         <span className="spacer" />
         <button type="button" className="nav navbtn" onClick={clog.show}><Icon name="sparkle" />What's new{clog.unseen && <span className="newdot" role="img" aria-label="new" />}</button>
         <NavLink to="/import" className={link}><Icon name="import" />Import</NavLink>
+        {sync.state !== 'off' && (
+          <NavLink to="/settings" className="syncstate" title={sync.message ?? 'Sync settings'}>
+            <span className={`syncdot ${sync.state}`} aria-hidden="true" />{{ off: '', signed_out: 'Sync: signed out', idle: 'Synced', syncing: 'Syncing...', problem: 'Sync problem' }[sync.state]}
+          </NavLink>
+        )}
         <NavLink to="/settings" className={link}><Icon name="settings" />Settings and themes</NavLink>
       </nav>
       <main className="main">
@@ -106,7 +123,7 @@ export default function Shell() {
           <SearchBox onAddBook={(t) => { setAddTitle(t); setAdding(true); }} />
         </header>
         <YearContext.Provider value={year}>
-          <div className="content" key={refresh}><Outlet /></div>
+          <div className="content" key={`${refresh}-${shownData}`}><Outlet /></div>
         </YearContext.Provider>
         <UpdateToast />
       {clog.open && <ChangelogModal onClose={clog.close} />}

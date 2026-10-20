@@ -2,7 +2,12 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 -->
+
+## 0.2.1 — 2026-10-19
+
+### New
+- Settings > Sync: connect to your own Supabase project, sign in, and keep this journal in step with your other devices. Changes are sent a moment after you make them and arrive on other devices within a second or two. Starts switched off until you set it up.
 
 ## 0.2.0 — 2026-10-19
 

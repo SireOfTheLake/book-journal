@@ -1,6 +1,6 @@
 // Keeps the app itself on the phone so it opens with no signal. The journal's data is not stored here (it lives in the app's own database).
 // Pages and files are fetched fresh when there is a connection, and the saved copy is used when there is not.
-const CACHE = 'book-journal-shell-v1';
+const CACHE = 'book-journal-shell-v2';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => {
@@ -18,7 +18,8 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     try {
-      const fresh = await fetch(req);
+      // Always ask the server, so a new release shows up on the next open instead of after the host's cache runs out.
+      const fresh = await fetch(req, { cache: 'no-cache' });
       if (fresh.ok) cache.put(req, fresh.clone());
       return fresh;
     } catch {

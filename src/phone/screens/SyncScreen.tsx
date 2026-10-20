@@ -83,6 +83,8 @@ export default function SyncScreen() {
         <p style={{ margin: 0, lineHeight: 1.4 }}>Series, authors, quotes, reading orders and the dashboards stay on the computer for now. Anything you change there shows up here.</p>
       </section>
 
+      <p className="ph-muted ph-small" style={{ textAlign: 'center', marginTop: 16 }}>Phone app version {typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'dev'}</p>
+
       {s.email && <button type="button" className="ph-btn" style={{ width: '100%', marginTop: 16 }} onClick={() => void s.signOut()}>Sign out</button>}
     </>
   );

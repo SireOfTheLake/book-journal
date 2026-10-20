@@ -16,7 +16,7 @@ Rule for everything that adds to the Book Log: it gets an on/off switch in Setti
 11. **Year in Review** (like Spotify Wrapped): a scrollable summary page.
 12. **Customize the Book Log** (low priority): add cards you define, resize, rearrange; applies to the whole app first, with room for templates by format or per book later. New card types can store new data, and that data can become goal metrics.
 13. **Reading timer** (very low priority): explore how it could work.
-14. **Sync to a phone web app and a second computer** (now planned). Preparation done: ordering, placeholder reads, settings scopes, sync groundwork and size readout. Next: choose the cloud service, build the sync engine, then the phone editing screens.
+14. **Sync to a phone web app and a second computer** (now planned). Preparation done: ordering, placeholder reads, settings scopes, sync groundwork and size readout. Sync with Supabase works. The phone web app is built (see PHONE.md); the second computer works the same way as the first.
 
 ## Not now (keep in mind)
 - Library due dates and holds

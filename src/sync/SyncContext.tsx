@@ -8,6 +8,8 @@ import { makeClient, supabaseTransport, watchPings, type CloudConfig } from './s
 export type SyncState = 'off' | 'signed_out' | 'idle' | 'syncing' | 'problem';
 interface Ctx {
   state: SyncState; message: string | null; lastSyncedAt: Date | null; email: string | null; config: CloudConfig | null;
+  /** The connection to the cloud, once the address and key are saved. */
+  client: SupabaseClient | null;
   /** Changes whenever other devices' changes were brought in, so screens can reload. */
   dataVersion: number;
   saveConfig(c: CloudConfig): Promise<void>;
@@ -16,13 +18,13 @@ interface Ctx {
   syncNow(): Promise<void>;
 }
 const noop = async () => undefined;
-const SyncCtx = createContext<Ctx>({ state: 'off', message: null, lastSyncedAt: null, email: null, config: null, dataVersion: 0, saveConfig: noop, signIn: noop, signOut: noop, syncNow: noop });
+const SyncCtx = createContext<Ctx>({ state: 'off', message: null, lastSyncedAt: null, email: null, config: null, client: null, dataVersion: 0, saveConfig: noop, signIn: noop, signOut: noop, syncNow: noop });
 export const useSync = () => useContext(SyncCtx);
 
 const get = async (db: ReturnType<typeof rawDb>, k: string) => (await db.select<{ value: string }>('SELECT value FROM app_setting WHERE key = ?', [k]))[0]?.value ?? null;
 const put = (db: ReturnType<typeof rawDb>, k: string, v: string) => db.execute("INSERT INTO app_setting (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')", [k, v]);
 
-export function SyncProvider({ children }: { children: ReactNode }) {
+export function SyncProvider({ children, skipPull, afterSync }: { children: ReactNode; skipPull?: string[]; afterSync?: (client: SupabaseClient) => Promise<number> }) {
   const appDb = useDb();
   const db = useMemo(() => rawDb(appDb), [appDb]);
   const [config, setConfig] = useState<CloudConfig | null>(null);
@@ -60,11 +62,12 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     if (!data.session) return;
     running.current = true; setState('syncing'); setMessage(null);
     try {
-      const r = await syncOnce(db, supabaseTransport(client));
+      const r = await syncOnce(db, supabaseTransport(client), { skipPull });
+      const extra = afterSync ? await afterSync(client).catch(() => 0) : 0;
       const now = new Date();
       await put(db, 'sync_last_at', now.toISOString());
       setLast(now); setState('idle');
-      if (r.pulled > 0) setDataVersion((v) => v + 1);
+      if (r.pulled + extra > 0) setDataVersion((v) => v + 1);
     } catch (e) {
       setState('problem');
       setMessage(e instanceof SyncVersionError || e instanceof Error ? e.message : String(e));
@@ -73,7 +76,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (again.current) { again.current = false; schedule(500); }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, db]);
+  }, [client, db, skipPull, afterSync]);
 
   const schedule = useCallback((ms: number) => {
     if (timer.current) clearTimeout(timer.current);
@@ -94,7 +97,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [client, state === 'signed_out' || state === 'off', schedule]);
 
   const value = useMemo<Ctx>(() => ({
-    state, message, lastSyncedAt, email, config, dataVersion,
+    state, message, lastSyncedAt, email, config, client, dataVersion,
     async saveConfig(c) { await put(db, 'sync_url', c.url.trim()); await put(db, 'sync_anon_key', c.anonKey.trim()); setConfig({ url: c.url.trim(), anonKey: c.anonKey.trim() }); },
     async signIn(e, p) {
       if (!client) throw new Error('Save the cloud address and key first.');

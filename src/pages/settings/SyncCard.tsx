@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSync } from '../../sync/SyncContext';
+import { makeSetupCode } from '../../sync/setupCode';
 
 const STATE_TEXT = { off: 'Not set up', signed_out: 'Signed out', idle: 'Up to date', syncing: 'Syncing...', problem: 'Needs attention' } as const;
 
@@ -11,6 +12,7 @@ export default function SyncCard() {
   const [email, setEmail] = useState(s.email ?? '');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const run = async (fn: () => Promise<void>) => { setError(null); try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
   return (
     <div className="bcard">
@@ -38,6 +40,15 @@ export default function SyncCard() {
           <button type="button" className="btn on" disabled={s.state === 'syncing'} onClick={() => run(s.syncNow)}>Sync now</button>
           <button type="button" className="btn" onClick={() => run(s.signOut)}>Sign out</button>
         </div>
+      )}
+      {s.config && (
+        <>
+          <span className="lbl2">Set up your phone</span>
+          <p className="muted small">On the phone, open the Book Journal web page, paste this code, then sign in with the same email and password. It carries the cloud address and key so you do not have to type them.</p>
+          <div className="actions">
+            <button type="button" className="btn" onClick={() => run(async () => { await navigator.clipboard.writeText(makeSetupCode(s.config!)); setCopied(true); setTimeout(() => setCopied(false), 3000); })}>{copied ? 'Copied' : 'Copy phone setup code'}</button>
+          </div>
+        </>
       )}
       <span className="muted small">Your password is not kept in the journal. This device stays signed in until you sign out.</span>
     </div>

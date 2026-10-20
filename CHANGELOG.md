@@ -2,7 +2,13 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 -->
+
+## 0.2.2 — 2026-10-20
+
+### New
+- Phone version of Book Journal: a web page you add to your iPhone's Home Screen. It keeps its own copy of your journal, works offline, and syncs with the computer through your Supabase project. Edit a book's status, rating, dates, tags, characters, notes and more, edit characters, add books, and sync. See PHONE.md for the one-time setup.
+- Settings > Sync: "Copy phone setup code" so you do not have to type the cloud address and key on the phone.
 
 ## 0.2.1 — 2026-10-19
 

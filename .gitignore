@@ -8,3 +8,4 @@ src-tauri/gen
 tests/fixtures
 *.key
 src-tauri/tauri.extra.json
+dist-phone

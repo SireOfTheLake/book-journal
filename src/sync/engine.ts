@@ -183,7 +183,12 @@ async function syncSettings(ctx: Ctx, transport: Transport): Promise<{ pulled: n
   return { pulled, pushed: rows.length };
 }
 
-export async function syncOnce(db: Db, transport: Transport): Promise<SyncReport> {
+export interface SyncOptions {
+  /** Tables this device does not bring in from the cloud (the phone leaves the pictures table to its own cover download). Anything made here is still sent. */
+  skipPull?: string[];
+}
+
+export async function syncOnce(db: Db, transport: Transport, opts: SyncOptions = {}): Promise<SyncReport> {
   const mine = await databaseVersion(db);
   const theirs = await transport.schemaVersion();
   const cmp = compareVersions(mine, theirs);
@@ -192,9 +197,10 @@ export async function syncOnce(db: Db, transport: Transport): Promise<SyncReport
   const tables = await syncedTables(db);
   const byName = new Map(tables.map((t) => [t.name, t]));
   const ctx: Ctx = { db, tables, unique: await uniqueIndexes(db), fks: await foreignKeys(db, tables), merged: 0, fromCloud: new Set() };
+  const skip = new Set(opts.skipPull ?? []);
   const order = applyOrder(tables).map((n) => byName.get(n)!);
   let pulled = 0; let pushed = 0;
-  for (const t of order) pulled += await pullTable(ctx, t, transport);
+  for (const t of order) if (!skip.has(t.name)) pulled += await pullTable(ctx, t, transport);
   const s = await syncSettings(ctx, transport);
   pulled += s.pulled;
   for (const t of order) pushed += await pushTable(ctx, t, transport);

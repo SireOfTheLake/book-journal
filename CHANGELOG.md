@@ -4,6 +4,11 @@ Every release, newest first. Notes for the next release are written in changelog
 
 <!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 -->
 
+## 0.2.7 — 2026-10-20
+
+### Improved
+- Small improvements and fixes.
+
 ## 0.2.6 — 2026-10-20
 
 ### New

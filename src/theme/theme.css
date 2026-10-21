@@ -1083,3 +1083,12 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .csvent { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 0; border-top: 1px solid var(--line); }
 .csvent .grow { flex: 1 1 220px; min-width: 0; }
 .csvent input[list] { width: 190px; }
+
+/* TBR & Up Next toolbar: every control the same height and centred on one line */
+.shelfpage .bltools { align-items: center; }
+.shelftools > * { margin: 0 !important; height: 36px; box-sizing: border-box; }
+.shelftools .field, .shelftools select { padding-top: 0; padding-bottom: 0; }
+.shelftools .seg button { flex-direction: row; justify-content: center; align-items: center; padding: 0 12px; height: 100%; }
+.shelftools .toolbtn { padding: 0 14px; font-size: 13px; }
+.shelfpage .bltools .seg { margin: 0; }
+.shelftools .seg { flex-wrap: nowrap; }

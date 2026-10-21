@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useFeatures } from '../features/FeaturesContext';
-import { filterByOwnership, type FormatFilter, type Move, type OwnFilter, type Shelf, type ShelfBook } from '../repo/shelf';
+import { filterByOwnership, QUICK_MAX_PAGES, quickReads, quickReason, type FormatFilter, type Move, type OwnFilter, type Shelf, type ShelfBook } from '../repo/shelf';
 
 export interface ShelfActions {
   start(bookId: string): void;
@@ -42,7 +42,9 @@ function releaseText(r: string): string {
   return `Releases ${new Date(`${r}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
 }
 
-function Row({ b, cover, index, count, ordered, act }: { b: ShelfBook; cover: string | undefined; index: number; count: number; ordered: boolean; act: ShelfActions }) {
+const QUICK_CHIP = { standalone: 'Standalone', starts: 'Starts a series', next: 'Next in a series you started' } as const;
+
+function Row({ b, cover, index, count, ordered, act, quick }: { b: ShelfBook; cover: string | undefined; index: number; count: number; ordered: boolean; act: ShelfActions; quick?: boolean }) {
   const [confirming, setConfirming] = useState(false);
   const { flags } = useFeatures();
   const owned = [b.own_physical ? 'Physical' : null, b.own_ebook ? 'Ebook' : null, b.own_audio ? 'Audio' : null].filter(Boolean).join(', ');
@@ -59,6 +61,7 @@ function Row({ b, cover, index, count, ordered, act }: { b: ShelfBook; cover: st
         </span>
         <span className="chips">
           {flags.owned && (owned ? <span className="chip on" title="Formats you own">{`Own: ${owned}`}</span> : <span className="chip muted">No copy yet</span>)}
+          {quick && quickReason(b) && <span className="chip on">{QUICK_CHIP[quickReason(b)!]}</span>}
           {b.series_state === 'next' && <span className="chip">Next in series</span>}
           {b.series_state === 'waiting' && <span className="chip muted">Earlier books unread</span>}
           {b.release && <span className="chip">{releaseText(b.release)}</span>}
@@ -86,7 +89,7 @@ function Row({ b, cover, index, count, ordered, act }: { b: ShelfBook; cover: st
   );
 }
 
-function Section({ title, hint, books, covers, requestCovers, ordered, act, empty }: { title: string; hint: string; books: ShelfBook[]; covers: Record<string, string>; requestCovers(ids: string[]): void; ordered: boolean; act: ShelfActions; empty: string }) {
+function Section({ title, hint, books, covers, requestCovers, ordered, act, empty, quick }: { quick?: boolean; title: string; hint: string; books: ShelfBook[]; covers: Record<string, string>; requestCovers(ids: string[]): void; ordered: boolean; act: ShelfActions; empty: string }) {
   const [shown, setShown] = useState(PAGE);
   const visible = books.slice(0, shown);
   const need = visible.filter((b) => b.has_cover === 1 && !covers[b.id]).map((b) => b.id);
@@ -97,7 +100,7 @@ function Section({ title, hint, books, covers, requestCovers, ordered, act, empt
       <span className="lbl2">{`${title} (${books.length})`}</span>
       <span className="muted small">{hint}</span>
       {books.length === 0 ? <p className="muted">{empty}</p> : (
-        <ol className="shelflist">{visible.map((b, i) => <Row key={b.id} b={b} cover={covers[b.id]} index={i} count={books.length} ordered={ordered} act={act} />)}</ol>
+        <ol className="shelflist">{visible.map((b, i) => <Row key={b.id} b={b} cover={covers[b.id]} index={i} count={books.length} ordered={ordered} act={act} quick={quick} />)}</ol>
       )}
       {books.length > shown && <button type="button" className="btn" onClick={() => setShown(shown + PAGE)}>{`Show ${Math.min(PAGE, books.length - shown)} more`}</button>}
     </section>
@@ -114,16 +117,17 @@ export default function ShelfView({ books, covers, requestCovers, act }: { books
   const { flags } = useFeatures();
   const [own, setOwn] = useState<OwnFilter>('all');
   const [format, setFormat] = useState<FormatFilter>('any');
+  const [quick, setQuick] = useState(false);
 
   const q = query.trim().toLowerCase();
   const filtered = useMemo(() => {
     const byText = q ? books.filter((b) => `${b.title} ${b.authors ?? ''} ${b.series ?? ''}`.toLowerCase().includes(q)) : books;
     return flags.owned ? filterByOwnership(byText, own, format) : byText;
   }, [books, q, flags.owned, own, format]);
-  const upNext = useMemo(() => sortBooks(filtered.filter((b) => b.shelf === 'up_next'), sort), [filtered, sort]);
-  const tbr = useMemo(() => sortBooks(filtered.filter((b) => b.shelf === 'tbr'), sort), [filtered, sort]);
+  const upNext = useMemo(() => { const l = sortBooks(filtered.filter((b) => b.shelf === 'up_next'), sort); return quick ? quickReads(l) : l; }, [filtered, sort, quick]);
+  const tbr = useMemo(() => { const l = sortBooks(filtered.filter((b) => b.shelf === 'tbr'), sort); return quick ? quickReads(l) : l; }, [filtered, sort, quick]);
   // The arrows only make sense when the list is in your own order and nothing is hidden by the search.
-  const ordered = sort === 'priority' && !q && !(flags.owned && (own !== 'all'));
+  const ordered = sort === 'priority' && !q && !(flags.owned && (own !== 'all')) && !quick;
 
   async function add() {
     if (!title.trim() || busy) return;
@@ -133,20 +137,22 @@ export default function ShelfView({ books, covers, requestCovers, act }: { books
 
   return (
     <div className="shelfpage">
-      <div className="bltools">
+      <div className="bltools shelftools">
         <input className="field search2" placeholder="Search title, author, or series" aria-label="Search the shelves" value={query} onChange={(e) => setQuery(e.target.value)} />
         <select aria-label="Sort by" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>{SORTS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</select>
+        {flags.owned && (
+          <>
+            <div className="seg listseg" role="group" aria-label="Ownership">
+              {([['all', 'All'], ['own', 'Own a copy'], ['want', 'No Copy']] as const).map(([v, l]) => <button type="button" key={v} aria-pressed={own === v} className={own === v ? 'on' : ''} onClick={() => setOwn(v)}>{l}</button>)}
+            </div>
+            <div className="seg listseg" role="group" aria-label="Copy format">
+              {([['any', 'Any'], ['physical', 'Physical'], ['ebook', 'Ebook'], ['audio', 'Audio']] as const).map(([v, l]) => <button type="button" key={v} aria-pressed={format === v} className={format === v ? 'on' : ''} onClick={() => setFormat(v)}>{l}</button>)}
+            </div>
+          </>
+        )}
+        <button type="button" className={`mini toolbtn ${quick ? 'on' : ''}`} aria-pressed={quick} title={`Books under ${QUICK_MAX_PAGES} pages`} onClick={() => setQuick(!quick)}>Quick reads</button>
       </div>
-      {flags.owned && (
-        <div className="bltools" role="group" aria-label="Owned or wanted">
-          <div className="seg listseg" role="group" aria-label="Ownership">
-            {([['all', 'All'], ['own', 'Own a copy'], ['want', 'Want, no copy']] as const).map(([v, l]) => <button type="button" key={v} aria-pressed={own === v} className={own === v ? 'on' : ''} onClick={() => setOwn(v)}>{l}</button>)}
-          </div>
-          <div className="seg listseg" role="group" aria-label="Copy format">
-            {([['any', 'Any format'], ['physical', 'Physical'], ['ebook', 'Ebook'], ['audio', 'Audio']] as const).map(([v, l]) => <button type="button" key={v} aria-pressed={format === v} className={format === v ? 'on' : ''} onClick={() => setFormat(v)}>{l}</button>)}
-          </div>
-        </div>
-      )}
+      {quick && <span className="muted small" role="note">{`Books under ${QUICK_MAX_PAGES} pages. Standalones first, then the first book of a series you have not started, then the next book of a series you have started, then the rest. Books with no page count are left out.`}</span>}
       <div className="bcard shelfadd">
         <span className="lbl2">Add a book</span>
         <div className="bltools">
@@ -158,8 +164,8 @@ export default function ShelfView({ books, covers, requestCovers, act }: { books
           <button type="button" className="btn on" disabled={busy || !title.trim()} onClick={add}>Add</button>
         </div>
       </div>
-      <Section title="Up Next" hint="The books you plan to read soon, in the order you will read them." books={upNext} covers={covers} requestCovers={requestCovers} ordered={ordered} act={act} empty={q ? 'No matches.' : 'Nothing is queued. Move a book here with To Up Next.'} />
-      <Section title="TBR" hint="Everything else you want to read, in your priority order." books={tbr} covers={covers} requestCovers={requestCovers} ordered={ordered} act={act} empty={q ? 'No matches.' : 'Your TBR is empty.'} />
+      <Section title="Up Next" hint="The books you plan to read soon, in the order you will read them." books={upNext} covers={covers} requestCovers={requestCovers} ordered={ordered} act={act} quick={quick} empty={q ? 'No matches.' : 'Nothing is queued. Move a book here with To Up Next.'} />
+      <Section title="TBR" hint="Everything else you want to read, in your priority order." books={tbr} covers={covers} requestCovers={requestCovers} ordered={ordered} act={act} quick={quick} empty={q ? 'No matches.' : 'Your TBR is empty.'} />
     </div>
   );
 }

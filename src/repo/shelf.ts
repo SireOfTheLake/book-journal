@@ -8,6 +8,7 @@ export interface ShelfBook {
   id: string; title: string; authors: string | null; series: string | null; series_id: string | null; position: number | null;
   shelf: Shelf; priority: number | null; page_count: number | null; has_cover: number; added: string;
   own_physical: number; own_ebook: number; own_audio: number;
+  series_started: number; // 1 = you have read, are reading, or gave up on another book in this series
   series_state: SeriesState; release: 'tba' | string | null; // an upcoming release date, or 'tba'
   released: string | null; // the date it came out, when that was in the last 30 days and nothing else is still to come
 }
@@ -19,6 +20,8 @@ export const listShelf = (db: Db) => db.select<ShelfBook>(
      (SELECT s.title FROM series s WHERE s.id = b.series_id) AS series,
      (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors,
      EXISTS (SELECT 1 FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL) AS has_cover,
+     (b.series_id IS NOT NULL AND EXISTS (SELECT 1 FROM book o JOIN read r ON r.book_id = o.id AND r.deleted_at IS NULL WHERE o.series_id = b.series_id AND o.id <> b.id AND o.deleted_at IS NULL
+        AND (r.status IN ('finished', 'dnf', 'reading') OR r.start_date IS NOT NULL OR r.finish_date IS NOT NULL))) AS series_started,
      CASE WHEN b.series_id IS NULL OR b.series_position IS NULL THEN NULL
        WHEN EXISTS (SELECT 1 FROM book e WHERE e.series_id = b.series_id AND e.deleted_at IS NULL AND e.series_position < b.series_position AND e.series_position >= 1
                     AND NOT EXISTS (SELECT 1 FROM read r WHERE r.book_id = e.id AND r.status = 'finished' AND r.deleted_at IS NULL)) THEN 'waiting'
@@ -102,4 +105,22 @@ export function ownsBook(b: Pick<ShelfBook, 'own_physical' | 'own_ebook' | 'own_
 export function filterByOwnership<T extends Pick<ShelfBook, 'own_physical' | 'own_ebook' | 'own_audio'>>(books: T[], own: OwnFilter, format: FormatFilter): T[] {
   if (own === 'all') return books;
   return books.filter((b) => ownsBook(b, format) === (own === 'own'));
+}
+
+// ---------- quick reads ----------
+export const QUICK_MAX_PAGES = 200;
+/** Why a short book is worth picking up now, best first: a standalone, the first of a series you have not started, or the next book of a series you have. */
+export type QuickReason = 'standalone' | 'starts' | 'next';
+export function quickReason(b: Pick<ShelfBook, 'series_id' | 'position' | 'series_started' | 'series_state'>): QuickReason | null {
+  if (!b.series_id) return 'standalone';
+  if (!b.series_started && b.position !== null && b.series_state === null) return 'starts';
+  if (b.series_started && b.series_state === 'next') return 'next';
+  return null;
+}
+const QUICK_ORDER: Record<QuickReason, number> = { standalone: 0, starts: 1, next: 2 };
+/** Books under 200 pages, the three kinds above first and everything else after, each group keeping the order it came in. */
+export function quickReads<T extends Pick<ShelfBook, 'series_id' | 'position' | 'series_started' | 'series_state' | 'page_count'>>(books: T[]): T[] {
+  const rank = (b: T) => { const r = quickReason(b); return r ? QUICK_ORDER[r] : 3; };
+  return books.map((b, i) => ({ b, i })).filter(({ b }) => b.page_count !== null && b.page_count > 0 && b.page_count < QUICK_MAX_PAGES)
+    .sort((x, y) => rank(x.b) - rank(y.b) || x.i - y.i).map(({ b }) => b);
 }

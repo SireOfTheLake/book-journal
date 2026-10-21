@@ -70,7 +70,25 @@ export function TextField({ label, value, onCommit, type = 'text', multiline, pl
   );
 }
 
+/** The visible part of the screen. When the keyboard is up, `inset` is how far up from the bottom of the screen it reaches, so sheets can sit on top of it. */
+export function useVisibleArea(): { height: number; inset: number } {
+  const read = () => {
+    const vv = window.visualViewport;
+    return vv ? { height: vv.height, inset: Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) } : { height: window.innerHeight, inset: 0 };
+  };
+  const [area, setArea] = useState(read);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const update = () => setArea(read());
+    vv?.addEventListener('resize', update); vv?.addEventListener('scroll', update); window.addEventListener('resize', update);
+    return () => { vv?.removeEventListener('resize', update); vv?.removeEventListener('scroll', update); window.removeEventListener('resize', update); };
+  }, []);
+  return area;
+}
+
 export function Sheet({ title, onClose, children }: { title: string; onClose(): void; children: ReactNode }) {
+  const area = useVisibleArea();
+  const typing = area.inset > 80; // the keyboard is open
   useEffect(() => {
     const key = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', key);
@@ -79,7 +97,7 @@ export function Sheet({ title, onClose, children }: { title: string; onClose(): 
   return (
     <>
       <div className="ph-sheet-back" onClick={onClose} />
-      <div className="ph-sheet" role="dialog" aria-label={title}>
+      <div className="ph-sheet" role="dialog" aria-label={title} style={{ bottom: area.inset, maxHeight: Math.round(area.height * 0.92), paddingBottom: typing ? 10 : undefined }}>
         <div className="grip" aria-hidden="true" />
         <header><h2>{title}</h2><button type="button" className="done" onClick={onClose}>Done</button></header>
         <div className="body">{children}</div>
@@ -91,8 +109,8 @@ export function Sheet({ title, onClose, children }: { title: string; onClose(): 
 export interface Opt { id: string; name: string; note?: string }
 
 /** Pick one from a list as you type, or create a new one. Used for tags, characters, series and so on. */
-export function PickerSheet({ title, options, taken = [], onPick, onCreate, createLabel, onClose, placeholder = 'Search', keepOpen }: {
-  title: string; options: Opt[]; taken?: string[]; onPick(o: Opt): void; onCreate?(name: string): void; createLabel?: string; onClose(): void; placeholder?: string; keepOpen?: boolean;
+export function PickerSheet({ title, options, taken = [], onPick, onCreate, createLabel, onClose, placeholder = 'Search', keepOpen, extra }: {
+  title: string; options: Opt[]; taken?: string[]; onPick(o: Opt): void; onCreate?(name: string): void; createLabel?: string; onClose(): void; placeholder?: string; keepOpen?: boolean; extra?: { label: string; onChoose(): void };
 }) {
   const [q, setQ] = useState('');
   const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -104,12 +122,14 @@ export function PickerSheet({ title, options, taken = [], onPick, onCreate, crea
     <Sheet title={title} onClose={onClose}>
       <div className="ph-search"><input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder={placeholder} aria-label={placeholder} /></div>
       <div>
-        {shown.map((o) => (
-          <button key={o.id} type="button" className="ph-opt" onClick={() => { onPick(o); done(); }}><span>{o.name}</span>{o.note && <span className="n">{o.note}</span>}</button>
-        ))}
+        {/* Creating comes first so it is never hidden below the keyboard */}
         {onCreate && t && !exact && (
           <button type="button" className="ph-opt create" onClick={() => { onCreate(q.trim()); done(); }}><span aria-hidden="true">+</span> {createLabel ?? 'Create'} &ldquo;{q.trim()}&rdquo;</button>
         )}
+        {extra && <button type="button" className="ph-opt create" onClick={() => { extra.onChoose(); }}><span aria-hidden="true">+</span> {extra.label}</button>}
+        {shown.map((o) => (
+          <button key={o.id} type="button" className="ph-opt" onClick={() => { onPick(o); done(); }}><span>{o.name}</span>{o.note && <span className="n">{o.note}</span>}</button>
+        ))}
         {!shown.length && !(onCreate && t) && <p className="ph-muted ph-small">Nothing to show.</p>}
       </div>
     </Sheet>
@@ -141,3 +161,12 @@ export function SyncDot() {
 }
 
 export function useSafeDb() { return useDb(); }
+
+/** A remove button that asks "Remove?" on the first tap, so a slip does not delete something. */
+export function ConfirmRemove({ label, onConfirm }: { label: string; onConfirm(): void }) {
+  const [sure, setSure] = useState(false);
+  useEffect(() => { if (!sure) return; const t = setTimeout(() => setSure(false), 4000); return () => clearTimeout(t); }, [sure]);
+  return sure
+    ? <button type="button" className="ph-btn danger" style={{ minHeight: 40, padding: '0 10px' }} aria-label={`Confirm: ${label}`} onClick={onConfirm}>Remove?</button>
+    : <button type="button" className="ph-btn" style={{ minHeight: 40, padding: '0 10px' }} aria-label={label} onClick={() => setSure(true)}>&times;</button>;
+}

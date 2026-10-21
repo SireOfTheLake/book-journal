@@ -1092,3 +1092,17 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .shelftools .toolbtn { padding: 0 14px; font-size: 13px; }
 .shelfpage .bltools .seg { margin: 0; }
 .shelftools .seg { flex-wrap: nowrap; }
+
+/* Library: selecting books and editing them together */
+.bulkbar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; margin: 8px 0; background: var(--panel2); border: 1px solid var(--accent); border-radius: 6px; }
+.bulkbar .count { font-weight: 700; margin-right: 6px; }
+.bulkbar .mini.danger { border-color: var(--bad); color: var(--bad-text); }
+.libcard.picking { background: none; border: 0; padding: 0; text-align: left; font: inherit; cursor: pointer; }
+.libcard.picked .libcover { outline: 3px solid var(--accent); outline-offset: -1px; }
+.libcheck { position: absolute; top: 6px; left: 6px; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--text); background: rgba(20, 16, 12, .55); display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700; color: var(--on-accent); }
+.libcard.picked .libcheck { background: var(--accent); border-color: var(--accent); }
+.librow.selecting { grid-template-columns: 28px 40px minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1.4fr) 110px 100px 90px; cursor: pointer; }
+.librow.selecting.picked { background: var(--panel2); box-shadow: inset 3px 0 0 var(--accent); }
+.bulkgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.bulklines { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.dialog .stack { display: flex; flex-direction: column; gap: 6px; }

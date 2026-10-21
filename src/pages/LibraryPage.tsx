@@ -1,7 +1,9 @@
 import { useSearchParams } from 'react-router-dom';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useDb } from '../db/DbContext';
-import { quickAdd } from '../repo/bookLog';
+import { listItems, quickAdd } from '../repo/bookLog';
+import { listEntries } from '../repo/lists';
+import { applyBulk, deleteBooks, describeBulk } from '../repo/bulkEdit';
 import { getCovers, listLibrary, type LibraryBook } from '../repo/library';
 import { listBookTags, listTagOptions, type TagOption } from '../repo/search';
 import LibraryView, { type LibraryActions } from './LibraryView';
@@ -28,9 +30,26 @@ export default function LibraryPage() {
     getCovers(db, fresh).then((got) => setCovers((c) => ({ ...c, ...got })), (e) => setError(String(e)));
   }, [db]);
 
+  const refreshAll = useCallback(async () => {
+    await reload();
+    const [o, t] = await Promise.all([listTagOptions(db), listBookTags(db)]);
+    setTagOptions(o); setBookTags(t);
+  }, [db, reload]);
+
   const act = useMemo<LibraryActions>(() => ({
+    bulk: {
+      options: async () => ({
+        sources: await listItems(db, 'source'),
+        genres: (await listEntries(db, 'genre')).map((g) => g.name),
+        tropes: (await listEntries(db, 'trope')).map((g) => g.name),
+      }),
+      describe: (ids, changes) => describeBulk(db, ids, changes),
+      apply: (ids, changes, onProgress) => applyBulk(db, ids, changes, onProgress),
+      remove: (ids, onProgress) => deleteBooks(db, ids, onProgress),
+      refresh: refreshAll,
+    },
     addBook: async (title, status) => { try { await quickAdd(db, { title, authors: [], status }); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } },
-  }), [db, reload]);
+  }), [db, reload, refreshAll]);
 
   return (
     <section>

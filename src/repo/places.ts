@@ -96,13 +96,18 @@ export async function normalizePlaces(db: Db): Promise<{ converted: number; flag
   return { converted, flagged };
 }
 
-// Adds a (new or changed) location to a book.
-export async function addLocationToBook(db: Db, bookId: string, input: PlaceInput): Promise<string> {
-  const id = await savePlace(db, null, input);
+// Adds a location that already exists to a book.
+export async function addPlaceToBook(db: Db, bookId: string, id: string): Promise<void> {
   if (!(await first(db, 'SELECT id FROM book_place WHERE book_id = ? AND place_id = ? AND deleted_at IS NULL', [bookId, id]))) {
     const n = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM book_place WHERE book_id = ? AND deleted_at IS NULL', [bookId]))?.n ?? -1;
     await db.execute('INSERT INTO book_place (id, book_id, place_id, sort_order) VALUES (?, ?, ?, ?)', [newId(), bookId, id, n + 1]);
   }
+}
+
+// Adds a (new or changed) location to a book.
+export async function addLocationToBook(db: Db, bookId: string, input: PlaceInput): Promise<string> {
+  const id = await savePlace(db, null, input);
+  await addPlaceToBook(db, bookId, id);
   return id;
 }
 

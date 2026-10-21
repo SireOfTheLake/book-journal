@@ -12,6 +12,25 @@ import Search from './screens/Search';
 import Setup from './screens/Setup';
 import SyncScreen from './screens/SyncScreen';
 
+// Makes the app as tall as the whole screen. A Home Screen app on iPhone can report a window a little shorter than the screen, which left a gap under the bottom bar.
+function useFullHeight() {
+  useEffect(() => {
+    const standalone = (navigator as unknown as { standalone?: boolean }).standalone === true || window.matchMedia?.('(display-mode: standalone)').matches;
+    const set = () => {
+      let h = window.innerHeight;
+      if (standalone) {
+        const portrait = window.innerHeight >= window.innerWidth;
+        const s = portrait ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+        if (s > h && s - h < 120) h = s;
+      }
+      document.documentElement.style.setProperty('--app-h', `${h}px`);
+    };
+    set();
+    window.addEventListener('resize', set); window.addEventListener('orientationchange', set);
+    return () => { window.removeEventListener('resize', set); window.removeEventListener('orientationchange', set); };
+  }, []);
+}
+
 function Shell() {
   return (
     <div className="ph-app">
@@ -34,6 +53,7 @@ function Shell() {
 }
 
 export default function App() {
+  useFullHeight();
   const db = useDb();
   const sync = useSync();
   const [hasBooks, setHasBooks] = useState<boolean | null>(null);

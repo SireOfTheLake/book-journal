@@ -3,7 +3,10 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDb } from '../../db/DbContext';
 import * as c from '../../repo/characters';
 import { ageText } from '../../domain/format';
-import { Card, ChipSet, Seg, SyncDot, TextField, useLoad } from '../kit';
+import { listItems } from '../../repo/bookLog';
+import { savePlace } from '../../repo/places';
+import { PlaceSet } from '../places';
+import { Card, ChipSet, ConfirmRemove, Seg, SyncDot, TextField, useLoad } from '../kit';
 
 const toItem = (x: { id: string; name: string }) => ({ id: x.id, name: x.name });
 
@@ -23,8 +26,8 @@ export default function Character() {
   const { characterId = '' } = useParams();
   const [error, setError] = useState<string | null>(null);
   const loaded = useLoad(async () => {
-    const [ch, occ, tags] = await Promise.all([c.getCharacter(db, characterId), c.listNamed(db, 'occupation'), c.listNamed(db, 'character_tag')]);
-    return { ch, occ, tags };
+    const [ch, occ, tags, places] = await Promise.all([c.getCharacter(db, characterId), c.listNamed(db, 'occupation'), c.listNamed(db, 'character_tag'), listItems(db, 'place')]);
+    return { ch, occ, tags, places };
   }, [db, characterId]);
   const run = async (fn: () => Promise<unknown>) => { try { await fn(); await loaded.reload(); setError(null); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
   const d = loaded.data;
@@ -64,13 +67,32 @@ export default function Character() {
       <ChipSet label="Tags" color="var(--trope)" items={d.ch.tags.map(toItem)} options={d.tags.map(toItem)} addLabel="Add"
         onAdd={(o) => void run(() => c.addCharacterTag(db, characterId, o.name))} onCreate={(n) => void run(() => c.addCharacterTag(db, characterId, n))} onRemove={(o) => void run(() => c.removeCharacterTag(db, characterId, o.id))} />
 
+      <Card label="Places">
+        <span className="ph-label">Current place</span>
+        <PlaceSet bare single label="Current place" noun="current place" places={d.ch.place ? [d.ch.place] : []} options={d.places}
+          onPick={(id) => void upd({ current_place_id: id })} onRemove={() => void upd({ current_place_id: null })}
+          onSave={async (id, input) => { try { const saved = await savePlace(db, id, input); if (!id) await c.updateCharacter(db, characterId, { current_place_id: saved }); } finally { await loaded.reload(); } }} />
+        <span className="ph-label" style={{ marginTop: 14 }}>Previous places</span>
+        <PlaceSet bare label="Previous places" noun="previous place" places={d.ch.previousPlaces} options={d.places}
+          onPick={(id) => void run(() => c.addPreviousPlace(db, characterId, id))} onRemove={(id) => void run(() => c.removePreviousPlace(db, characterId, id))}
+          onSave={async (id, input) => { try { const saved = await savePlace(db, id, input); if (!id) await c.addPreviousPlace(db, characterId, saved); } finally { await loaded.reload(); } }} />
+      </Card>
+
       <Card label="Relationships">
         {relationships.length === 0 && d.ch.people.length === 0 && <p className="ph-muted ph-small">None yet. Add them on your computer for now.</p>}
         <ul className="ph-list">
           {relationships.map((r) => (
-            <li key={r.id}><Link to={`/character/${r.other_id}`} className="ph-item"><div className="grow"><b>{r.other_name}</b> <span className="ph-muted">&middot; {r.label ?? r.rel_type}</span></div><span className="ph-go" aria-hidden="true">&#8250;</span></Link></li>
+            <li key={r.id} className="ph-item">
+              <Link to={`/character/${r.other_id}`} className="grow" style={{ display: 'block' }}><span className={`t ${r.other_featured ? 'page' : ''}`} style={{ display: 'inline' }}>{r.other_name}</span> <span className="ph-muted">&middot; {r.label ?? r.rel_type}</span></Link>
+              <ConfirmRemove label={`Remove the link to ${r.other_name}`} onConfirm={() => void run(() => c.removeRelationship(db, r.id))} />
+            </li>
           ))}
-          {d.ch.people.map((p) => <li key={p.id} className="ph-item"><div className="grow"><b>{p.name}</b> <span className="ph-muted">&middot; {p.label ?? p.rel_type}</span></div></li>)}
+          {d.ch.people.map((p) => (
+            <li key={p.id} className="ph-item">
+              <div className="grow"><b>{p.name}</b> <span className="ph-muted">&middot; {p.label ?? p.rel_type}</span></div>
+              <ConfirmRemove label={`Remove ${p.name}`} onConfirm={() => void run(() => c.removePerson(db, p.id))} />
+            </li>
+          ))}
         </ul>
       </Card>
 

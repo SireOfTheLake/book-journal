@@ -35,6 +35,7 @@ export interface ReadRow {
 export interface LogCharacter {
   id: string; bc_id: string; name: string; origin: string | null; role: 'main' | 'side'; gender: string | null;
   age_min: number | null; age_max: number | null; occupations: string | null; partners: string | null;
+  featured?: number; // 1 = this character has a page of their own
 }
 export interface LogNarrator { id: string; narrator_id: string; name: string; accent_id: string | null; accent: string | null; rating: 'up' | 'neutral' | 'down' | null; voiced: string | null; chars?: { id: string; name: string }[] }
 export interface DayEntry { id: string; entry_date: string; position_page: number | null; position_percent: number | null; position_seconds: number | null; text: string | null }
@@ -109,7 +110,7 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
     genres: sortGenres(await tag('genre')), themes: await tag('theme'), tropes: await tag('trope'),
     moods: await tag('mood'), paces: await tag('pace'), warnings: await tag('content_warning'),
     characters: await db.select<LogCharacter>(
-      `SELECT c.id, bc.id AS bc_id, c.name, c.origin_note AS origin, bc.role, c.gender, c.age_min, c.age_max,
+      `SELECT c.id, bc.id AS bc_id, c.name, c.origin_note AS origin, bc.role, c.gender, c.age_min, c.age_max, c.is_featured AS featured,
          (SELECT group_concat(o.name, ', ') FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.character_id = c.id AND co.deleted_at IS NULL) AS occupations,
          ${PARTNERS_SQL} AS partners
        FROM book_character bc JOIN character c ON c.id = bc.character_id WHERE bc.book_id = ? AND bc.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY bc.role, bc.sort_order`, [bookId]),

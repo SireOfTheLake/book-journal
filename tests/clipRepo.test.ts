@@ -27,6 +27,36 @@ const saveFrom = (clip: BookClip, over: Partial<ClipSave> = {}): ClipSave => ({
 let db: Db;
 beforeEach(() => { db = migrateNodeDb(); });
 
+describe('choosing what to keep for a book that is already here', () => {
+  it('keeps your title, synopsis and cover unless you choose the page\'s, and fills only blanks otherwise', async () => {
+    const clip = clipOf('romanceio');
+    const made = await saveClip(db, saveFrom(clip, { title: 'Finest Kind of Fate', synopsis: 'My own blurb.' }));
+    await db.execute("UPDATE book SET title = 'Finest Kind of Fat' WHERE id = ?", [made.bookId]);
+    const r = await reviewClip(db, { ...clip, title: 'Finest Kind of Fat' });
+    expect(r.existing).toMatchObject({ synopsis: 'My own blurb.', cover: 'data:image/png;base64,AAAA' });
+    // Nothing chosen: nothing of yours changes.
+    await saveClip(db, saveFrom(clip, { mode: { kind: 'fill', bookId: made.bookId }, title: 'Finest Kind of Fate', synopsis: 'Page blurb.' }));
+    let log = (await getBookLog(db, made.bookId))!;
+    expect(log.book).toMatchObject({ title: 'Finest Kind of Fat', synopsis: 'My own blurb.' });
+    // Chosen: the title and synopsis are replaced, and the cover is downloaded again.
+    const dl = await import('../src/lookup/download');
+    vi.mocked(dl.downloadCover).mockClear();
+    const out = await saveClip(db, saveFrom(clip, { mode: { kind: 'fill', bookId: made.bookId }, title: 'Finest Kind of Fate', synopsis: 'Page blurb.', replace: ['title', 'synopsis', 'cover'] }));
+    log = (await getBookLog(db, made.bookId))!;
+    expect(log.book).toMatchObject({ title: 'Finest Kind of Fate', synopsis: 'Page blurb.' });
+    expect(out.added).toEqual(expect.arrayContaining(['title', 'synopsis', 'new cover']));
+    expect(vi.mocked(dl.downloadCover)).toHaveBeenCalledTimes(1);
+  });
+  it('without a choice a cover is not downloaded for a book that has one', async () => {
+    const clip = clipOf('romanceio');
+    const made = await saveClip(db, saveFrom(clip));
+    const dl = await import('../src/lookup/download');
+    vi.mocked(dl.downloadCover).mockClear();
+    await saveClip(db, saveFrom(clip, { mode: { kind: 'fill', bookId: made.bookId } }));
+    expect(vi.mocked(dl.downloadCover)).not.toHaveBeenCalled();
+  });
+});
+
 describe('adding a book from a web page', () => {
   it('reviews a book against an empty journal: nothing matches yet', async () => {
     const r = await reviewClip(db, clipOf('audible'));
@@ -38,7 +68,7 @@ describe('adding a book from a web page', () => {
 
   it('saves a new book on the TBR with its author, series, narrators, tags, cover and real Audible author page', async () => {
     const clip = clipOf('audible');
-    const out = await saveClip(db, saveFrom(clip, { tags: [{ name: 'Romance', kind: 'genre' }, { name: 'Contemporary', kind: 'genre' }] }));
+    const out = await saveClip(db, saveFrom(clip, { cover: 'https://example.test/c.jpg', tags: [{ name: 'Romance', kind: 'genre' }, { name: 'Contemporary', kind: 'genre' }] }));
     expect(out).toMatchObject({ created: true, coverError: null });
     const log = (await getBookLog(db, out.bookId))!;
     expect(log.book).toMatchObject({ title: 'Finest Kind of Fate', shelf: 'tbr', series_position: 1 });

@@ -2,7 +2,19 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 -->
+
+## 0.2.14 — 2026-10-22
+
+### New
+- Browser extension, book already in your library: the Add to library window now lets you choose what to keep for the Title, Synopsis and Cover. Each shows "Keep mine" or "Use this one" when the page's version differs from yours (your current title and synopsis are shown, and both covers side by side). Nothing of yours changes unless you pick "Use this one", so you can fix a typo in a title by choosing the page's and editing it in the box first.
+
+### Improved
+- Browser extension, Audible: the cover is never taken from Audible pages (their covers are square and would always look squished). The window says so, and covers come from the other sites.
+
+### Fixed
+- Browser extension: after you add a book or fill in a book's missing details, the page you are looking at reloads straight away, so a Book Log that was open shows the new synopsis, narrators, tags and cover without leaving and coming back.
+- Browser extension, Goodreads: the synopsis no longer ends with the words "Show more" (the page's button text was being copied along with the blurb).
 
 ## 0.2.13 — 2026-10-22
 

@@ -17,7 +17,7 @@ export const kindWord = (k: TagKind) => KIND_WORD[k];
 interface Named { id: string; name: string }
 export interface NameMatch { name: string; match: Named | null }
 export interface ClipReview {
-  existing: { id: string; title: string; authors: string | null } | null;
+  existing: { id: string; title: string; authors: string | null; synopsis: string | null; cover: string | null } | null;
   authors: NameMatch[];
   narrators: NameMatch[];
   series: NameMatch | null;
@@ -48,8 +48,8 @@ export async function reviewClip(db: Db, clip: BookClip): Promise<ClipReview> {
     }
   }
   if (bookId) {
-    const [b] = await db.select<{ id: string; title: string; authors: string | null }>(
-      `SELECT b.id AS id, b.title AS title, (SELECT group_concat(au.name, ', ') FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL) AS authors FROM book b WHERE b.id = ?`, [bookId]);
+    const [b] = await db.select<{ id: string; title: string; authors: string | null; synopsis: string | null; cover: string | null }>(
+      `SELECT b.id AS id, b.title AS title, b.synopsis AS synopsis, (SELECT i.file_path FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL) AS cover, (SELECT group_concat(au.name, ', ') FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL) AS authors FROM book b WHERE b.id = ?`, [bookId]);
     if (b) existing = b;
   }
 
@@ -91,6 +91,8 @@ export interface ClipSave {
   tags: { name: string; kind: TagKind }[];
   ids: { isbn?: string; asin?: string; sources: Record<string, string> };
   authorLinks: Record<string, string>;
+  /** For a book that is already here: the details to replace with the page's, instead of keeping your own. */
+  replace?: ('title' | 'synopsis' | 'cover')[];
 }
 export interface ClipSaved { bookId: string; created: boolean; coverError: string | null; added: string[] }
 
@@ -115,8 +117,8 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
   let bookId: string;
   if (input.mode.kind === 'fill') bookId = input.mode.bookId;
   else bookId = await createBook(db, { title: input.title, authors: input.authors });
-  const [row] = await db.select<{ audio_length_seconds: number | null; page_count: number | null; synopsis: string | null; heat_level: number | null; original_publication_date: string | null; series_id: string | null; planned_format: string | null; external_ids: string | null; cover_image_id: string | null }>(
-    'SELECT audio_length_seconds, page_count, synopsis, heat_level, original_publication_date, series_id, planned_format, external_ids, cover_image_id FROM book WHERE id = ?', [bookId]);
+  const [row] = await db.select<{ title: string; audio_length_seconds: number | null; page_count: number | null; synopsis: string | null; heat_level: number | null; original_publication_date: string | null; series_id: string | null; planned_format: string | null; external_ids: string | null; cover_image_id: string | null }>(
+    'SELECT title, audio_length_seconds, page_count, synopsis, heat_level, original_publication_date, series_id, planned_format, external_ids, cover_image_id FROM book WHERE id = ?', [bookId]);
 
   // Authors, for a book that is already here: the ones it does not have yet.
   if (fill) {
@@ -129,13 +131,16 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
   }
 
   const fields: Record<string, string | number | null> = {};
-  const put = (col: string, value: string | number | null, current: unknown, label: string) => {
+  const replace = new Set(input.replace ?? []);
+  const put = (col: string, value: string | number | null, current: unknown, label: string, swap = false) => {
     if (value === null || value === '') return;
-    if (fill && current !== null && current !== undefined && current !== '') return;
+    if (fill && !swap && current !== null && current !== undefined && current !== '') return;
+    if (swap && value === current) return;
     fields[col] = value; added.push(label);
   };
   put('page_count', input.pages, row?.page_count, 'page count');
-  put('synopsis', input.synopsis, row?.synopsis, 'synopsis');
+  put('synopsis', input.synopsis, row?.synopsis, 'synopsis', fill && replace.has('synopsis'));
+  if (fill && replace.has('title')) put('title', input.title, row?.title, 'title', true);
   put('audio_length_seconds', input.audioSeconds ?? null, row?.audio_length_seconds, 'audiobook length');
   put('heat_level', input.heat, row?.heat_level, 'heat level');
   put('original_publication_date', input.published, row?.original_publication_date, 'publication date');
@@ -174,11 +179,11 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
   }
 
   let coverError: string | null = null;
-  if (input.cover && !(fill && row?.cover_image_id)) {
+  if (input.cover && !(fill && row?.cover_image_id && !replace.has('cover'))) {
     try {
       const img = await downloadCover({ id: 'web', source: 'openlibrary', title: input.title, authors: input.authors, year: null, imageUrl: input.cover, fallbackUrl: null, thumbUrl: input.cover, score: 1, confidence: 'high' });
       await setBookCover(db, bookId, img);
-      if (fill) added.push('cover');
+      if (fill) added.push(replace.has('cover') ? 'new cover' : 'cover');
     } catch (e) { coverError = e instanceof Error ? e.message : String(e); }
   }
   return { bookId, created: !fill, coverError, added };

@@ -36,6 +36,8 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
   const [asNew, setAsNew] = useState(false);
   const [picks, setPicks] = useState<Record<string, Pick>>({});
   const [newAuthor, setNewAuthor] = useState('');
+  // For a book that is already here: keep what you have, or take the page's version.
+  const [use, setUse] = useState<{ title: boolean; synopsis: boolean; cover: boolean }>({ title: false, synopsis: false, cover: false });
 
   const allowed = useMemo<Pick[]>(() => ['skip', ...TAG_KINDS.filter((k) => (k !== 'mood' && k !== 'pace') || flags.moodpace).filter((k) => k !== 'content_warning' || flags.warnings)], [flags.moodpace, flags.warnings]);
 
@@ -58,6 +60,21 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
   }, [db, clip]);
 
   const filling = !!review?.existing && !asNew;
+  const have = review?.existing;
+  const differs = {
+    title: filling && !!have && title.trim() !== '' && title.trim() !== have.title,
+    synopsis: filling && !!have?.synopsis && synopsis.trim() !== '' && synopsis.trim() !== have.synopsis.trim(),
+    cover: filling && !!have?.cover && !!clip.cover && useCover,
+  };
+  const Choice = ({ field, current }: { field: 'title' | 'synopsis' | 'cover'; current: string }) => !differs[field] ? null : (
+    <div className="clipchoice" role="group" aria-label={`Which ${field} to keep`}>
+      <div className="seg listseg">
+        <button type="button" aria-pressed={!use[field]} className={!use[field] ? 'on' : ''} onClick={() => setUse({ ...use, [field]: false })}>Keep mine</button>
+        <button type="button" aria-pressed={use[field]} className={use[field] ? 'on' : ''} onClick={() => setUse({ ...use, [field]: true })}>Use this one</button>
+      </div>
+      {field !== 'cover' && <span className="muted small clipcurrent">Yours now: {current.length > 160 ? `${current.slice(0, 160)}...` : current}</span>}
+    </div>
+  );
   const cycle = (name: string) => setPicks((p) => ({ ...p, [name]: allowed[(allowed.indexOf(p[name] ?? 'skip') + 1) % allowed.length] }));
 
   async function save() {
@@ -72,6 +89,7 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
         series: series.trim() ? { id: seriesId, name: series.trim() } : null, position: pos !== null && Number.isFinite(pos) ? pos : null,
         pages: pages.trim() && Number.isFinite(n) && n > 0 ? Math.round(n) : null, published: published.trim() || null,
         heat: heat !== '' && Number.isFinite(h) ? h : null, synopsis: synopsis.trim() || null, cover: useCover ? clip.cover ?? null : null, shelf,
+        replace: (['title', 'synopsis', 'cover'] as const).filter((f) => differs[f] && use[f]),
         plannedFormat: clip.format ?? null, audioSeconds: clip.audioSeconds ?? null,
         tags: review.tags.filter((t) => (picks[t.name] ?? 'skip') !== 'skip').map((t) => ({ name: t.name, kind: picks[t.name] as TagKind })),
         ids: { isbn: clip.isbn, asin: clip.asin, sources: { [clip.site]: clip.url } }, authorLinks: clip.authorLinks ?? {},
@@ -117,12 +135,14 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
         {review && (
           <div className="clipbody">
             <div className="clipcover">
-              {clip.cover ? <img src={clip.cover} alt="Cover found on the page" /> : <div className="muted">No cover found</div>}
-              {clip.cover && <label className="small"><input type="checkbox" checked={useCover} onChange={(e) => setUseCover(e.target.checked)} /> Use this cover</label>}
+              {filling && have?.cover && <><span className="lbl2">Your cover</span><img src={have.cover} alt="Your current cover" /></>}
+              {clip.cover ? <>{filling && have?.cover && <span className="lbl2">From the page</span>}<img src={clip.cover} alt="Cover found on the page" /></> : <div className="muted">{clip.site === 'audible' ? 'Audible covers are square, so none is used' : 'No cover found'}</div>}
+              {clip.cover && !(filling && have?.cover) && <label className="small"><input type="checkbox" checked={useCover} onChange={(e) => setUseCover(e.target.checked)} /> Use this cover</label>}
+              <Choice field="cover" current="" />
               {facts && <span className="muted small">{facts}</span>}
             </div>
             <div className="clipform">
-              <label className="stack"><span className="lbl2">Title</span><input className="field" aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} /></label>
+              <div className="stack"><label className="stack"><span className="lbl2">Title</span><input className="field" aria-label="Title" value={title} onChange={(e) => setTitle(e.target.value)} /></label><Choice field="title" current={have?.title ?? ''} /></div>
               <div className="stack"><span className="lbl2">Authors</span>
                 <div className="chips">{authors.map((a, i) => (
                   <span key={`${a.name}${i}`} className="chip cliprow">{a.match?.name ?? a.name} <Badge match={a.match} /><button type="button" className="x" aria-label={`Remove ${a.name}`} onClick={() => setAuthors(authors.filter((_, j) => j !== i))}>&times;</button></span>
@@ -145,7 +165,7 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
                   <div className="chips">{narrators.map((a, i) => <span key={`${a.name}${i}`} className="chip cliprow">{a.match?.name ?? a.name} <Badge match={a.match} /><button type="button" className="x" aria-label={`Remove ${a.name}`} onClick={() => setNarrators(narrators.filter((_, j) => j !== i))}>&times;</button></span>)}</div>
                 </div>
               )}
-              <label className="stack"><span className="lbl2">Synopsis</span><textarea className="field" rows={4} aria-label="Synopsis" value={synopsis} onChange={(e) => setSynopsis(e.target.value)} /></label>
+              <div className="stack"><label className="stack"><span className="lbl2">Synopsis</span><textarea className="field" rows={4} aria-label="Synopsis" value={synopsis} onChange={(e) => setSynopsis(e.target.value)} /></label><Choice field="synopsis" current={have?.synopsis ?? ''} /></div>
               {review.tags.length > 0 && (
                 <div className="stack"><span className="lbl2">Tags <span className="muted small">click a tag to choose what it is; tags left as "skip" are not added</span></span>
                   <div className="chips cliptags">{review.tags.map((t) => {

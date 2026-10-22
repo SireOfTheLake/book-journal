@@ -40,7 +40,7 @@ export function fromAudible(doc: Document, url: string): BookClip | null {
     ...(parsed ? { series: parsed.series, seriesPosition: parsed.position } : {}),
     published: toIsoDate(book?.datePublished as string), publisher: clean(book?.publisher as string) || undefined,
     asin: asin || undefined, format: 'audio', audioSeconds: isoDuration(book?.duration),
-    description, cover: clean((book?.image ?? product?.image) as string) || undefined,
+    description, // no cover: Audible's are square, so they would always be squished
     tags, authorLinks: Object.keys(authorLinks).length ? authorLinks : undefined,
   };
 }

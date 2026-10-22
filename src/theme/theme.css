@@ -1145,3 +1145,5 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 /* Synopsis */
 .synopsisbtn { width: 100%; }
 .synopsistext { white-space: pre-wrap; margin: 0; line-height: 1.5; max-height: 55vh; overflow: auto; }
+.clipchoice { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.clipcurrent { overflow-wrap: anywhere; }

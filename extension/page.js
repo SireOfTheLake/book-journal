@@ -123,7 +123,7 @@
       format: "audio",
       audioSeconds: isoDuration(book?.duration),
       description: description2,
-      cover: clean(book?.image ?? product?.image) || void 0,
+      // no cover: Audible's are square, so they would always be squished
       tags,
       authorLinks: Object.keys(authorLinks).length ? authorLinks : void 0
     };

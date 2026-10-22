@@ -34,7 +34,7 @@ describe('Audible (a saved copy of the real page)', () => {
       published: '2026-08-04', publisher: 'Podium Audio', asin: 'B0H6PKSQ48', format: 'audio', audioSeconds: 9 * 3600 + 36 * 60 });
     expect(c.authorLinks).toEqual({ 'J.J. Mulder': 'https://www.audible.ca/author/J-J-Mulder/B0CP6G3KL7' });
     expect(c.tags).toEqual([{ name: 'Romance', hint: 'genre' }, { name: 'Contemporary', hint: 'genre' }]);
-    expect(c.cover).toMatch(/^https:\/\/m\.media-amazon\.com\/images\/I\/51gdV-lPm6L/);
+    expect(c.cover).toBeUndefined(); // Audible covers are square, so none is used
     expect(c.description).toMatch(/^Ewan Fate left home seven years ago/);
     expect(c.description).not.toMatch(/<|Contains mature content/);
   });

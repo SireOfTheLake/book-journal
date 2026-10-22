@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { readFileSync } from 'node:fs';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DbContext } from '../src/db/DbContext';
@@ -55,6 +55,31 @@ describe('Add to library window', () => {
     const chip = screen.getByRole('button', { name: new RegExp(`^${tag.name}:`) });
     for (let i = 0; i < 6 && !/: skip$/.test(chip.getAttribute('aria-label') ?? ''); i++) fireEvent.click(chip);
     expect(chip.getAttribute('aria-label')).toMatch(/: skip$/);
+  });
+});
+
+describe('choosing what to keep in the window', () => {
+  it('shows Keep mine / Use this one for a title and synopsis that differ, and replaces only what is chosen', async () => {
+    const db = migrateNodeDb(); const c = clip();
+    const { bookId } = await quickAdd(db, { title: 'Finest Kind of Fat', authors: c.authors, status: 'tbr' });
+    await db.execute("UPDATE book SET synopsis = 'Mine.', external_ids = ? WHERE id = ?", [JSON.stringify({ asin: c.asin }), bookId]);
+    render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
+    await screen.findByText(/Already in your library/);
+    const title = screen.getByRole('group', { name: 'Which title to keep' });
+    expect(within(title).getByRole('button', { name: 'Keep mine' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByRole('group', { name: 'Which synopsis to keep' })).toBeTruthy();
+    expect(screen.queryByRole('group', { name: 'Which cover to keep' })).toBeNull(); // Audible gives no cover
+    fireEvent.click(within(title).getByRole('button', { name: 'Use this one' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Fill in missing details' }));
+    await screen.findByText('UPDATED');
+    const [row] = await db.select<{ title: string; synopsis: string }>('SELECT title, synopsis FROM book WHERE id = ?', [bookId]);
+    expect(row).toEqual({ title: c.title, synopsis: 'Mine.' });
+  });
+  it('Audible has no cover to offer', async () => {
+    const db = migrateNodeDb(); const c = clip();
+    expect(c.cover).toBeUndefined();
+    render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
+    await screen.findByText(/Audible covers are square/);
   });
 });
 

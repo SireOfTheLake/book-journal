@@ -42,6 +42,14 @@ export async function addLink(db: Db, kind: PersonKind, id: string, label: strin
   const links = [...(c?.links ?? []), { label: label.trim() || url.trim(), url: url.trim() }];
   await db.execute(`UPDATE ${kind} SET links = ? WHERE id = ?`, [JSON.stringify(links), id]);
 }
+export async function updateLink(db: Db, kind: PersonKind, id: string, index: number, label: string, url: string) {
+  if (!url.trim()) throw new Error('Type the address of the link.');
+  const c = await core(db, kind, id);
+  const links = [...(c?.links ?? [])];
+  if (!links[index]) throw new Error('That link is no longer there.');
+  links[index] = { label: label.trim() || url.trim(), url: url.trim() };
+  await db.execute(`UPDATE ${kind} SET links = ? WHERE id = ?`, [JSON.stringify(links), id]);
+}
 export async function removeLink(db: Db, kind: PersonKind, id: string, index: number) {
   const c = await core(db, kind, id);
   await db.execute(`UPDATE ${kind} SET links = ? WHERE id = ?`, [JSON.stringify((c?.links ?? []).filter((_, i) => i !== index)), id]);
@@ -143,9 +151,9 @@ export async function getNarrator(db: Db, id: string): Promise<NarratorDetail | 
   const c = await core(db, 'narrator', id);
   if (!c) return null;
   const listens = await db.select<Listen>(
-    `SELECT rn.id AS rn_id, r.id AS read_id, b.id AS book_id, b.title, r.finish_date, r.status, r.narration_style, r.audio_length_seconds, a.name AS accent, rn.rating,
+    `SELECT rn.id AS rn_id, r.id AS read_id, b.id AS book_id, b.title, r.finish_date, r.status, r.narration_style, r.audio_length_seconds, (SELECT group_concat(a.name, ', ') FROM read_narrator_accent x JOIN accent a ON a.id = x.accent_id AND a.deleted_at IS NULL WHERE x.read_narrator_id = rn.id AND x.deleted_at IS NULL) AS accent, rn.rating,
        (SELECT group_concat(ch.name, ', ') FROM read_narrator_character rnc JOIN character ch ON ch.id = rnc.character_id WHERE rnc.read_narrator_id = rn.id AND rnc.deleted_at IS NULL) AS voiced
-     FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL LEFT JOIN accent a ON a.id = rn.accent_id
+     FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL
      WHERE ${LISTEN} ORDER BY COALESCE(r.finish_date, '9999') DESC, r.created_at DESC, r.rowid DESC`, [id]);
   for (const l of listens) { l.chars = await voicesOf(db, l.rn_id); l.options = (await bookCharacters(db, l.book_id)).filter((o) => !l.chars.some((c) => c.id === o.id)); }
   const books = `SELECT r.book_id FROM read_narrator rn JOIN read r ON r.id = rn.read_id WHERE ${LISTEN}`;
@@ -162,7 +170,7 @@ export async function getNarrator(db: Db, id: string): Promise<NarratorDetail | 
       `SELECT DISTINCT ch.id AS id, ch.name AS name, b.title AS book FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id JOIN read_narrator_character rnc ON rnc.read_narrator_id = rn.id AND rnc.deleted_at IS NULL
        JOIN character ch ON ch.id = rnc.character_id AND ch.deleted_at IS NULL WHERE ${LISTEN} ORDER BY CASE WHEN lower(ch.name) LIKE \'the %\' THEN lower(substr(ch.name, 5)) ELSE lower(ch.name) END`, [id]),
     commonAccents: await db.select<Counted>(
-      `SELECT a.id AS id, a.name AS name, count(*) AS n FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN accent a ON a.id = rn.accent_id WHERE ${LISTEN} GROUP BY a.id ORDER BY n DESC, CASE WHEN lower(a.name) LIKE \'the %\' THEN lower(substr(a.name, 5)) ELSE lower(a.name) END`, [id]),
+      `SELECT a.id AS id, a.name AS name, count(*) AS n FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN read_narrator_accent x ON x.read_narrator_id = rn.id AND x.deleted_at IS NULL JOIN accent a ON a.id = x.accent_id AND a.deleted_at IS NULL WHERE ${LISTEN} GROUP BY a.id ORDER BY n DESC, CASE WHEN lower(a.name) LIKE \'the %\' THEN lower(substr(a.name, 5)) ELSE lower(a.name) END`, [id]),
     genres: await tagCounts(db, 'genre', books, [id]), tropes: await tagCounts(db, 'trope', books, [id]),
     // Books where this narrator is a default narrator but you have not listened to them narrate.
     notListened: await db.select(

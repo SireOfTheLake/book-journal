@@ -58,7 +58,7 @@ describe('narrator merge', () => {
     expect(d.usualAccents.map((x) => x.name)).toEqual(['Irish']);
     expect(d.core.notes).toBe('great\n\nwarm voice');
     expect(d.core.is_favorite).toBe(1);
-    expect(d.core.links).toHaveLength(1);
+    expect(d.core.links).toHaveLength(2); // the kept narrator's Audible Page link and the other's own
     expect(await getNarrator(db, dup)).toBeNull();
   });
 
@@ -69,7 +69,7 @@ describe('narrator merge', () => {
     await mergeNarrators(db, keep, dup);
     const d = (await getNarrator(db, keep))!;
     expect(d.core.notes).toBe('n');
-    expect(d.core.links).toHaveLength(1);
+    expect(d.core.links).toHaveLength(2); // the kept narrator's Audible Page link and the other's own
     await expect(mergeNarrators(db, keep, keep)).rejects.toThrow();
   });
 });

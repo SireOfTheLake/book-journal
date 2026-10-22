@@ -4,7 +4,7 @@ import { useDb } from '../../db/DbContext';
 import { useFeatures } from '../../features/FeaturesContext';
 import * as repo from '../../repo/bookLog';
 import type { Item, Status, TagTable } from '../../repo/bookLog';
-import { addCharacterToBook, createCharacter, listCharacterNames, removeCharacterFromBook } from '../../repo/characters';
+import { addCharacterToBook, createCharacter, giveCharacterPage, linkCharacterToPage, listCharacterPicks, rankForLink, removeCharacterFromBook } from '../../repo/characters';
 import { HEAT, formatDuration, parseDuration } from '../../domain/format';
 import { starFills, starsToStored, storedToStars } from '../../domain/rating';
 import { fileToDataUrl } from '../../ui/imageFile';
@@ -80,6 +80,8 @@ export default function BookLog() {
   const [editHead, setEditHead] = useState(false);
   const coverInput = useRef<HTMLInputElement>(null);
   const [pickChar, setPickChar] = useState(false);
+  const [plain, setPlain] = useState<{ id: string; name: string } | null>(null); // a name-only character that was tapped
+  const [linking, setLinking] = useState<{ id: string; name: string; target?: { id: string; name: string } } | null>(null);
   const [pickNarrator, setPickNarrator] = useState(false);
   const [pickSource, setPickSource] = useState(false);
   const [pickSeries, setPickSeries] = useState(false);
@@ -89,7 +91,7 @@ export default function BookLog() {
     const [log, sources, genres, themes, tropes, moods, paces, warnings, chars, narrators, neighbors, seriesOpts, places] = await Promise.all([
       repo.getBookLog(db, bookId, readId), repo.listItems(db, 'source'),
       repo.listTagOptions(db, 'genre'), repo.listTagOptions(db, 'theme'), repo.listTagOptions(db, 'trope'), repo.listTagOptions(db, 'mood'), repo.listTagOptions(db, 'pace'), repo.listTagOptions(db, 'content_warning'),
-      listCharacterNames(db), repo.listNarratorOptions(db), repo.getNeighbors(db, readId ?? null), listSeriesOptions(db), repo.listItems(db, 'place'),
+      listCharacterPicks(db), repo.listNarratorOptions(db), repo.getNeighbors(db, readId ?? null), listSeriesOptions(db), repo.listItems(db, 'place'),
     ]);
     return { log, sources, genres, themes, tropes, moods, paces, warnings, chars, narrators, neighbors, seriesOpts, places };
   }, [db, bookId, readId]);
@@ -209,10 +211,17 @@ export default function BookLog() {
               <ul className="ph-list">
                 {list.map((c) => (
                   <li key={c.bc_id} className={`ph-item ph-char ${role}`}>
-                    <Link to={`/character/${c.id}`} className="grow">
-                      <div className={`t ${c.featured ? 'page' : ''}`}>{c.name}</div>
-                      <div className="s">{[GENDER[c.gender ?? ''] ?? c.gender, c.age_min !== null ? c.age_min : null].filter((x) => x !== null && x !== undefined && x !== '').join(' · ')}</div>
-                    </Link>
+                    {c.featured ? (
+                      <Link to={`/character/${c.id}`} className="grow">
+                        <div className="t page">{c.name}</div>
+                        <div className="s">{[GENDER[c.gender ?? ''] ?? c.gender, c.age_min !== null ? c.age_min : null].filter((x) => x !== null && x !== undefined && x !== '').join(' · ')}</div>
+                      </Link>
+                    ) : (
+                      <button type="button" className="grow ph-plainchar" aria-label={`${c.name}, no page yet. Create a page or link to a character.`} onClick={() => setPlain({ id: c.id, name: c.name })}>
+                        <div className="t">{c.name}</div>
+                        <div className="s">No page yet. Tap to create or link one.</div>
+                      </button>
+                    )}
                     {role === 'side' && <button type="button" className="ph-btn" style={{ minHeight: 40, padding: '0 10px' }} onClick={() => void run(() => addCharacterToBook(db, c.id, bookId, 'main'))}>Make main</button>}
                     <ConfirmRemove label={`Remove ${c.name} from this book`} onConfirm={() => void run(() => removeCharacterFromBook(db, c.bc_id))} />
                   </li>
@@ -314,8 +323,32 @@ export default function BookLog() {
       )}
 
       {editHead && <EditHead log={log} run={run} onClose={() => setEditHead(false)} />}
-      {pickChar && <PickerSheet title="Add character" placeholder="Search characters" options={d.chars} taken={log.characters.map((c) => c.id)}
-        onPick={(o) => void run(() => addCharacterToBook(db, o.id, bookId, 'side'))} onCreate={(n) => void run(async () => addCharacterToBook(db, await createCharacter(db, n), bookId, 'side'))} createLabel="Create new character" onClose={() => setPickChar(false)} />}
+      {pickChar && <PickerSheet title="Add character" placeholder="Search characters" options={d.chars.map((c) => ({ id: c.id, name: c.name, note: c.featured ? undefined : 'No page' }))} taken={log.characters.map((c) => c.id)}
+        onPick={(o) => void run(() => addCharacterToBook(db, o.id, bookId, 'side'))}
+        onCreate={(n) => void run(async () => addCharacterToBook(db, await createCharacter(db, n, true), bookId, 'side'))} createLabel="Create character page for"
+        alsoCreate={{ label: 'Add just the name', onCreate: (n) => void run(async () => addCharacterToBook(db, await createCharacter(db, n, false), bookId, 'side')) }}
+        onClose={() => setPickChar(false)} />}
+      {plain && (
+        <Sheet title={plain.name} onClose={() => setPlain(null)}>
+          <p className="ph-muted ph-small" style={{ marginTop: 0 }}>This character has no page yet.</p>
+          <button type="button" className="ph-opt create" onClick={() => { const c = plain; setPlain(null); void run(() => giveCharacterPage(db, c.id)).then(() => nav(`/character/${c.id}`)); }}>Create character page</button>
+          <button type="button" className="ph-opt" onClick={() => { setLinking({ id: plain.id, name: plain.name }); setPlain(null); }}>Link to an existing character</button>
+        </Sheet>
+      )}
+      {linking && !linking.target && (
+        <PickerSheet title={`Link ${linking.name}`} placeholder="Search characters with a page"
+          options={rankForLink(linking.name, d.chars.filter((c) => c.featured && c.id !== linking.id)).map((c) => ({ id: c.id, name: c.name, note: c.match === 'same' ? 'Same name' : c.match === 'similar' ? 'Similar name' : undefined }))}
+          keepOpen onPick={(o) => setLinking({ ...linking, target: { id: o.id, name: o.name } })} onClose={() => setLinking(null)} />
+      )}
+      {linking?.target && (
+        <Sheet title="Link character?" onClose={() => setLinking(null)}>
+          <p style={{ marginTop: 0 }}>{`Link "${linking.name}" to ${linking.target.name}? ${linking.target.name} replaces "${linking.name}" in every book, and "${linking.name}" is kept as another name if it is different.`}</p>
+          <div className="ph-row">
+            <button type="button" className="ph-btn" onClick={() => setLinking({ id: linking.id, name: linking.name })}>Back</button>
+            <button type="button" className="ph-btn primary" onClick={() => { const l = linking; setLinking(null); void run(() => linkCharacterToPage(db, l.id, l.target!.id)); }}>Link</button>
+          </div>
+        </Sheet>
+      )}
       {pickNarrator && rid && <PickerSheet title="Add narrator" placeholder="Search narrators" options={d.narrators} taken={log.narrators.map((n) => n.narrator_id)}
         onPick={(o) => void run(() => repo.addNarratorToRead(db, rid, o.id))} onCreate={(n) => void run(async () => repo.addNarratorToRead(db, rid, await repo.createNarrator(db, n)))} createLabel="Add new narrator" onClose={() => setPickNarrator(false)} />}
       {pickSeries && <PickerSheet title="Series" placeholder="Search series" options={d.seriesOpts} taken={log.series ? [log.series.id] : []}

@@ -1106,3 +1106,19 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .bulkgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .bulklines { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
 .dialog .stack { display: flex; flex-direction: column; gap: 6px; }
+
+/* Accents on a narrator of a listen: tags like genres, inside the narrator's row */
+.narraccents { flex: 1 1 200px; min-width: 0; }
+.tagbare .chips { margin-bottom: 4px; }
+
+/* Links on author and narrator pages: the label is the link; edit and remove sit on its line */
+.linkrow { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; border-bottom: 1px solid var(--line); min-width: 0; }
+.linkrow.editing { gap: 6px; }
+.linkhead { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.linklabel { flex: 1 1 auto; min-width: 0; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linkurl { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.iconbtn { flex: 0 0 auto; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer; border-radius: 4px; }
+.iconbtn:hover { color: var(--text); background: var(--panel2); }
+
+/* a count after a tag's name (Fantasy 3) needs a gap; chips are flex boxes, which drop the plain space */
+.chip > .muted.small { margin-left: 6px; }

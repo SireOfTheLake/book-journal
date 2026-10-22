@@ -2,7 +2,22 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 -->
+
+## 0.2.6 — 2026-10-22
+
+### New
+- Phone: add a character to a book as a new character page, as just a name (no page), or from your existing characters. Characters without a page show "No page yet"; tap one to create a page for them or link them to an existing character (same and similar names are listed first). Linking moves everything across and keeps the name as another name if it differs.
+- Every author and narrator now starts with an "Audible Page" link: https://www.audible.ca/author/J-J-Mulder for an author (periods and spaces become -) and https://www.audible.ca/search?searchNarrator=Daniel+Lewis for a narrator. It is added whenever a new author or narrator is created (by hand, import or CSV) and has been added to the ones you already have.
+
+### Improved
+- Narrator accents on a Book Log listen now work like genres and tropes: add as many as you need, search your existing accents or create a new one, click a chip to rename it, and remove it with the x. Accents you had already set carry over.
+- Links on author and narrator pages: the label is now the link (it opens in your browser), the address sits under it, and a pencil (edit) and x (remove) sit at the right of the label's line, so nothing covers the address. Long labels and addresses are cut off with "...". Every link, including the Audible one, can be edited.
+- Database change 29 (narrator accents on a listen, Audible links). After updating the computer, run `npm run supabase-sql` and paste the new supabase/schema.sql into Supabase, then update the other devices (see supabase/README.md).
+
+### Fixed
+- "What's new" no longer shows a literal "[improved]" in front of some notes.
+- On narrator pages, the number after a genre or accent tag now has a space before it.
 
 ## 0.2.8 — 2026-10-21
 

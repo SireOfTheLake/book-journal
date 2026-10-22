@@ -32,7 +32,9 @@ export interface Actions {
   removeTag(t: TagTable | 'place', id: string): void;
   renameTag(t: TagTable | 'place', id: string, name: string): void;
   narratorRating(id: string, r: 'up' | 'neutral' | 'down' | null): void;
-  narratorAccent(id: string, name: string | null): void;
+  addNarratorAccent(readNarratorId: string, name: string): void;
+  removeNarratorAccent(readNarratorId: string, accentId: string): void;
+  renameAccent(accentId: string, name: string): void;
   saveEntry(e: { date: string; page: number | null; percent: number | null; seconds: number | null; text: string }): void;
   deleteEntry(id: string): void;
   newRead(): void;
@@ -289,7 +291,6 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
   const planned = !!read && !!book.shelf && read.status === 'on_hold' && !read.start_date && !read.finish_date;
   const inProgress = !!read && (read.status === 'reading' || read.status === 'on_hold') && !book.shelf;
   const heat = book.heat_level !== null ? HEAT[book.heat_level] : null;
-  const accentName = (id: string | null) => lists.accents.find((a) => a.id === id)?.name ?? null;
   const tag = (label: string, table: TagTable, items: Item[], options: Item[]) => (
     <TagEditor label={label} items={items} options={options} onAdd={(n) => act.addTag(table, n)} onRemove={(id) => act.removeTag(table, id)} onRename={(id, n) => act.renameTag(table, id, n)} />
   );
@@ -433,9 +434,9 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
                     <VoiceChips max={3} narrator={n.name} chars={n.chars ?? []} options={log.characters.filter((c) => !(n.chars ?? []).some((x) => x.id === c.id)).map((c) => ({ id: c.id, name: c.name }))}
                       onAdd={(cid) => act.voiceAdd(n.id, cid)} onRemove={(cid) => act.voiceRemove(n.id, cid)} />
                     </div>
+                    <div className="narraccents"><TagEditor bare label="Accents" items={n.accents} options={lists.accents} onAdd={(name) => act.addNarratorAccent(n.id, name)} onRemove={(id) => act.removeNarratorAccent(n.id, id)} onRename={(id, name) => act.renameAccent(id, name)} /></div>
                     <div className="narrside">
                       <div className="narrtop">
-                    <EditSelect label="Accent" value={n.accent_id} options={opts(lists.accents)} onChange={(id) => act.narratorAccent(n.id, accentName(id))} onCreate={(name) => act.narratorAccent(n.id, name)} />
                     <Thumbs value={n.rating} onChange={(r) => act.narratorRating(n.id, r)} />
                     <button type="button" className="mini" aria-label={`Remove ${n.name} from this read`} onClick={() => act.removeNarrator(n.id)}>&times;</button>
                       </div>

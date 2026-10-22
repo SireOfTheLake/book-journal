@@ -160,6 +160,12 @@ pub fn run() {
         description: "permanent placeholder covers",
         sql: include_str!("../migrations/0028_placeholder_permanent.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 29,
+        description: "narrator accents like tags, and Audible page links",
+        sql: include_str!("../migrations/0029_audible_links_and_accents.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();
@@ -181,6 +187,7 @@ pub fn run() {
         // Looks for a newer version of the app (see the update notice in the app) and restarts after installing it.
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(
             SqlBuilder::default()
                 .add_migrations("sqlite:book-journal.db", migrations)

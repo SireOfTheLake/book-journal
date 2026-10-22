@@ -6,7 +6,7 @@ export const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 // Tables an import may write to. Undo only ever touches these.
 const TABLES = new Set([
   'book', 'read', 'author', 'narrator', 'series', 'universe', 'character', 'genre', 'theme', 'trope',
-  'book_author', 'book_narrator', 'book_genre', 'book_theme', 'book_trope', 'book_character', 'read_narrator',
+  'book_author', 'book_narrator', 'book_genre', 'book_theme', 'book_trope', 'book_character', 'read_narrator', 'read_narrator_accent',
   'place', 'book_place', 'source', 'time_period', 'accent', 'occupation', 'sexuality', 'name_type', 'character_tag', 'character_alt_name', 'character_occupation',
   'character_previous_place', 'character_relationship', 'character_tag_link', 'related_person',
 ]);

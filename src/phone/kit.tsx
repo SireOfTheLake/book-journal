@@ -109,8 +109,10 @@ export function Sheet({ title, onClose, children }: { title: string; onClose(): 
 export interface Opt { id: string; name: string; note?: string }
 
 /** Pick one from a list as you type, or create a new one. Used for tags, characters, series and so on. */
-export function PickerSheet({ title, options, taken = [], onPick, onCreate, createLabel, onClose, placeholder = 'Search', keepOpen, extra }: {
+export function PickerSheet({ title, options, taken = [], onPick, onCreate, createLabel, onClose, placeholder = 'Search', keepOpen, extra, alsoCreate }: {
   title: string; options: Opt[]; taken?: string[]; onPick(o: Opt): void; onCreate?(name: string): void; createLabel?: string; onClose(): void; placeholder?: string; keepOpen?: boolean; extra?: { label: string; onChoose(): void };
+  /** A second way to create what was typed (for example a name with no page). */
+  alsoCreate?: { label: string; onCreate(name: string): void };
 }) {
   const [q, setQ] = useState('');
   const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -125,6 +127,9 @@ export function PickerSheet({ title, options, taken = [], onPick, onCreate, crea
         {/* Creating comes first so it is never hidden below the keyboard */}
         {onCreate && t && !exact && (
           <button type="button" className="ph-opt create" onClick={() => { onCreate(q.trim()); done(); }}><span aria-hidden="true">+</span> {createLabel ?? 'Create'} &ldquo;{q.trim()}&rdquo;</button>
+        )}
+        {alsoCreate && t && !exact && (
+          <button type="button" className="ph-opt create" onClick={() => { alsoCreate.onCreate(q.trim()); done(); }}><span aria-hidden="true">+</span> {alsoCreate.label} &ldquo;{q.trim()}&rdquo;</button>
         )}
         {extra && <button type="button" className="ph-opt create" onClick={() => { extra.onChoose(); }}><span aria-hidden="true">+</span> {extra.label}</button>}
         {shown.map((o) => (

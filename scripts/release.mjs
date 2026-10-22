@@ -21,7 +21,8 @@ const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, 
 const stamped = stampRelease(readFileSync('CHANGELOG.md', 'utf8'), files.map((f) => ({ id: f.replace(/\.md$/, ''), text: readFileSync(`${dir}/${f}`, 'utf8') })), version, date);
 writeFileSync('CHANGELOG.md', stamped.text);
 for (const f of files) unlinkSync(`${dir}/${f}`);
-console.log(`Release notes filed under ${version}: ${stamped.filed.length} note file(s).`);
+console.log(`Release notes filed under ${version}: ${stamped.filed.length} note file(s) (${stamped.filed.join(', ') || 'none'}).`);
+if (stamped.skipped.length) console.log(`Already filed in an earlier release, so left out: ${stamped.skipped.join(', ')}.`);
 const run = (cmd) => { console.log(`> ${cmd}`); execSync(cmd, { stdio: 'inherit' }); };
 run('git add -A');
 run(`git commit -m "Version ${version}"`);

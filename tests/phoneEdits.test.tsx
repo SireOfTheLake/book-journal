@@ -11,7 +11,7 @@ import { openPhoneDatabase } from '../src/phone/sqljsDb';
 import BookLog from '../src/phone/screens/BookLog';
 import Character from '../src/phone/screens/Character';
 import { getBookLog, quickAdd } from '../src/repo/bookLog';
-import { addCharacterToBook, addRelationship, createCharacter, getCharacter } from '../src/repo/characters';
+import { addCharacterToBook, addRelationship, createCharacter, getCharacter, rankForLink } from '../src/repo/characters';
 
 let SQL: SqlJsStatic;
 const files = readdirSync('src-tauri/migrations').filter((f) => f.endsWith('.sql')).sort().map((f) => readFileSync(`src-tauri/migrations/${f}`, 'utf8'));
@@ -159,5 +159,69 @@ describe('phone: keyboard', () => {
     vv.height = 800; listeners.resize?.();
     await waitFor(() => expect(sheet.style.bottom).toBe('0px'));
     Object.defineProperty(window, 'visualViewport', { value: undefined, configurable: true });
+  });
+});
+
+describe('phone: adding and linking characters', () => {
+  it('ranks same names first, then similar ones', () => {
+    const r = rankForLink('Wren Hale', [{ name: 'Zed' }, { name: 'Wren' }, { name: 'wren hale' }, { name: 'Alaric' }]);
+    expect(r.map((x) => [x.name, x.match])).toEqual([['wren hale', 'same'], ['Wren', 'similar'], ['Zed', null], ['Alaric', null]]);
+  });
+
+  it('adds a character with a page, a name only, or an existing one', async () => {
+    const db = await freshDb();
+    const { bookId } = await quickAdd(db, { title: 'Cast Book', authors: ['Ann'], status: 'reading' });
+    const old = await createCharacter(db, 'Old Friend');
+    at(db, `/book/${bookId}`);
+    await screen.findByText('Cast Book', { selector: 'h1' });
+
+    press('+ Add character');
+    fireEvent.change(screen.getByLabelText('Search characters'), { target: { value: 'Ivy Page' } });
+    const opts = screen.getAllByRole('button').filter((b) => b.classList.contains('ph-opt'));
+    expect(opts[0].textContent).toMatch(/Create character page for.*Ivy Page/);
+    expect(opts[1].textContent).toMatch(/Add just the name.*Ivy Page/);
+    fireEvent.click(opts[0]);
+    await screen.findByText('Ivy Page');
+
+    press('+ Add character');
+    fireEvent.change(screen.getByLabelText('Search characters'), { target: { value: 'Ben Plain' } });
+    fireEvent.click(screen.getAllByRole('button').filter((b) => b.classList.contains('ph-opt'))[1]);
+    await screen.findByText('Ben Plain');
+
+    press('+ Add character');
+    fireEvent.click(await screen.findByText('Old Friend'));
+    await waitFor(async () => expect((await getBookLog(db, bookId))!.characters.map((c) => [c.name, c.featured]).sort()).toEqual([['Ben Plain', 0], ['Ivy Page', 1], ['Old Friend', 1]]));
+    expect(old).toBeTruthy();
+    // only characters with a page link to a page
+    expect(screen.getByText('Ivy Page').classList.contains('page')).toBe(true);
+    expect(screen.getByText('Ben Plain').classList.contains('page')).toBe(false);
+  });
+
+  it('a name-only character can get a page, or be linked to an existing character (same names first)', async () => {
+    const db = await freshDb();
+    const { bookId } = await quickAdd(db, { title: 'Link Book', authors: ['Ann'], status: 'reading' });
+    const zed = await createCharacter(db, 'Zed Other'); await createCharacter(db, 'Cal Mason');
+    const calPlain = await createCharacter(db, 'Cal', false); const noPage = await createCharacter(db, 'Dot', false);
+    await addCharacterToBook(db, calPlain, bookId, 'main'); await addCharacterToBook(db, noPage, bookId, 'side');
+    at(db, `/book/${bookId}`);
+    await screen.findByText('Cal');
+
+    fireEvent.click(screen.getByLabelText(/^Cal, no page yet/));
+    fireEvent.click(await screen.findByRole('button', { name: 'Link to an existing character' }));
+    await screen.findByLabelText('Search characters with a page');
+    const names = screen.getAllByRole('button').filter((b) => b.classList.contains('ph-opt')).map((b) => b.textContent);
+    expect(names[0]).toMatch(/^Cal MasonSimilar name$/); // the one that shares the name goes first
+    expect(names.some((n) => /Dot/.test(n ?? ''))).toBe(false); // no page, so not offered
+    fireEvent.click(screen.getByText('Cal Mason'));
+    fireEvent.click(await screen.findByRole('button', { name: 'Link' }));
+    await waitFor(async () => expect((await getBookLog(db, bookId))!.characters.map((c) => c.name).sort()).toEqual(['Cal Mason', 'Dot']));
+    const log = (await getBookLog(db, bookId))!;
+    expect(log.characters.find((c) => c.name === 'Cal Mason')!.role).toBe('main');
+    expect((await db.select('SELECT id FROM character WHERE id = ? AND deleted_at IS NULL', [calPlain])).length).toBe(0);
+
+    fireEvent.click(await screen.findByLabelText(/^Dot, no page yet/));
+    fireEvent.click(await screen.findByRole('button', { name: 'Create character page' }));
+    await waitFor(async () => expect((await getCharacter(db, noPage))!.core.is_featured).toBe(1));
+    expect(zed).toBeTruthy();
   });
 });

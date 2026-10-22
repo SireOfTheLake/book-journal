@@ -37,7 +37,7 @@ export interface LogCharacter {
   age_min: number | null; age_max: number | null; occupations: string | null; partners: string | null;
   featured?: number; // 1 = this character has a page of their own
 }
-export interface LogNarrator { id: string; narrator_id: string; name: string; accent_id: string | null; accent: string | null; rating: 'up' | 'neutral' | 'down' | null; voiced: string | null; chars?: { id: string; name: string }[] }
+export interface LogNarrator { id: string; narrator_id: string; name: string; accents: Item[]; accent: string | null; rating: 'up' | 'neutral' | 'down' | null; voiced: string | null; chars?: { id: string; name: string }[] }
 export interface DayEntry { id: string; entry_date: string; position_page: number | null; position_percent: number | null; position_seconds: number | null; text: string | null }
 
 export interface LogPlace extends Item { city: string | null; area: string | null; country: string | null; fictional: boolean; needsUpdate: boolean }
@@ -94,11 +94,15 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
      ORDER BY COALESCE(r.finish_date, '9999'), r.created_at, r.rowid`, [bookId]);
   const read = reads.find((r) => r.id === readId) ?? reads[reads.length - 1] ?? null;
   const narrators = read ? await db.select<LogNarrator>(
-    `SELECT rn.id, rn.narrator_id, n.name, rn.accent_id, a.name AS accent, rn.rating,
+    `SELECT rn.id, rn.narrator_id, n.name, rn.rating,
        (SELECT group_concat(c.name, ', ') FROM read_narrator_character rnc JOIN character c ON c.id = rnc.character_id WHERE rnc.read_narrator_id = rn.id AND rnc.deleted_at IS NULL) AS voiced
-     FROM read_narrator rn JOIN narrator n ON n.id = rn.narrator_id LEFT JOIN accent a ON a.id = rn.accent_id
+     FROM read_narrator rn JOIN narrator n ON n.id = rn.narrator_id
      WHERE rn.read_id = ? AND rn.deleted_at IS NULL ORDER BY rn.sort_order`, [read.id]) : [];
-  for (const n of narrators) n.chars = await voicesOf(db, n.id);
+  for (const n of narrators) {
+    n.chars = await voicesOf(db, n.id);
+    n.accents = await narratorAccents(db, n.id);
+    n.accent = n.accents.map((a) => a.name).join(', ') || null;
+  }
   const entries = read ? await db.select<DayEntry>('SELECT id, entry_date, position_page, position_percent, position_seconds, text FROM day_entry WHERE read_id = ? AND deleted_at IS NULL ORDER BY entry_date', [read.id]) : [];
   const [coverRow] = book.cover_image_id ? await db.select<{ cover: string }>('SELECT file_path AS cover FROM image WHERE id = ? AND deleted_at IS NULL', [book.cover_image_id]) : [];
   return {
@@ -120,7 +124,7 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
 }
 
 export const listItems = (db: Db, table: 'source' | 'time_period' | 'accent' | 'place') =>
-  db.select<Item>(`SELECT id, name FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
+  db.select<Item>(`SELECT id, name${table === 'accent' ? ', color' : ''} FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
 
 // ---------- editing ----------
 const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position', 'own_physical', 'own_ebook', 'own_audio', 'recommended_by', 'placeholder_permanent']);
@@ -221,7 +225,7 @@ async function findOrCreateItem(db: Db, table: BookListTable | 'accent' | 'sourc
   const id = await first(db, `SELECT id FROM ${table} WHERE lower(name) = lower(?) AND deleted_at IS NULL LIMIT 1`, [name.trim()]);
   if (id) return id;
   const nid = newId();
-  if (table === 'genre' || table === 'theme' || table === 'trope' || table === 'mood' || table === 'pace' || table === 'content_warning') await db.execute(`INSERT INTO ${table} (id, name, color) VALUES (?, ?, ?)`, [nid, name.trim(), randomTagColor()]);
+  if (table === 'genre' || table === 'theme' || table === 'trope' || table === 'mood' || table === 'pace' || table === 'content_warning' || table === 'accent') await db.execute(`INSERT INTO ${table} (id, name, color) VALUES (?, ?, ?)`, [nid, name.trim(), randomTagColor()]);
   else await db.execute(`INSERT INTO ${table} (id, name) VALUES (?, ?)`, [nid, name.trim()]);
   return nid;
 }
@@ -239,8 +243,24 @@ export const removeTag = (db: Db, bookId: string, table: BookListTable, tagId: s
 export const setNarratorRating = (db: Db, readNarratorId: string, rating: 'up' | 'neutral' | 'down' | null) =>
   db.execute('UPDATE read_narrator SET rating = ? WHERE id = ?', [rating, readNarratorId]);
 
+export const narratorAccents = (db: Db, readNarratorId: string) => db.select<Item>(
+  `SELECT a.id AS id, a.name AS name, a.color AS color FROM read_narrator_accent x JOIN accent a ON a.id = x.accent_id AND a.deleted_at IS NULL WHERE x.read_narrator_id = ? AND x.deleted_at IS NULL
+   ORDER BY x.created_at, x.rowid`, [readNarratorId]);
+
+/** Adds an accent (making it if it is new) to this narrator on this read. Adding one they already have changes nothing. */
+export async function addNarratorAccent(db: Db, readNarratorId: string, name: string) {
+  if (!name.trim()) return;
+  const accentId = await findOrCreateItem(db, 'accent', name);
+  if (await first(db, 'SELECT id FROM read_narrator_accent WHERE read_narrator_id = ? AND accent_id = ? AND deleted_at IS NULL', [readNarratorId, accentId])) return;
+  await db.execute('INSERT INTO read_narrator_accent (id, read_narrator_id, accent_id) VALUES (?, ?, ?)', [newId(), readNarratorId, accentId]);
+}
+export const removeNarratorAccent = (db: Db, readNarratorId: string, accentId: string) =>
+  db.execute(`UPDATE read_narrator_accent SET deleted_at = ${NOW} WHERE read_narrator_id = ? AND accent_id = ? AND deleted_at IS NULL`, [readNarratorId, accentId]);
+
+/** Makes this the only accent (or none, when empty). */
 export async function setNarratorAccent(db: Db, readNarratorId: string, accent: string | null) {
-  await db.execute('UPDATE read_narrator SET accent_id = ? WHERE id = ?', [accent?.trim() ? await findOrCreateItem(db, 'accent', accent) : null, readNarratorId]);
+  await db.execute(`UPDATE read_narrator_accent SET deleted_at = ${NOW} WHERE read_narrator_id = ? AND deleted_at IS NULL`, [readNarratorId]);
+  if (accent?.trim()) await addNarratorAccent(db, readNarratorId, accent);
 }
 
 export async function saveDayEntry(db: Db, readId: string, e: { date: string; page?: number | null; percent?: number | null; seconds?: number | null; text?: string | null }) {

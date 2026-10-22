@@ -264,7 +264,8 @@ export async function applyPdfJournal(db: Db, plan: PdfPlan, choices: PdfChoices
     for (const [i, n] of (e.narrators ?? []).entries()) {
       const nid = await named('narrator', 'name', n.name);
       if (await first(db, 'SELECT id FROM read_narrator WHERE read_id = ? AND narrator_id = ? AND deleted_at IS NULL', [readId, nid])) continue;
-      await w.insert('read_narrator', { read_id: readId, narrator_id: nid, accent_id: n.accent ? await named('accent', 'name', n.accent) : null, rating: n.thumb ?? null, sort_order: i });
+      const rnId = await w.insert('read_narrator', { read_id: readId, narrator_id: nid, rating: n.thumb ?? null, sort_order: i });
+      if (n.accent) await w.insert('read_narrator_accent', { read_narrator_id: rnId, accent_id: await named('accent', 'name', n.accent) });
     }
     onProgress?.(++done, todo.length);
   }

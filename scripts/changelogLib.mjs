@@ -6,8 +6,11 @@ const HEADER = '# Changelog\n\nEvery release, newest first. Notes for the next r
 export function parseNotes(text) {
   const out = { new: [], improved: [], fixed: [] };
   for (const raw of text.split(/\r?\n/)) {
-    const m = /^[-*]\s+(?:\[(new|improved|fixed)\]\s*)?(.+)$/i.exec(raw.trim());
-    if (m) out[(m[1] ?? 'improved').toLowerCase()].push(m[2].trim());
+    const m = /^[-*]\s+(?:\[([a-z]+)\]\s*)?(.+)$/i.exec(raw.trim());
+    if (!m) continue;
+    // [new], [improved] and [fixed] pick the group; any other tag (such as [changed]) means improved, and is not shown.
+    const tag = (m[1] ?? '').toLowerCase();
+    out[tag === 'new' || tag === 'fixed' ? tag : 'improved'].push(m[2].trim());
   }
   return out;
 }

@@ -7,7 +7,7 @@ import { applyNotionPlan } from '../src/import/apply';
 import { planNotionBooks } from '../src/import/notion';
 import { createBook } from '../src/repo/books';
 import { createRead, getBookLog, setNarratorAccent, setNarratorRating, updateBook, updateRead } from '../src/repo/bookLog';
-import { addAlias, addLink, addUsualAccent, getAuthor, getNarrator, listAliases, listAuthors, listNarrators, removeAlias, removeLink, removePhoto, removeUsualAccent, setPhoto, updatePerson } from '../src/repo/people';
+import { addAlias, addLink, addUsualAccent, getAuthor, getNarrator, listAliases, listAuthors, listNarrators, removeAlias, removeLink, updateLink, removePhoto, removeUsualAccent, setPhoto, updatePerson } from '../src/repo/people';
 import { setFormatRelease } from '../src/repo/series';
 
 let db: Db;
@@ -81,7 +81,12 @@ describe('editing an author or narrator', () => {
     const id = await narratorId('Alexander Cendese');
     await addLink(db, 'narrator', id, 'Audible', 'https://example.com/a');
     await addLink(db, 'narrator', id, '', 'https://example.com/b');
-    expect((await getNarrator(db, id))!.core.links).toEqual([{ label: 'Audible', url: 'https://example.com/a' }, { label: 'https://example.com/b', url: 'https://example.com/b' }]);
+    expect((await getNarrator(db, id))!.core.links.slice(1)).toEqual([{ label: 'Audible', url: 'https://example.com/a' }, { label: 'https://example.com/b', url: 'https://example.com/b' }]);
+    expect((await getNarrator(db, id))!.core.links[0].label).toBe('Audible Page'); // the one every narrator starts with
+    await updateLink(db, 'narrator', id, 1, 'Site', 'https://example.com/a2');
+    expect((await getNarrator(db, id))!.core.links[1]).toEqual({ label: 'Site', url: 'https://example.com/a2' });
+    await expect(updateLink(db, 'narrator', id, 1, 'x', ' ')).rejects.toThrow();
+    await removeLink(db, 'narrator', id, 0);
     await removeLink(db, 'narrator', id, 0);
     expect((await getNarrator(db, id))!.core.links.map((l) => l.url)).toEqual(['https://example.com/b']);
     await expect(addLink(db, 'narrator', id, 'x', ' ')).rejects.toThrow();

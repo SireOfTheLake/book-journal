@@ -39,3 +39,10 @@ describe('changelog', () => {
     expect(parseChangelog(stampRelease(base, [], '0.1.2', 'd').text)[0].groups[0].items).toEqual(['Small improvements and fixes.']);
   });
 });
+
+describe('note tags', () => {
+  it('treats any tag other than new, improved or fixed (such as [changed]) as improved, and drops the tag', () => {
+    const n = parseNotes('- [new] A\n- [changed] B\n- [fixed] C\n- D');
+    expect(n).toEqual({ new: ['A'], improved: ['B', 'D'], fixed: ['C'] });
+  });
+});

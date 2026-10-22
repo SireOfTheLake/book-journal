@@ -58,7 +58,9 @@ export async function mergePersonFields(db: Db, kind: 'author' | 'narrator', kee
     set.photo_image_id = dup.photo_image_id;
   }
   const lm = mode('links');
-  const mine = parseLinks(keep.links), theirs = parseLinks(dup.links);
+  const mine = parseLinks(keep.links);
+  // The other one's Audible Page link is for the other name, so the kept one's stays and theirs is not brought over.
+  const theirs = parseLinks(dup.links).filter((t) => !(t.label === 'Audible Page' && mine.some((m) => m.label === 'Audible Page')));
   const merged = lm === 'keep' ? mine : lm === 'dup' ? (choice ? theirs : [...mine, ...theirs.filter((t) => !mine.some((m) => m.url === t.url))]) : [...mine, ...theirs.filter((t) => !mine.some((m) => m.url === t.url))];
   if (JSON.stringify(merged) !== JSON.stringify(mine)) set.links = JSON.stringify(merged);
   const cols = Object.keys(set);
@@ -74,7 +76,7 @@ export async function mergeNarrators(db: Db, keepId: string, dupId: string, choi
   const drop = (table: string, id: string) => db.execute(`UPDATE ${table} SET deleted_at = ${NOW} WHERE id = ?`, [id]);
 
   // Listens: the narrator's place on a read moves over (with accent, rating and the characters voiced); if they already narrate that read, the two are combined.
-  for (const rn of await db.select<{ id: string; read_id: string; accent_id: string | null; rating: string | null }>('SELECT id, read_id, accent_id, rating FROM read_narrator WHERE narrator_id = ? AND deleted_at IS NULL', [dupId])) {
+  for (const rn of await db.select<{ id: string; read_id: string; rating: string | null }>('SELECT id, read_id, rating FROM read_narrator WHERE narrator_id = ? AND deleted_at IS NULL', [dupId])) {
     if (leave.has(`read_narrator:${rn.id}`)) {
       await drop('read_narrator', rn.id);
       for (const v of await db.select<{ id: string }>('SELECT id FROM read_narrator_character WHERE read_narrator_id = ? AND deleted_at IS NULL', [rn.id])) await drop('read_narrator_character', v.id);
@@ -82,7 +84,11 @@ export async function mergeNarrators(db: Db, keepId: string, dupId: string, choi
     }
     const mine = (await db.select<{ id: string }>('SELECT id FROM read_narrator WHERE read_id = ? AND narrator_id = ? AND deleted_at IS NULL', [rn.read_id, keepId]))[0];
     if (!mine) { await db.execute('UPDATE read_narrator SET narrator_id = ? WHERE id = ?', [keepId, rn.id]); continue; }
-    await db.execute('UPDATE read_narrator SET accent_id = COALESCE(accent_id, ?), rating = COALESCE(rating, ?) WHERE id = ?', [rn.accent_id, rn.rating, mine.id]);
+    await db.execute('UPDATE read_narrator SET rating = COALESCE(rating, ?) WHERE id = ?', [rn.rating, mine.id]);
+    for (const x of await db.select<{ id: string; accent_id: string }>('SELECT id, accent_id FROM read_narrator_accent WHERE read_narrator_id = ? AND deleted_at IS NULL', [rn.id])) {
+      if (await first(db, 'SELECT id FROM read_narrator_accent WHERE read_narrator_id = ? AND accent_id = ? AND deleted_at IS NULL', [mine.id, x.accent_id])) await drop('read_narrator_accent', x.id);
+      else await db.execute('UPDATE read_narrator_accent SET read_narrator_id = ? WHERE id = ?', [mine.id, x.id]);
+    }
     for (const v of await db.select<{ id: string; character_id: string }>('SELECT id, character_id FROM read_narrator_character WHERE read_narrator_id = ? AND deleted_at IS NULL', [rn.id])) {
       if (await first(db, 'SELECT id FROM read_narrator_character WHERE read_narrator_id = ? AND character_id = ? AND deleted_at IS NULL', [mine.id, v.character_id])) await drop('read_narrator_character', v.id);
       else await db.execute('UPDATE read_narrator_character SET read_narrator_id = ? WHERE id = ?', [mine.id, v.id]);

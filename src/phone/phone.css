@@ -112,3 +112,5 @@ button { cursor: pointer; }
 .ph-chip.place { background: var(--panel2); color: var(--text); border: 1px solid var(--line2); }
 .ph-chip.place.warn { border-color: var(--warn); }
 .ph-chip.place .name { background: none; border: 0; color: inherit; min-height: 36px; padding: 0; }
+.ph-plainchar { background: none; border: 0; padding: 0; text-align: left; color: inherit; font: inherit; }
+.ph-plainchar .s { font-style: italic; }

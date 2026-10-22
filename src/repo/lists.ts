@@ -17,7 +17,7 @@ export const LISTS: ListInfo[] = [
   { kind: 'content_warning', label: 'Content warnings', singular: 'content warning', hint: 'On books (needs the Content warnings feature).', tables: [{ table: 'book_content_warning', col: 'content_warning_id' }], columns: [] },
   { kind: 'source', label: 'Sources', singular: 'source', hint: 'Where a read came from (Kindle Unlimited, Audible, Library...).', tables: [], columns: [{ table: 'read', col: 'source_id' }] },
   { kind: 'time_period', label: 'Time periods', singular: 'time period', hint: 'When a book is set. Recent History keeps its decade choices.', tables: [], columns: [{ table: 'book', col: 'time_period_id' }] },
-  { kind: 'accent', label: 'Narrator accents', singular: 'accent', hint: 'On narrators and on each listen.', tables: [{ table: 'narrator_accent', col: 'accent_id' }], columns: [{ table: 'read_narrator', col: 'accent_id' }] },
+  { kind: 'accent', label: 'Narrator accents', singular: 'accent', hint: 'On narrators and on each listen.', tables: [{ table: 'narrator_accent', col: 'accent_id' }, { table: 'read_narrator_accent', col: 'accent_id' }], columns: [] },
   { kind: 'occupation', label: 'Occupations', singular: 'occupation', hint: 'On characters.', tables: [{ table: 'character_occupation', col: 'occupation_id' }], columns: [] },
   { kind: 'sexuality', label: 'Sexualities', singular: 'sexuality', hint: 'On characters.', tables: [], columns: [{ table: 'character', col: 'sexuality_id' }] },
   { kind: 'character_tag', label: 'Character tags', singular: 'character tag', hint: 'Free tags on characters.', tables: [{ table: 'character_tag_link', col: 'character_tag_id' }], columns: [] },

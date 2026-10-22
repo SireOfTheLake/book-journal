@@ -238,8 +238,8 @@ export function Thumbs({ value, onChange }: { value: 'up' | 'neutral' | 'down' |
 
 // Tags for a book. "+ Add genre" opens a search box: matches appear as you type, Enter picks or creates.
 // Click a tag's name to rename it everywhere; the x removes it from this book only.
-export function TagEditor({ label, items, options, onAdd, onRemove, onRename }:
-  { label: string; items: (Item & { locked?: boolean })[]; options: Item[]; onAdd: (name: string) => void; onRemove: (id: string) => void; onRename: (id: string, name: string) => void }) {
+export function TagEditor({ label, items, options, onAdd, onRemove, onRename, bare }:
+  { bare?: boolean; label: string; items: (Item & { locked?: boolean })[]; options: Item[]; onAdd: (name: string) => void; onRemove: (id: string) => void; onRename: (id: string, name: string) => void }) {
   const one = label.toLowerCase().replace(/s$/, '');
   const [adding, setAdding] = useState(false);
   const [text, setText] = useState('');
@@ -253,8 +253,8 @@ export function TagEditor({ label, items, options, onAdd, onRemove, onRename }:
   const choices = [...matches.map((m) => ({ name: m.name, isNew: false, color: m.color })), ...(q && !exact ? [{ name: text.trim(), isNew: true, color: null }] : [])];
   const pick = (name: string) => { onAdd(name); setText(''); setActive(0); };
   const close = () => { setAdding(false); setText(''); setActive(0); };
-  return (
-    <Card label={label}>
+  const body = (
+    <>
       <div className="chips">
         {items.map((t) => (
           <span key={t.id} className="chip" style={chipStyle(t.color)}>
@@ -292,8 +292,9 @@ export function TagEditor({ label, items, options, onAdd, onRemove, onRename }:
       ) : (
         <button type="button" className="ed add" onClick={() => setAdding(true)}>{`Add ${one}`}</button>
       )}
-    </Card>
+    </>
   );
+  return bare ? <div className="tagbare">{body}</div> : <Card label={label}>{body}</Card>;
 }
 
 // A search-as-you-type picker. Pick a match, or use the last option to create something new.

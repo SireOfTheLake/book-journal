@@ -1,13 +1,44 @@
 import { useState, type ReactNode } from 'react';
 import type { Item } from '../../repo/bookLog';
 import type { LinkRef } from '../../repo/people';
+import { openExternal } from '../../ui/openExternal';
 import { Card, EditNotes, FilePicker, LinkImageForm, ZoomImage } from '../bookLog/parts';
 
 export interface PersonActions {
   update(f: Record<string, string | number | null>): void;
   addAlias(name: string): void; removeAlias(id: string): void;
-  addLink(label: string, url: string): void | Promise<void>; removeLink(index: number): void;
+  addLink(label: string, url: string): void | Promise<void>; removeLink(index: number): void; updateLink(index: number, label: string, url: string): void | Promise<void>;
   setPhoto(file: File): void; setPhotoUrl(url: string): Promise<void>; removePhoto(): void;
+}
+
+// One saved link: the label opens it, the web address sits under it, and the pencil and cross are on the label's line, on the right.
+function LinkRow({ link, onSave, onRemove }: { link: LinkRef; onSave(label: string, url: string): void | Promise<void>; onRemove(): void }) {
+  const [editing, setEditing] = useState(false);
+  const [label, setLabel] = useState(link.label);
+  const [url, setUrl] = useState(link.url);
+  const [error, setError] = useState<string | null>(null);
+  const start = () => { setLabel(link.label); setUrl(link.url); setError(null); setEditing(true); };
+  const save = async () => { try { await onSave(label, url); setEditing(false); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
+  if (editing) {
+    return (
+      <div className="linkrow editing">
+        <input className="field small" aria-label="Edit link label" value={label} onChange={(e) => setLabel(e.target.value)} />
+        <input className="field small" aria-label="Edit link address" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void save(); if (e.key === 'Escape') setEditing(false); }} />
+        <div className="actions"><button type="button" className="mini" onClick={() => void save()}>Save</button><button type="button" className="mini" onClick={() => setEditing(false)}>Cancel</button></div>
+        {error && <span className="muted" role="alert">{error}</span>}
+      </div>
+    );
+  }
+  return (
+    <div className="linkrow">
+      <div className="linkhead">
+        <a className="linklabel l" href={link.url} title={link.url} onClick={(e) => { e.preventDefault(); void openExternal(link.url); }}>{link.label}</a>
+        <button type="button" className="iconbtn" aria-label={`Edit ${link.label}`} title="Edit" onClick={start}>&#9998;</button>
+        <button type="button" className="iconbtn" aria-label={`Remove ${link.label}`} title="Remove" onClick={onRemove}>&times;</button>
+      </div>
+      <span className="linkurl muted small" title={link.url}>{link.url}</span>
+    </div>
+  );
 }
 
 // The left column shared by author and narrator pages: photo, other names, links, notes.
@@ -33,11 +64,7 @@ export default function PersonSide({ photo, name, aliases, aliasLabel, links, no
       </Card>
       {children}
       <Card label="Links">
-        {links.map((l, i) => (
-          <div className="relline" key={i}><span className="grow"><b>{l.label}</b><br /><span className="muted small">{l.url}</span></span>
-            <button type="button" className="mini" onClick={() => navigator.clipboard?.writeText(l.url)}>Copy</button>
-            <button type="button" className="mini" aria-label={`Remove ${l.label}`} onClick={() => act.removeLink(i)}>&times;</button></div>
-        ))}
+        {links.map((l, i) => <LinkRow key={`${i}:${l.label}:${l.url}`} link={l} onSave={(lb, u) => act.updateLink(i, lb, u)} onRemove={() => act.removeLink(i)} />)}
         <input className="field small" placeholder="Label (Website, Audible...)" aria-label="Link label" value={label} onChange={(e) => setLabel(e.target.value)} />
         <input className="field small" placeholder="Address" aria-label="Link address" value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addLink()} />
         <button type="button" className="mini" onClick={addLink}>Add link</button>

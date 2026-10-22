@@ -126,6 +126,34 @@ export const listCharacterOptions = (db: Db) => db.select<Item & { tags: string 
   `SELECT c.id AS id, c.name AS name,
      (SELECT group_concat(t.name, ', ') FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = c.id AND l.deleted_at IS NULL) AS tags
    FROM character c WHERE c.deleted_at IS NULL ORDER BY CASE WHEN lower(c.name) LIKE \'the %\' THEN lower(substr(c.name, 5)) ELSE lower(c.name) END`);
+// Everyone you can add to a book, and whether they have a page of their own.
+export const listCharacterPicks = (db: Db) => db.select<Item & { featured: number }>(
+  `SELECT id, name, is_featured AS featured FROM character WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
+
+/** Gives a name-only character a page of their own. */
+export const giveCharacterPage = (db: Db, id: string) => updateCharacter(db, id, { is_featured: 1 });
+
+/** Links a name-only character to one who has a page: everything moves across, and the name stays as another name if it differs. */
+export async function linkCharacterToPage(db: Db, plainId: string, pageId: string): Promise<void> {
+  const [target] = await db.select<{ is_featured: number }>('SELECT is_featured FROM character WHERE id = ? AND deleted_at IS NULL', [pageId]);
+  if (!target) throw new Error('That character no longer exists.');
+  await mergeCharacters(db, pageId, plainId);
+}
+
+/** Orders candidates for linking: same name first, then names sharing a word or starting alike, then the rest A to Z. */
+export function rankForLink<T extends { name: string }>(name: string, options: T[]): (T & { match: 'same' | 'similar' | null })[] {
+  const fold = (x: string) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+  const me = fold(name); const words = me.split(' ').filter((w) => w.length > 1);
+  const score = (o: T) => {
+    const n = fold(o.name);
+    if (n === me) return 0;
+    if (n.startsWith(me) || me.startsWith(n) || words.some((w) => n.split(' ').includes(w))) return 1;
+    return 2;
+  };
+  return options.map((o, i) => ({ o, i, sc: score(o) })).sort((a, b) => a.sc - b.sc || a.i - b.i)
+    .map(({ o, sc }) => ({ ...o, match: sc === 0 ? 'same' as const : sc === 1 ? 'similar' as const : null }));
+}
+
 export const listCharacterNames = (db: Db) => db.select<Item>('SELECT id, name FROM character WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END');
 
 export async function addAltName(db: Db, characterId: string, name: string, typeName: string | null) {

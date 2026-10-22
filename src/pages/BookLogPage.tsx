@@ -10,6 +10,7 @@ import { downloadCover } from '../lookup/download';
 import { addCharacterToBook, createCharacter, listCharacterOptions, removeCharacterFromBook } from '../repo/characters';
 import { createSeries, listSeriesOptions, setBookSeries, listUniverses, createUniverse } from '../repo/series';
 import { setBookUniverse } from '../repo/universes';
+import { renameEntry } from '../repo/lists';
 import { setWord } from '../repo/words';
 import { fillSlot, clearSlot, listChallengeChoices, listReadChallenges } from '../repo/challenges';
 import { getReason, setReason, setReasonPrompt, type Reason } from '../repo/reason';
@@ -66,7 +67,9 @@ export default function BookLogPage() {
       removeTag: (t, id) => run(() => repo.removeTag(db, bookId, t, id)),
       renameTag: (t, id, name) => run(() => repo.renameTag(db, t, id, name)),
       narratorRating: (id, r) => run(() => repo.setNarratorRating(db, id, r)),
-      narratorAccent: (id, n) => run(() => repo.setNarratorAccent(db, id, n)),
+      addNarratorAccent: (id, n) => run(() => repo.addNarratorAccent(db, id, n)),
+      removeNarratorAccent: (id, a) => run(() => repo.removeNarratorAccent(db, id, a)),
+      renameAccent: (id, n) => run(() => renameEntry(db, 'accent', id, n)),
       saveEntry: (e) => run(() => (rid ? repo.saveDayEntry(db, rid, e) : Promise.resolve())),
       deleteEntry: (id) => run(() => repo.deleteDayEntry(db, id)),
       deleteRead: () => run(async () => { if (!rid) return; const r = await repo.deleteRead(db, rid); nav(`/book/${r.bookId}${r.nextReadId ? `/${r.nextReadId}` : ''}`, { replace: true }); }),

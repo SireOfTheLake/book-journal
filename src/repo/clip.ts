@@ -87,6 +87,7 @@ export interface ClipSave {
   cover: string | null;
   shelf: 'tbr' | 'up_next';
   plannedFormat: 'audio' | 'ebook' | 'physical' | null;
+  audioSeconds?: number | null;
   tags: { name: string; kind: TagKind }[];
   ids: { isbn?: string; asin?: string; sources: Record<string, string> };
   authorLinks: Record<string, string>;
@@ -114,8 +115,8 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
   let bookId: string;
   if (input.mode.kind === 'fill') bookId = input.mode.bookId;
   else bookId = await createBook(db, { title: input.title, authors: input.authors });
-  const [row] = await db.select<{ page_count: number | null; synopsis: string | null; heat_level: number | null; original_publication_date: string | null; series_id: string | null; planned_format: string | null; external_ids: string | null; cover_image_id: string | null }>(
-    'SELECT page_count, synopsis, heat_level, original_publication_date, series_id, planned_format, external_ids, cover_image_id FROM book WHERE id = ?', [bookId]);
+  const [row] = await db.select<{ audio_length_seconds: number | null; page_count: number | null; synopsis: string | null; heat_level: number | null; original_publication_date: string | null; series_id: string | null; planned_format: string | null; external_ids: string | null; cover_image_id: string | null }>(
+    'SELECT audio_length_seconds, page_count, synopsis, heat_level, original_publication_date, series_id, planned_format, external_ids, cover_image_id FROM book WHERE id = ?', [bookId]);
 
   // Authors, for a book that is already here: the ones it does not have yet.
   if (fill) {
@@ -135,6 +136,7 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
   };
   put('page_count', input.pages, row?.page_count, 'page count');
   put('synopsis', input.synopsis, row?.synopsis, 'synopsis');
+  put('audio_length_seconds', input.audioSeconds ?? null, row?.audio_length_seconds, 'audiobook length');
   put('heat_level', input.heat, row?.heat_level, 'heat level');
   put('original_publication_date', input.published, row?.original_publication_date, 'publication date');
   if (Object.keys(fields).length) await updateBook(db, bookId, fields);
@@ -144,6 +146,12 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
     await setBookSeries(db, bookId, sid, input.position);
     added.push('series');
   }
+  // Narrators first, so the placeholder read of an Up Next book starts with them.
+  for (const n of input.narrators) {
+    const found = (await db.select<{ id: string }>('SELECT id FROM narrator WHERE lower(name) = lower(?) AND deleted_at IS NULL LIMIT 1', [n]))[0]?.id;
+    await ensureBookNarrator(db, bookId, found ?? await createNarrator(db, n));
+  }
+  if (input.narrators.length) added.push('narrators');
   if (!fill) await setStatus(db, bookId, null, input.shelf);
 
   if (input.plannedFormat && (!fill || !row?.planned_format)) { await db.execute('UPDATE book SET planned_format = ? WHERE id = ?', [input.plannedFormat, bookId]); if (fill) added.push('planned format'); }
@@ -159,12 +167,6 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
 
   for (const t of input.tags) { await addTag(db, bookId, t.kind, t.name); }
   if (input.tags.length) added.push(`${input.tags.length} tag${input.tags.length === 1 ? '' : 's'}`);
-
-  for (const n of input.narrators) {
-    const found = (await db.select<{ id: string }>('SELECT id FROM narrator WHERE lower(name) = lower(?) AND deleted_at IS NULL LIMIT 1', [n]))[0]?.id;
-    await ensureBookNarrator(db, bookId, found ?? await createNarrator(db, n));
-  }
-  if (input.narrators.length) added.push('narrators');
 
   for (const [name, url] of Object.entries(input.authorLinks)) {
     const a = (await db.select<{ id: string }>('SELECT id FROM author WHERE lower(name) = lower(?) AND deleted_at IS NULL LIMIT 1', [name]))[0]?.id;

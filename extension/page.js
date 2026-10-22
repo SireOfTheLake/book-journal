@@ -108,7 +108,7 @@
       if (n && (it.position ?? 2) > 1) tags.push({ name: n, hint: "genre" });
     }
     const asin = clean(product?.productID) || /\/pd\/[^/]+\/([A-Z0-9]{10})/.exec(url)?.[1];
-    const description = book?.description ? htmlToText(doc, String(book.description)).replace(/\n*Contains mature content\.[^\n]*$/i, "").trim() : void 0;
+    const description2 = book?.description ? htmlToText(doc, String(book.description)).replace(/\n*Contains mature content\.[^\n]*$/i, "").trim() : void 0;
     return {
       v: 1,
       site: "audible",
@@ -122,7 +122,7 @@
       asin: asin || void 0,
       format: "audio",
       audioSeconds: isoDuration(book?.duration),
-      description,
+      description: description2,
       cover: clean(book?.image ?? product?.image) || void 0,
       tags,
       authorLinks: Object.keys(authorLinks).length ? authorLinks : void 0
@@ -162,7 +162,7 @@
       if (name && !tags.some((t) => t.name === name)) tags.push({ name });
     }
     const descEl = doc.querySelector('[data-testid="description"]');
-    const description = descEl ? htmlToText(doc, descEl.innerHTML) : metaContent(doc, "og:description") ?? void 0;
+    const description2 = descEl ? htmlToText(doc, descEl.innerHTML) : metaContent(doc, "og:description") ?? void 0;
     const format = /audio/i.test(pagesText) ? "audio" : /kindle|ebook|digital/i.test(pagesText) ? "ebook" : /hardcover|paperback|mass market/i.test(pagesText) ? "physical" : void 0;
     return {
       v: 1,
@@ -175,7 +175,7 @@
       published: toIsoDate(pubText),
       format,
       isbn: /ISBN[^0-9]{0,10}(97[89]\d{10}|\d{9}[\dXx])/.exec(body)?.[1],
-      description,
+      description: description2,
       cover: metaContent(doc, "og:image") ?? void 0,
       tags
     };
@@ -207,13 +207,13 @@
       }
     }
     const box = doc.querySelector("#book-description");
-    let description;
+    let description2;
     if (box) {
       const copy = box.cloneNode(true);
       copy.querySelectorAll("script, style, .book-cover-container, .dropdown, a").forEach((n) => n.remove());
       const lines = (copy.innerHTML.replace(/<\/p>|<br\s*\/?>/gi, "\n") + "").split("\n").map((l) => clean(htmlToText(doc, l))).filter(Boolean);
       const stop = lines.findIndex((l) => /^Rated '/.test(l) || /^steam\/spice\/heat level/i.test(l) || /^more$/i.test(l));
-      description = (stop === -1 ? lines : lines.slice(0, stop)).join("\n\n") || void 0;
+      description2 = (stop === -1 ? lines : lines.slice(0, stop)).join("\n\n") || void 0;
     }
     return {
       v: 1,
@@ -226,7 +226,7 @@
       published: toIsoDate(String(book?.datePublished ?? "") || stats),
       heat: flames > 0 ? flames : void 0,
       heatLabel: heatLabel || void 0,
-      description,
+      description: description2,
       cover: clean(book?.image) || void 0,
       tags
     };
@@ -235,57 +235,64 @@
   // src/clip/sites/storygraph.ts
   var MOODS = /* @__PURE__ */ new Set(["adventurous", "challenging", "dark", "emotional", "funny", "hopeful", "informative", "inspiring", "lighthearted", "mysterious", "reflective", "relaxing", "sad", "tense"]);
   var PACES = /* @__PURE__ */ new Set(["slow-paced", "medium-paced", "fast-paced"]);
+  function editionRow(doc, label) {
+    for (const row of Array.from(doc.querySelectorAll(".edition-info p"))) {
+      const head = clean(row.querySelector(".font-semibold")?.textContent).replace(/:$/, "").toLowerCase();
+      if (head === label.toLowerCase()) return clean(row.textContent.replace(row.querySelector(".font-semibold")?.textContent ?? "", "")) || void 0;
+    }
+    return void 0;
+  }
+  function description(doc) {
+    for (const s of Array.from(doc.querySelectorAll("script"))) {
+      const code = s.textContent ?? "";
+      if (!code.includes("read-more-btn")) continue;
+      const m = /Description<\\?\/h4><div class=\\?["']trix-content[^"']*\\?["']><div>([\s\S]*?)<\\?\/div><\/div>/.exec(code);
+      if (m) {
+        const text2 = htmlToText(doc, m[1].replace(/\\\//g, "/").replace(/\\(['"])/g, "$1"));
+        if (text2) return text2;
+      }
+    }
+    for (const h of Array.from(doc.querySelectorAll("h4, h3"))) {
+      if (clean(h.textContent).toLowerCase() !== "description") continue;
+      const body = h.parentElement?.querySelector(".trix-content");
+      if (body) return htmlToText(doc, body.innerHTML);
+    }
+    return void 0;
+  }
   function fromStoryGraph(doc, url) {
-    const head = doc.querySelector(".book-title-author-and-series, .book-page-info, main") ?? doc.body;
-    const title = clean(head.querySelector("h3, h1")?.childNodes[0]?.textContent) || clean(doc.querySelector("h1, h3")?.textContent) || clean((metaContent(doc, "og:title") ?? doc.title).replace(/\s*\|.*$/, "").replace(/\s+by\s+.*$/i, ""));
+    const head = doc.querySelector(".book-title-author-and-series") ?? doc.body;
+    const title = clean(head.querySelector("h3, h1")?.textContent) || clean(doc.querySelector("h1, h3")?.textContent) || clean((metaContent(doc, "og:title") ?? doc.title).replace(/\s*\|.*$/, "").replace(/\s+by\s+.*$/i, ""));
     if (!title) return null;
-    const authors = Array.from(new Set(Array.from(head.querySelectorAll('a[href^="/authors/"], a[href*="thestorygraph.com/authors/"]')).map((a) => clean(a.textContent)).filter(Boolean)));
-    const seriesA = head.querySelector('a[href^="/series/"], a[href*="/series/"]');
-    const seriesText = clean(seriesA?.parentElement?.textContent) || clean(seriesA?.textContent);
-    const sPos = /#\s*([\d.]+)/.exec(seriesText)?.[1];
-    const parsed = seriesA ? { series: clean(seriesA.textContent).replace(/\s*#[\d.]+\s*$/, ""), position: sPos ? Number(sPos) : void 0 } : parseSeries(null);
-    const body = pageText(doc);
-    const pages = /(\d[\d,]*)\s+pages/i.exec(body)?.[1];
-    const isbn = /ISBN\/UID:\s*([0-9Xx-]{10,17})/.exec(body)?.[1]?.replace(/-/g, "");
-    const publisher = /Publisher:\s*(.+?)(?=\s+(?:First published|Edition|Format|Language|ISBN|Digital|Paperback|Hardcover)|$)/.exec(body)?.[1];
-    const edition = /Edition (?:publication )?date:?\s*([0-9A-Za-z ,]+?\d{4})/i.exec(body)?.[1];
-    const first = /First published\s+(?:in\s+)?([0-9A-Za-z ,]*\d{4})/i.exec(body)?.[1];
-    const format = /Audio/i.test(body.slice(0, 4e3)) && /audiobook|audio/i.test(doc.querySelector(".edition-info")?.textContent ?? "") ? "audio" : /Digital|ebook|Kindle/i.test(doc.querySelector(".edition-info")?.textContent ?? "") ? "ebook" : void 0;
+    const authors = Array.from(new Set(Array.from(head.querySelectorAll('a[href*="/authors/"]')).map((a) => clean(a.textContent)).filter(Boolean)));
+    const seriesA = head.querySelector('a[href*="/series/"]');
+    const position = /#\s*([\d.]+)/.exec(clean(head.querySelector('a[href*="/series/"] + a')?.textContent) || clean(seriesA?.parentElement?.textContent))?.[1];
+    const pages = /(\d[\d,]*)\s+pages/i.exec(clean(doc.querySelector(".toggle-edition-info-link")?.textContent))?.[1];
+    const formatWord = (editionRow(doc, "Format") ?? "").toLowerCase();
+    const format = /audio/.test(formatWord) ? "audio" : /digital|ebook|kindle/.test(formatWord) ? "ebook" : /paperback|hardcover|physical|book/.test(formatWord) ? "physical" : void 0;
+    const editionDate = toIsoDate(editionRow(doc, "Edition Pub Date") ?? editionRow(doc, "Edition Publication Date"));
+    const firstYear = /first pub\s+(\d{4})/i.exec(clean(doc.body.textContent))?.[1];
+    const published = editionDate && (!firstYear || editionDate.startsWith(firstYear)) ? editionDate : firstYear ?? editionDate;
     const tags = [];
     const seen = /* @__PURE__ */ new Set();
-    for (const el of Array.from(doc.querySelectorAll("span, a, div"))) {
-      if (el.children.length > 0) continue;
-      const t = clean(el.textContent).toLowerCase();
-      if (seen.has(t)) continue;
-      if (MOODS.has(t)) {
-        seen.add(t);
-        tags.push({ name: t, hint: "mood" });
-      } else if (PACES.has(t)) {
-        seen.add(t);
-        tags.push({ name: t, hint: "pace" });
-      }
+    for (const el of Array.from(doc.querySelectorAll(".book-page-tag-section > span"))) {
+      const name = clean(el.textContent).toLowerCase();
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      tags.push({ name, hint: MOODS.has(name) ? "mood" : PACES.has(name) ? "pace" : "genre" });
     }
-    for (const a of Array.from(doc.querySelectorAll('a[href*="/browse?"], a[href*="/browse/"]'))) {
-      const t = clean(a.textContent).toLowerCase();
-      if (t && !seen.has(t) && t.length < 40) {
-        seen.add(t);
-        tags.push({ name: t, hint: "genre" });
-      }
-    }
-    const desc = doc.querySelector('.blurb-pane, .book-page-description, [class*="description"]');
     return {
       v: 1,
       site: "storygraph",
       url: url.split("?")[0],
       title,
       authors,
-      ...parsed ? { series: parsed.series, seriesPosition: parsed.position } : {},
+      ...seriesA ? { series: clean(seriesA.textContent).replace(/\s*#[\d.]+\s*$/, ""), seriesPosition: position ? Number(position) : void 0 } : {},
       pages: pages ? Number(pages.replace(/,/g, "")) : void 0,
-      published: toIsoDate(edition) ?? toIsoDate(first),
-      publisher: publisher ? clean(publisher) : void 0,
-      isbn,
+      published,
+      publisher: editionRow(doc, "Publisher"),
+      isbn: editionRow(doc, "ISBN/UID")?.replace(/-/g, ""),
       format,
-      description: desc ? htmlToText(doc, desc.innerHTML) : metaContent(doc, "og:description") ?? void 0,
+      description: description(doc),
       cover: metaContent(doc, "og:image") ?? void 0,
       tags
     };

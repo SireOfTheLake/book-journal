@@ -63,10 +63,15 @@ describe('Goodreads and StoryGraph (built from how the pages are laid out, not s
     expect(c.tags.map((t) => t.name)).toEqual(['M M Romance', 'Romance', 'Friends To Lovers', 'Slow Burn']);
     expect(c.cover).toMatch(/goodreads\.com\/books\/1768863611i\/245924653\.jpg$/);
   });
-  it('StoryGraph: title, series, pages, ISBN, publisher, date, moods and pace', () => {
+  it('StoryGraph: title, series, pages, ISBN, publisher, date, tags, and the whole Description (not the short copy or the Who\'s It For text)', () => {
     const c = clipOf('storygraph');
     expect(c).toMatchObject({ site: 'storygraph', title: 'Finest Kind of Fate', authors: ['J.J. Mulder'], series: "A Siren's Point Story", seriesPosition: 1, pages: 334, isbn: '9781967245208', publisher: 'JJ Mulder Publishing', published: '2026-02-27', format: 'ebook' });
-    expect(c.tags).toEqual(expect.arrayContaining([{ name: 'emotional', hint: 'mood' }, { name: 'hopeful', hint: 'mood' }, { name: 'medium-paced', hint: 'pace' }, { name: 'romance', hint: 'genre' }]));
+    expect(c.tags).toEqual([{ name: 'fiction', hint: 'genre' }, { name: 'contemporary', hint: 'genre' }, { name: 'lgbtqia+', hint: 'genre' }, { name: 'romance', hint: 'genre' }, { name: 'emotional', hint: 'mood' }, { name: 'hopeful', hint: 'mood' }, { name: 'medium-paced', hint: 'pace' }]);
+    expect(c.description).toMatch(/^Ewan Fate left home seven years ago/);
+    expect(c.description).toMatch(/some things will never change\.$/);
+    expect(c.description).toContain('Shiloh spends his days on the ocean');
+    expect(c.description).not.toMatch(/\.\.\.$|SGAI|Who's It For|Personalized/);
+    expect(c.description).toContain('\n\n'); // paragraphs kept
   });
 });
 

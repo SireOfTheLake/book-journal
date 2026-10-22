@@ -2,7 +2,21 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 -->
+
+## 0.2.12 — 2026-10-22
+
+### New
+- Book Log: a "Read synopsis" button sits above the Status box. It opens the saved blurb in a window where you can Edit it or Delete it (Delete asks first). When a book has no synopsis the button says "Add synopsis" and opens a box to type one. Synopses found by the browser extension show here.
+- A book on your TBR (no read yet) now has a Narrators box on its Book Log. Add existing narrators or create new ones, and remove them with the x. These are the book's usual narrators: every new read of the book, and the placeholder read of an Up Next book, starts with them, and each read can still change its own narrators.
+- A book with no read yet can have an Audio length in the Length box. New reads start with that length, and a read can still have its own. The first audio length you type on a read also becomes the book's usual length if it had none, and listens you already logged set the usual length of their books.
+
+### Improved
+- Books added from the browser extension now save the audiobook length found on the page, and narrators found on the page are on the book before an Up Next book's placeholder read is made.
+- Database change 31 (usual audiobook length on a book). After updating the computer, run `npm run supabase-sql` and paste the new supabase/schema.sql into Supabase, then update the other devices (see supabase/README.md).
+
+### Fixed
+- Browser extension, StoryGraph: the synopsis now comes from the page's Description section, in full, with its paragraphs (before, it could pick up the "Who's It For?" text or the shortened copy ending in "..."). It also now reads the genre, mood and pace tags shown under the title (not StoryGraph's whole list of community moods), the format, publisher, ISBN and the edition's publication date from the page's own labels. This reader is now built and tested on a real saved StoryGraph page.
 
 ## 0.2.11 — 2026-10-22
 

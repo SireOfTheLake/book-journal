@@ -72,7 +72,7 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook }: { clip: 
         series: series.trim() ? { id: seriesId, name: series.trim() } : null, position: pos !== null && Number.isFinite(pos) ? pos : null,
         pages: pages.trim() && Number.isFinite(n) && n > 0 ? Math.round(n) : null, published: published.trim() || null,
         heat: heat !== '' && Number.isFinite(h) ? h : null, synopsis: synopsis.trim() || null, cover: useCover ? clip.cover ?? null : null, shelf,
-        plannedFormat: clip.format ?? null,
+        plannedFormat: clip.format ?? null, audioSeconds: clip.audioSeconds ?? null,
         tags: review.tags.filter((t) => (picks[t.name] ?? 'skip') !== 'skip').map((t) => ({ name: t.name, kind: picks[t.name] as TagKind })),
         ids: { isbn: clip.isbn, asin: clip.asin, sources: { [clip.site]: clip.url } }, authorLinks: clip.authorLinks ?? {},
       }));

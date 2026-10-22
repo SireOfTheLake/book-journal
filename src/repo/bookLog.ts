@@ -22,6 +22,7 @@ export interface BookRow {
   series_id: string | null; series_position: number | null; universe_id: string | null; cover_image_id: string | null;
   own_physical?: number; own_ebook?: number; recommended_by?: string | null;
   own_audio?: number; // 1 = you own that format
+  audio_length_seconds?: number | null; // the book's usual audiobook length; each new read starts with it
   placeholder_permanent?: number; // 1 = the placeholder cover is meant to stay, so the book is not counted as missing a cover
   is_draft?: number; // 1 = a blank page made by the Prompt Randomizer, waiting for a book
 }
@@ -58,6 +59,7 @@ export interface BookLog {
   reads: ReadRow[];
   read: ReadRow | null;
   narrators: LogNarrator[];
+  defaultNarrators: Item[]; // the book's usual narrators: new reads start with them (shown on a book with no read yet)
   entries: DayEntry[];
 }
 
@@ -120,6 +122,7 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
        FROM book_character bc JOIN character c ON c.id = bc.character_id WHERE bc.book_id = ? AND bc.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY bc.role, bc.sort_order`, [bookId]),
     makeup: mk?.makeup ?? null, bucket: mk?.dashboard_bucket ?? null,
     reads, read, narrators, entries,
+    defaultNarrators: await items('SELECT n.id AS id, n.name AS name FROM book_narrator bn JOIN narrator n ON n.id = bn.narrator_id AND n.deleted_at IS NULL WHERE bn.book_id = ? AND bn.deleted_at IS NULL ORDER BY bn.sort_order, bn.created_at, bn.rowid'),
   };
 }
 
@@ -127,7 +130,7 @@ export const listItems = (db: Db, table: 'source' | 'time_period' | 'accent' | '
   db.select<Item>(`SELECT id, name${table === 'accent' ? ', color' : ''} FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
 
 // ---------- editing ----------
-const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position', 'own_physical', 'own_ebook', 'own_audio', 'recommended_by', 'placeholder_permanent']);
+const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position', 'own_physical', 'own_ebook', 'own_audio', 'recommended_by', 'placeholder_permanent', 'audio_length_seconds']);
 const READ_COLS = new Set(['status', 'start_date', 'finish_date', 'finish_time', 'rating', 'format', 'source_id', 'audio_length_seconds', 'narration_style', 'notes', 'stopped_reason', 'stopped_where']);
 
 async function patch(db: Db, table: 'book' | 'read', allowed: Set<string>, id: string, fields: Record<string, SqlValue>) {
@@ -145,6 +148,10 @@ export async function updateRead(db: Db, id: string, fields: Record<string, SqlV
   if (f.status === 'reading' && !cur.start_date && f.start_date === undefined) f.start_date = today();
   if (f.status === 'finished' && !cur.finish_date && f.finish_date === undefined) { f.finish_date = today(); f.finish_time = nowTime(); }
   await patch(db, 'read', READ_COLS, id, f);
+  // The first audio length typed for a book becomes its usual length, so the next read starts with it.
+  if (typeof f.audio_length_seconds === 'number' && f.audio_length_seconds > 0) {
+    await db.execute('UPDATE book SET audio_length_seconds = ? WHERE audio_length_seconds IS NULL AND id = (SELECT book_id FROM read WHERE id = ?)', [f.audio_length_seconds, id]);
+  }
 }
 
 export async function createRead(db: Db, bookId: string, status: ReadRow['status'] = 'reading', fixedId?: string): Promise<string> {
@@ -154,6 +161,8 @@ export async function createRead(db: Db, bookId: string, status: ReadRow['status
   // Narrators on the book are the starting point for this listen.
   const defaults = await db.select<{ narrator_id: string; sort_order: number }>('SELECT narrator_id, sort_order FROM book_narrator WHERE book_id = ? AND deleted_at IS NULL ORDER BY sort_order', [bookId]);
   for (const d of defaults) await db.execute('INSERT INTO read_narrator (id, read_id, narrator_id, sort_order) VALUES (?, ?, ?, ?)', [fixedId ? `${fixedId}:${d.narrator_id}` : newId(), id, d.narrator_id, d.sort_order]);
+  const [usual] = await db.select<{ audio_length_seconds: number | null }>('SELECT audio_length_seconds FROM book WHERE id = ?', [bookId]);
+  if (usual?.audio_length_seconds) await db.execute('UPDATE read SET audio_length_seconds = ? WHERE id = ?', [usual.audio_length_seconds, id]);
   await updateRead(db, id, { status });
   return id;
 }
@@ -368,6 +377,14 @@ export async function ensureBookNarrator(db: Db, bookId: string, narratorId: str
   const [{ n }] = await db.select<{ n: number }>('SELECT count(*) AS n FROM book_narrator WHERE book_id = ? AND deleted_at IS NULL', [bookId]);
   await db.execute('INSERT INTO book_narrator (id, book_id, narrator_id, sort_order) VALUES (?, ?, ?, ?)', [newId(), bookId, narratorId, Number(n)]);
 }
+
+// The book's usual narrators (the ones a new read starts with), changed without needing a read.
+export async function addBookNarrator(db: Db, bookId: string, name: string): Promise<void> {
+  const found = (await db.select<{ id: string }>('SELECT id FROM narrator WHERE lower(name) = lower(?) AND deleted_at IS NULL LIMIT 1', [name.trim()]))[0]?.id;
+  await ensureBookNarrator(db, bookId, found ?? await createNarrator(db, name));
+}
+export const removeBookNarrator = (db: Db, bookId: string, narratorId: string) =>
+  db.execute(`UPDATE book_narrator SET deleted_at = ${NOW} WHERE book_id = ? AND narrator_id = ? AND deleted_at IS NULL`, [bookId, narratorId]);
 
 // Removes a narrator from this read. If no other read of the book uses them, they stop being a usual narrator too.
 export async function removeNarratorFromRead(db: Db, readNarratorId: string): Promise<void> {

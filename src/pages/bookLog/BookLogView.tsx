@@ -19,6 +19,7 @@ import ReasonCard, { type ReasonActions } from './ReasonCard';
 import type { Reason } from '../../repo/reason';
 import type { ChallengeChoice, ReadChallenge } from '../../repo/challenges';
 import { useFeatures } from '../../features/FeaturesContext';
+import SynopsisButton from './SynopsisButton';
 import QuotesCard, { type QuoteActions } from './QuotesCard';
 import type { Quote } from '../../repo/quotes';
 import { Card, Combo, EditNotes, EditSelect, EditText, FilePicker, Icon, LinkImageForm, Seg, Stars, TagEditor, Thumbs, ZoomImage } from './parts';
@@ -63,6 +64,9 @@ export interface Actions {
   addNarrator(narratorId: string): void;
   createNarrator(name: string): void;
   removeNarrator(readNarratorId: string): void;
+  addBookNarrator?(narratorId: string): void; // the book's usual narrators, for a book with no read yet
+  createBookNarrator?(name: string): void;
+  removeBookNarrator?(narratorId: string): void;
   setCoverFile(file: File): void;
   setCoverUrl(url: string): Promise<void>;
   setCoverCandidate(c: CoverCandidate): Promise<void>;
@@ -203,6 +207,29 @@ function AddNarrator({ log, lists, act }: { log: BookLog; lists: Lists; act: Act
   );
 }
 
+// For a book with no read yet: the narrators every new read of it starts with (each read can still change them).
+function DefaultNarrators({ log, lists, act }: { log: BookLog; lists: Lists; act: Actions }) {
+  const [adding, setAdding] = useState(false);
+  return (
+    <Card label="Narrators">
+      <div className="chips">
+        {log.defaultNarrators.map((n) => (
+          <span key={n.id} className="chip" style={{ borderColor: 'var(--line2)' }}>
+            <Link className="l" to={`/narrators/${n.id}`}>{n.name}</Link>
+            <button type="button" className="x" aria-label={`Remove ${n.name}`} onClick={() => act.removeBookNarrator?.(n.id)}>&times;</button>
+          </span>
+        ))}
+      </div>
+      {adding ? (
+        <Combo autoFocus label="Search narrators" placeholder="Search for a narrator" onClose={() => setAdding(false)}
+          options={lists.narrators.filter((x) => !log.defaultNarrators.some((y) => y.id === x.id)).map((x) => ({ key: x.id, label: x.name }))}
+          onPick={(id) => act.addBookNarrator?.(id)} onCreate={(t) => act.createBookNarrator?.(t)} createLabel={(t) => `+ Add "${t}" as a new narrator`} />
+      ) : <button type="button" className="ed add" onClick={() => setAdding(true)}>Add narrator</button>}
+      <span className="muted small">{log.defaultNarrators.length ? 'Each read starts with these. A read can change them.' : 'Each read can start with these and still change them.'}</span>
+    </Card>
+  );
+}
+
 // A quiet line under the series: the book's own universe (for a standalone or one book of a shared series),
 // or the series' universe shown as plain text. Nothing here asks for attention until you want it.
 function UniverseLine({ log, lists, act }: { log: BookLog; lists: Lists; act: Actions }) {
@@ -318,6 +345,7 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
       <div className="bl-cols">
         <div className="bl-left">
           <Cover log={log} act={act} />
+          <SynopsisButton title={book.title} value={book.synopsis} onSave={(t) => act.updateBook({ synopsis: t })} />
           <Card label="Status">
             <EditSelect label="Status" className="statuspill" value={currentStatus(log)} options={STATUSES} onChange={(v) => v && act.setStatus(v as Status)} />
             {read && !planned && <DeleteRead key={read.id} act={act} />}
@@ -377,7 +405,9 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
 
           <Card label="Length">
             <div className="stack"><span className="muted">Pages</span><EditText label="Pages" addLabel="Add pages" type="number" value={book.page_count} onCommit={(v) => act.updateBook({ page_count: v === '' ? null : Number(v) })} /></div>
-            {read && <div className="stack"><span className="muted">Audio length</span><EditText label="Audio length" addLabel="Add audio length" value={formatDuration(read.audio_length_seconds) || null} validate={(v) => (v.trim() && parseDuration(v) === null ? 'Type it as 1:23 or 1h 23m.' : null)} onCommit={(v) => act.updateRead({ audio_length_seconds: v.trim() ? parseDuration(v) : null })} placeholder="1:23" /></div>}
+            <div className="stack"><span className="muted">Audio length</span><EditText label="Audio length" addLabel="Add audio length" value={formatDuration(read ? read.audio_length_seconds : book.audio_length_seconds ?? null) || null} validate={(v) => (v.trim() && parseDuration(v) === null ? 'Type it as 1:23 or 1h 23m.' : null)}
+              onCommit={(v) => { const secs = v.trim() ? parseDuration(v) : null; if (read) act.updateRead({ audio_length_seconds: secs }); else act.updateBook({ audio_length_seconds: secs }); }} placeholder="1:23" />
+              {!read && <span className="muted small">New reads of this book start with this length.</span>}</div>
           </Card>
           <Card label="Heat level">
             <Seg className="heatseg" label="Heat level" value={book.heat_level} onChange={(v) => act.updateBook({ heat_level: v })} options={HEAT.map((h) => ({ value: h.level, label: String(h.level) }))} />
@@ -398,7 +428,7 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
               <Card label="Source"><EditSelect label="Source" value={read.source_id} options={opts(lists.sources)} onChange={(id) => act.updateRead({ source_id: id })} onCreate={(n) => act.createItem('source', n)} />
                 <ManageList items={lists.sources} noun="Source" onRename={(id, n) => act.renameItem('source', id, n)} onRemove={act.removeSource} consequence="Removing a source clears it from the reads that used it." /></Card>
             </>
-          ) : <><div /><div /></>}
+          ) : <><DefaultNarrators log={log} lists={lists} act={act} /><div /></>}
           <div className="stackcol">
             <LocationEditor places={log.places} options={lists.places} onPick={(n) => act.addTag('place', n)} onRemove={(id) => act.removeTag('place', id)} onSave={act.saveLocation} />
             <TimePeriodCard periodId={book.time_period_id} detail={book.time_period_detail} options={lists.timePeriods} onPick={(id) => act.updateBook({ time_period_id: id, time_period_detail: null })}

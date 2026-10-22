@@ -12,7 +12,7 @@ function Badge({ match }: { match: unknown }) {
 }
 
 // A book read off a web page by the browser extension: check it, change anything, and add it (to the TBR unless you say otherwise).
-export default function AddFromWebDialog({ clip, onClose, onOpenBook }: { clip: BookClip; onClose(): void; onOpenBook(bookId: string): void }) {
+export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }: { clip: BookClip; onClose(): void; onOpenBook(bookId: string): void; onSaved?(): void }) {
   const db = useDb();
   const { flags } = useFeatures();
   const [review, setReview] = useState<ClipReview | null>(null);
@@ -66,7 +66,7 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook }: { clip: 
     setBusy(true); setError(null);
     try {
       const n = Number(pages); const h = Number(heat); const pos = position.trim() === '' ? null : Number(position);
-      setSaved(await saveClip(db, {
+      const done = await saveClip(db, {
         mode: filling ? { kind: 'fill', bookId: review.existing!.id } : { kind: 'new' },
         title: title.trim(), authors: authors.map((a) => a.match?.name ?? a.name), narrators: narrators.map((a) => a.match?.name ?? a.name),
         series: series.trim() ? { id: seriesId, name: series.trim() } : null, position: pos !== null && Number.isFinite(pos) ? pos : null,
@@ -75,7 +75,9 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook }: { clip: 
         plannedFormat: clip.format ?? null, audioSeconds: clip.audioSeconds ?? null,
         tags: review.tags.filter((t) => (picks[t.name] ?? 'skip') !== 'skip').map((t) => ({ name: t.name, kind: picks[t.name] as TagKind })),
         ids: { isbn: clip.isbn, asin: clip.asin, sources: { [clip.site]: clip.url } }, authorLinks: clip.authorLinks ?? {},
-      }));
+      });
+      setSaved(done);
+      onSaved?.(); // the page behind this window reloads, so a book you are looking at shows the new details at once
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 

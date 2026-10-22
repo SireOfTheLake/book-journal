@@ -131,6 +131,15 @@
 
   // src/clip/sites/goodreads.ts
   var text = (doc, sel) => clean(doc.querySelector(sel)?.textContent);
+  function goodreadsDescription(doc) {
+    const box = doc.querySelector('[data-testid="description"]');
+    if (!box) return void 0;
+    const copy = box.cloneNode(true);
+    copy.querySelectorAll('button, [role="button"], .Button, .Button__container, .TruncatedContent__gradient, [data-testid="contentToggle"]').forEach((el) => el.remove());
+    const blurb = copy.querySelector(".Formatted") ?? copy;
+    const text2 = htmlToText(doc, blurb.innerHTML).replace(/\s*(?:\.\.\.|…)?\s*\b(?:show more|show less|read more)\s*$/i, "").trim();
+    return text2 || void 0;
+  }
   function fromGoodreads(doc, url) {
     const ldBook = ldOfType(jsonLd(doc), "Book");
     const ogTitle = metaContent(doc, "og:title");
@@ -161,8 +170,7 @@
       const name = clean(a.textContent);
       if (name && !tags.some((t) => t.name === name)) tags.push({ name });
     }
-    const descEl = doc.querySelector('[data-testid="description"]');
-    const description2 = descEl ? htmlToText(doc, descEl.innerHTML) : metaContent(doc, "og:description") ?? void 0;
+    const description2 = goodreadsDescription(doc) ?? (metaContent(doc, "og:description") ?? void 0);
     const format = /audio/i.test(pagesText) ? "audio" : /kindle|ebook|digital/i.test(pagesText) ? "ebook" : /hardcover|paperback|mass market/i.test(pagesText) ? "physical" : void 0;
     return {
       v: 1,

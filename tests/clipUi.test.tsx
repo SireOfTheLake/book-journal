@@ -68,3 +68,23 @@ describe('receiving a link from the extension', () => {
     await waitFor(() => expect(screen.getByRole('dialog', { name: 'Add to library' })).toBeTruthy());
   });
 });
+
+describe('the page behind the window', () => {
+  it('reloads after a save, so the book you are on shows the new details at once', async () => {
+    const db = migrateNodeDb(); const c = clip();
+    const { default: BookLogPage } = await import('../src/pages/BookLogPage');
+    const { Route, Routes } = await import('react-router-dom');
+    const { useState } = await import('react');
+    const { bookId } = await quickAdd(db, { title: c.title, authors: c.authors, status: 'tbr' });
+    function Mini() {
+      const [n, setN] = useState(0);
+      return <><ClipHost onSaved={() => setN(n + 1)} /><Routes key={n}><Route path="book/:bookId" element={<BookLogPage />} /></Routes></>;
+    }
+    render(<DbContext.Provider value={db}><MemoryRouter initialEntries={[`/book/${bookId}`]}><Mini /></MemoryRouter></DbContext.Provider>);
+    expect(await screen.findByRole('button', { name: 'Add synopsis' })).toBeTruthy();
+    window.dispatchEvent(new CustomEvent(CLIP_EVENT, { detail: encodeClip(c) }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Fill in missing details' }));
+    await screen.findByText('UPDATED');
+    expect(await screen.findByRole('button', { name: 'Read synopsis' })).toBeTruthy(); // the Book Log behind the window now has the synopsis
+  });
+});

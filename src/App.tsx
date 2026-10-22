@@ -1,5 +1,6 @@
 import LocationsPage from './pages/LocationsPage';
 import BookMergePage from './pages/BookMergePage';
+import { useState } from 'react';
 import { Route, Routes } from 'react-router-dom';
 import Shell from './ui/Shell';
 import ClipHost from './clip/ClipHost';
@@ -33,10 +34,12 @@ import ImportPage from './pages/ImportPage';
 import Placeholder from './pages/Placeholder';
 
 export default function App() {
+  // A book added or filled in from the browser extension bumps this, which reloads the page you are on.
+  const [loaded, setLoaded] = useState(0);
   return (
     <>
-    <ClipHost />
-    <Routes>
+    <ClipHost onSaved={() => setLoaded((n) => n + 1)} />
+    <Routes key={loaded}>
       <Route element={<Shell />}>
         <Route index element={<HomePage />} />
         <Route path="library" element={<LibraryPage />} />

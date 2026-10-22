@@ -3,6 +3,17 @@ import { pageText, clean, htmlToText, jsonLd, ldOfType, metaContent, names, pars
 
 const text = (doc: Document, sel: string) => clean(doc.querySelector(sel)?.textContent);
 
+/** The blurb only: the page puts a "Show more" button inside the same box, which must not end up in the text. */
+function goodreadsDescription(doc: Document): string | undefined {
+  const box = doc.querySelector('[data-testid="description"]');
+  if (!box) return undefined;
+  const copy = box.cloneNode(true) as Element;
+  copy.querySelectorAll('button, [role="button"], .Button, .Button__container, .TruncatedContent__gradient, [data-testid="contentToggle"]').forEach((el) => el.remove());
+  const blurb = copy.querySelector('.Formatted') ?? copy;
+  const text = htmlToText(doc, blurb.innerHTML).replace(/\s*(?:\.\.\.|…)?\s*\b(?:show more|show less|read more)\s*$/i, '').trim();
+  return text || undefined;
+}
+
 export function fromGoodreads(doc: Document, url: string): BookClip | null {
   const ldBook = ldOfType(jsonLd(doc), 'Book');
   // "Finest Kind of Fate (A Siren's Point Story #1)"
@@ -34,8 +45,7 @@ export function fromGoodreads(doc: Document, url: string): BookClip | null {
     const name = clean(a.textContent);
     if (name && !tags.some((t) => t.name === name)) tags.push({ name });
   }
-  const descEl = doc.querySelector('[data-testid="description"]');
-  const description = descEl ? htmlToText(doc, descEl.innerHTML) : (metaContent(doc, 'og:description') ?? undefined);
+  const description = goodreadsDescription(doc) ?? (metaContent(doc, 'og:description') ?? undefined);
   const format = /audio/i.test(pagesText) ? 'audio' : /kindle|ebook|digital/i.test(pagesText) ? 'ebook' : /hardcover|paperback|mass market/i.test(pagesText) ? 'physical' : undefined;
   return {
     v: 1, site: 'goodreads', url: url.split('?')[0], title, authors,

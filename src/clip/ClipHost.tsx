@@ -17,7 +17,7 @@ async function bringForward() {
 }
 
 // Listens for books sent by the browser extension and shows the Add to library window.
-export default function ClipHost() {
+export default function ClipHost({ onSaved }: { onSaved?(): void }) {
   const [clip, setClip] = useState<BookClip | null>(null);
   const nav = useNavigate();
 
@@ -40,5 +40,5 @@ export default function ClipHost() {
   }, []);
 
   if (!clip) return null;
-  return <AddFromWebDialog clip={clip} onClose={() => setClip(null)} onOpenBook={(id) => { setClip(null); nav(`/book/${id}`); }} />;
+  return <AddFromWebDialog clip={clip} onSaved={onSaved} onClose={() => setClip(null)} onOpenBook={(id) => { setClip(null); nav(`/book/${id}`); }} />;
 }

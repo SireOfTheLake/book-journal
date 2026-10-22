@@ -60,6 +60,7 @@ describe('Goodreads and StoryGraph (built from how the pages are laid out, not s
   it('Goodreads: title, series, authors without roles, pages, date, genres', () => {
     const c = clipOf('goodreads');
     expect(c).toMatchObject({ site: 'goodreads', title: 'Finest Kind of Fate', authors: ['J.J. Mulder'], series: "A Siren's Point Story", seriesPosition: 1, pages: 346, published: '2026-02-27', format: 'ebook' });
+    expect(c.description).toBe('Ewan Fate left his small fishing town.\n\nHe returns home.'); // no "Show more" from the page's button
     expect(c.tags.map((t) => t.name)).toEqual(['M M Romance', 'Romance', 'Friends To Lovers', 'Slow Burn']);
     expect(c.cover).toMatch(/goodreads\.com\/books\/1768863611i\/245924653\.jpg$/);
   });

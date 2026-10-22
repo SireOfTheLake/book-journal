@@ -166,6 +166,12 @@ pub fn run() {
         description: "narrator accents like tags, and Audible page links",
         sql: include_str!("../migrations/0029_audible_links_and_accents.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 30,
+        description: "Audible author links are searches",
+        sql: include_str!("../migrations/0030_audible_author_search.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

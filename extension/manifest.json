@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "Add to Book Journal",
+  "version": "1.0.0",
+  "description": "Reads the book on a Goodreads, StoryGraph, Audible or Romance.io page and sends it to Book Journal.",
+  "icons": { "16": "icons/icon16.png", "32": "icons/icon32.png", "48": "icons/icon48.png", "128": "icons/icon128.png" },
+  "action": { "default_title": "Add to Book Journal", "default_popup": "popup.html", "default_icon": { "16": "icons/icon16.png", "32": "icons/icon32.png" } },
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": [
+    "https://www.goodreads.com/*", "https://app.thestorygraph.com/*", "https://www.thestorygraph.com/*",
+    "https://www.audible.ca/*", "https://www.audible.com/*", "https://www.audible.co.uk/*", "https://www.audible.com.au/*",
+    "https://www.romance.io/*", "https://romance.io/*"
+  ]
+}

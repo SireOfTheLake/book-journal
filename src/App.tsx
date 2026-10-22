@@ -2,6 +2,7 @@ import LocationsPage from './pages/LocationsPage';
 import BookMergePage from './pages/BookMergePage';
 import { Route, Routes } from 'react-router-dom';
 import Shell from './ui/Shell';
+import ClipHost from './clip/ClipHost';
 import BookListPage from './pages/BookListPage';
 import BookLogPage from './pages/BookLogPage';
 import BracketPage from './pages/BracketPage';
@@ -33,6 +34,8 @@ import Placeholder from './pages/Placeholder';
 
 export default function App() {
   return (
+    <>
+    <ClipHost />
     <Routes>
       <Route element={<Shell />}>
         <Route index element={<HomePage />} />
@@ -72,5 +75,6 @@ export default function App() {
         <Route path="*" element={<Placeholder title="Not found" />} />
       </Route>
     </Routes>
+    </>
   );
 }

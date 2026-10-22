@@ -1,5 +1,6 @@
 mod backup;
 
+use tauri::Manager;
 use tauri_plugin_sql::{Builder as SqlBuilder, Migration, MigrationKind};
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -185,6 +186,17 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        // Only one copy of the app runs. Opening a bookjournal:// link (from the browser extension) while it is already open
+        // brings that window forward, and the deep-link plugin hands the link to it.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            if let Some(w) = app.get_webview_window("main") {
+                let _ = w.unminimize();
+                let _ = w.show();
+                let _ = w.set_focus();
+            }
+        }))
+        // Receives bookjournal:// links (see src/clip).
+        .plugin(tauri_plugin_deep_link::init())
         // Lets the app download a picture from a web address (the browser itself would be blocked by the other site).
         .plugin(tauri_plugin_http::init())
         // Lets the app ask where to save a backup or export, and write the file.
@@ -199,6 +211,16 @@ pub fn run() {
                 .add_migrations("sqlite:book-journal.db", migrations)
                 .build(),
         )
+        .setup(|app| {
+            // Makes sure Windows knows bookjournal:// opens this app (the installer does it too; this also covers a copy that was not installed).
+            #[cfg(any(windows, target_os = "linux"))]
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let _ = app.deep_link().register_all();
+            }
+            let _ = app;
+            Ok(())
+        })
         .run(context)
         .expect("error while running the Book Journal app");
 }

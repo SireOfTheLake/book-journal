@@ -1122,3 +1122,22 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 
 /* a count after a tag's name (Fantasy 3) needs a gap; chips are flex boxes, which drop the plain space */
 .chip > .muted.small { margin-left: 6px; }
+
+/* Add to library (a book sent by the browser extension) */
+.clipdlg { width: min(900px, 94vw); }
+.clipoverlay { padding-top: 40px; }
+.clipbody { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 20px; }
+.clipcover { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.clipcover img { width: 100%; border-radius: 4px; border: 1px solid var(--line); }
+.clipform { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.clipgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.clipbadge { font-size: 11px; padding: 0 6px; border-radius: 8px; margin-left: 6px; border: 1px solid var(--line2); color: var(--muted); }
+.clipbadge.have { border-color: var(--ok); color: var(--ok-text); }
+.cliprow { display: inline-flex; align-items: center; }
+.cliptags { gap: 6px; }
+.cliptag { cursor: pointer; font-family: inherit; background: none; color: var(--text); border-color: var(--line2); gap: 6px; padding: 3px 9px; }
+.cliptag.on { border-color: var(--accent); background: var(--panel2); }
+.cliptag.skip { opacity: .65; }
+.clipkind { font-size: 11px; color: var(--accent); margin-left: 6px; text-transform: uppercase; letter-spacing: .04em; }
+.cliptag.skip .clipkind { color: var(--muted); }
+.clipdup { display: flex; flex-direction: column; gap: 8px; }

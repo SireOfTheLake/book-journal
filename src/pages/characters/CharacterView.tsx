@@ -32,10 +32,6 @@ export interface CharacterActions {
 const STATUS_OPTIONS = [{ value: 'deceased', label: 'Deceased' }, { value: 'estranged', label: 'Estranged' }];
 const LIFE_OPTIONS = [{ value: 'alive', label: 'Alive' }, { value: 'dead', label: 'Dead' }, { value: 'undead', label: 'Undead' }];
 const GENDERS = [{ value: 'male', label: 'Male' }, { value: 'female', label: 'Female' }, { value: 'non_binary', label: 'Non-binary' }, { value: 'other', label: 'Other' }] as const;
-const KINDS: { value: RelKind; label: string }[] = [
-  { value: 'partner_current', label: 'Current partner' }, { value: 'partner_previous', label: 'Previous partner' },
-  { value: 'family', label: 'Family' }, { value: 'friend', label: 'Friend' }, { value: 'other', label: 'Other' },
-];
 const kindOf = (type: string, cur: number | null): RelKind => (type === 'partner' ? (cur === 1 ? 'partner_current' : 'partner_previous') : (type as RelKind));
 const personKind = (p: RelatedPerson) => kindOf(p.rel_type, p.is_current);
 
@@ -116,17 +112,18 @@ function PersonRow({ p, lists, selfId, act, showStatus }: { p: RelatedPerson; li
   );
 }
 
-function AddRelationship({ lists, selfId, act }: { lists: CharacterLists; selfId: string; act: CharacterActions }) {
-  const [kind, setKind] = useState<RelKind>('friend');
-  const [label, setLabel] = useState('');
+// The quiet "add relationship" under one header: pick a character you have, or type a name for someone with no page.
+// The label and status are changed on the row afterwards.
+function AddUnder({ kind, title, lists, selfId, act }: { kind: RelKind; title: string; lists: CharacterLists; selfId: string; act: CharacterActions }) {
+  const [open, setOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const run = async (fn: () => void | Promise<void>) => { setError(null); try { await fn(); setLabel(''); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
+  const run = async (fn: () => void | Promise<void>) => { setError(null); try { await fn(); setOpen(false); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
+  if (!open) return <button type="button" className="quiet addrelbtn" aria-label={`Add relationship under ${title}`} onClick={() => setOpen(true)}>+ add relationship</button>;
   return (
     <div className="addrel">
-      <select aria-label="Relationship type" value={kind} onChange={(e) => setKind(e.target.value as RelKind)}>{KINDS.map((k) => <option key={k.value} value={k.value}>{k.label}</option>)}</select>
-      <input className="field" placeholder="Label (mother, ex...)" aria-label="Label" value={label} onChange={(e) => setLabel(e.target.value)} />
-      <Combo label="Add a person" placeholder="Pick a character, or type a name" options={lists.characters.filter((c) => c.id !== selfId).map((c) => ({ key: c.id, label: c.name, sub: c.tags }))}
-        onPick={(id) => run(() => act.linkCharacter(id, kind, label))} onCreate={(name) => run(() => act.addPerson(name, kind, label))} createLabel={(t) => `Add "${t}" as a name only (no page)`} />
+      <Combo autoFocus label={`Add to ${title}`} placeholder="Pick a character, or type a new name" onClose={() => setOpen(false)}
+        options={lists.characters.filter((c) => c.id !== selfId).map((c) => ({ key: c.id, label: c.name, sub: c.tags }))}
+        onPick={(id) => run(() => act.linkCharacter(id, kind, ''))} onCreate={(name) => run(() => act.addPerson(name, kind, ''))} createLabel={(t) => `+ Add "${t}" as a new character (no page yet)`} />
       {error && <span className="muted" role="alert">{error}</span>}
     </div>
   );
@@ -142,10 +139,11 @@ export default function CharacterView({ d, lists, act }: { d: CharacterDetail; l
   const group = (title: string, kind: RelKind) => {
     const links = rel.filter((r) => kindOfRel(r) === kind);
     const people = d.people.filter((p) => personKind(p) === kind);
-    return links.length + people.length > 0 && (
+    return (
       <div className="relgroup" key={kind}><span className="lbl2">{title}</span>
         {links.map((r) => <RelRow key={r.id} r={r} act={act} showStatus={kind !== 'partner_current'} />)}
         {people.map((p) => <PersonRow key={p.id} p={p} lists={lists} selfId={c.id} act={act} showStatus={kind !== 'partner_current'} />)}
+        <AddUnder kind={kind} title={title} lists={lists} selfId={c.id} act={act} />
       </div>
     );
   };
@@ -159,7 +157,6 @@ export default function CharacterView({ d, lists, act }: { d: CharacterDetail; l
       <button type="button" className="mini" aria-label={`Remove from ${b.title}`} onClick={() => act.removeFromBook(b.id)}>&times;</button>
     </div>
   );
-  const total = rel.length + d.people.length;
 
   return (
     <div className="charpage">
@@ -209,14 +206,12 @@ export default function CharacterView({ d, lists, act }: { d: CharacterDetail; l
           <TagEditor label="Tags" items={d.tags} options={lists.tags} onAdd={act.addTag} onRemove={act.removeTag} onRename={act.renameTag} />
           <Card label="Description" className="span2"><EditNotes label="Description" addLabel="Add a physical description" value={c.description} onCommit={(v) => act.update({ description: v.trim() || null })} /></Card>
           <Card label="Relationships" className="span2">
-            {group('Current partner', 'partner_current')}
-            {group('Previous partners', 'partner_previous')}
+            {group('Current Partner', 'partner_current')}
+            {group('Previous Partner', 'partner_previous')}
             {group('Family', 'family')}
             {group('Friends', 'friend')}
             {group('Other', 'other')}
-            {total === 0 && <span className="muted">No relationships yet.</span>}
-            <AddRelationship lists={lists} selfId={c.id} act={act} />
-            <span className="muted small">Someone with no page is just a name and a label here. Two people with the same name are never merged. "Make a character" gives one a page; "Link to a character" connects them to someone you already have.</span>
+            <span className="muted small">Someone with no page is just a name until you choose "Make a character". Click a label or status to change it.</span>
           </Card>
           <Card label="Books" className="span2">
             {main.length > 0 && <span className="muted">Main character in</span>}

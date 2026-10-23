@@ -1,3 +1,4 @@
+import { decodeEntities } from '../domain/entities';
 import type { BookClip, ClipSite, ClipTag, TagHint } from './types';
 
 // The extension hands a book to the app as an address:  bookjournal://add?d=<the book, as text>
@@ -27,7 +28,7 @@ export function encodeClip(clip: BookClip): string {
 
 const SITES: ClipSite[] = ['goodreads', 'storygraph', 'audible', 'romanceio'];
 const HINTS: TagHint[] = ['genre', 'trope', 'mood', 'pace', 'warning'];
-const str = (v: unknown, max = 5000): string | undefined => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined);
+const str = (v: unknown, max = 5000): string | undefined => (typeof v === 'string' && v.trim() ? decodeEntities(v.trim()).slice(0, max) : undefined);
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : undefined);
 const strs = (v: unknown, max = 40): string[] => (Array.isArray(v) ? v.map((x) => str(x, 300)).filter((x): x is string => !!x).slice(0, max) : []);
 

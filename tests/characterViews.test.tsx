@@ -42,7 +42,7 @@ it('renders a featured character page with art, identity, relationships, and boo
   const id = await idOf('Emery Hazard');
   await updateCharacter(db, id, { gender: 'male', age_min: 30, age_max: 34, age_is_approximate: 1 });
   const html = await page('Emery Hazard');
-  for (const text of ['Add main art', 'Gallery', 'Identity', 'Gender', 'Transgender', '30 to 34', 'approx.', 'Work and places', 'Wahredua', 'St Louis', 'Alternative names', 'Em', 'Ree', 'Relationships', 'Current partner', 'John-Henry Somerset', 'Previous partners', 'Billy Rolker', 'Nico Flores', 'Family', 'Aileen', 'mother', 'Make a character', 'Link to a character', 'Books', 'Add to a book', 'Description', 'Add status', '+ status', 'Main art from a link']) expect(html, text).toContain(text);
+  for (const text of ['Add main art', 'Gallery', 'Identity', 'Gender', 'Transgender', '30 to 34', 'approx.', 'Work and places', 'Wahredua', 'St Louis', 'Alternative names', 'Em', 'Ree', 'Relationships', 'Current Partner', 'John-Henry Somerset', 'Previous Partner', 'Billy Rolker', 'Nico Flores', 'Family', 'Aileen', 'mother', 'Make a character', 'Link to a character', 'Books', 'Add to a book', 'Description', 'Add status', '+ status', 'Main art from a link']) expect(html, text).toContain(text);
   expect(html).not.toContain('Featured page');
 });
 

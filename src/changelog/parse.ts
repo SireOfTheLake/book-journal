@@ -21,3 +21,13 @@ export function parseChangelog(md: string): Release[] {
   }
   return out;
 }
+
+export const AREAS = ['Desktop', 'Mobile', 'Database', 'Extension', 'Other'] as const;
+export type Area = (typeof AREAS)[number];
+
+/** "[Desktop] Something changed" -> the part of the app, and the text after it. Older lines have no label. */
+export function splitArea(item: string): { area: Area | null; text: string } {
+  const m = /^\[(Desktop|Mobile|Database|Extension|Other)\]\s*(.*)$/i.exec(item);
+  if (!m) return { area: null, text: item };
+  return { area: AREAS.find((a) => a.toLowerCase() === m[1].toLowerCase()) ?? null, text: m[2] };
+}

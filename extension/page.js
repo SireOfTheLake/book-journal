@@ -1,7 +1,51 @@
 "use strict";
 (() => {
+  // src/domain/entities.ts
+  var NAMED = {
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    quot: '"',
+    apos: "'",
+    nbsp: " ",
+    ndash: "\u2013",
+    mdash: "\u2014",
+    hellip: "\u2026",
+    lsquo: "\u2018",
+    rsquo: "\u2019",
+    ldquo: "\u201C",
+    rdquo: "\u201D",
+    eacute: "\xE9",
+    egrave: "\xE8",
+    agrave: "\xE0",
+    aacute: "\xE1",
+    uuml: "\xFC",
+    ouml: "\xF6",
+    auml: "\xE4",
+    ntilde: "\xF1",
+    ccedil: "\xE7",
+    iacute: "\xED",
+    oacute: "\xF3",
+    uacute: "\xFA"
+  };
+  var fromCode = (n) => {
+    try {
+      return n > 0 && n <= 1114111 ? String.fromCodePoint(n) : "";
+    } catch {
+      return "";
+    }
+  };
+  function decodeEntities(s) {
+    if (!s.includes("&")) return s;
+    return s.replace(/&(?:#(\d{1,7})|#[xX]([0-9a-fA-F]{1,6})|([a-zA-Z]{2,8}));/g, (all, dec, hex, name) => {
+      if (dec) return fromCode(Number(dec)) || all;
+      if (hex) return fromCode(parseInt(hex, 16)) || all;
+      return NAMED[name] ?? NAMED[String(name).toLowerCase()] ?? all;
+    });
+  }
+
   // src/clip/dom.ts
-  var clean = (s) => (s ?? "").replace(/\s+/g, " ").trim();
+  var clean = (s) => decodeEntities((s ?? "").replace(/\s+/g, " ").trim()).replace(/\s+/g, " ").trim();
   function htmlToText(doc, html) {
     const box = doc.createElement("div");
     box.innerHTML = html.replace(/<\/p>|<br\s*\/?>|<\/div>/gi, "\n\n").replace(/<\/li>/gi, "\n");

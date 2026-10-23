@@ -1147,3 +1147,12 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .synopsistext { white-space: pre-wrap; margin: 0; line-height: 1.5; max-height: 55vh; overflow: auto; }
 .clipchoice { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
 .clipcurrent { overflow-wrap: anywhere; }
+
+/* Relationships: a quiet add button under each header */
+.addrelbtn { align-self: flex-start; font: inherit; font-size: 12px; background: none; border: 0; padding: 2px 0; color: var(--muted); cursor: pointer; opacity: .75; }
+.addrelbtn:hover, .addrelbtn:focus-visible { opacity: 1; }
+
+/* What's new: which part of the app a change is in */
+.clarea { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 0 6px; margin-right: 6px; border-radius: 8px; border: 1px solid var(--line2); color: var(--muted); vertical-align: 1px; }
+.clarea.desktop { color: var(--accent); border-color: var(--accent); }
+.clarea.mobile { color: var(--ok-text, var(--text)); border-color: var(--ok, var(--line2)); }

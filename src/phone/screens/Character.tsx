@@ -6,7 +6,17 @@ import { ageText } from '../../domain/format';
 import { listItems } from '../../repo/bookLog';
 import { savePlace } from '../../repo/places';
 import { PlaceSet } from '../places';
-import { Card, ChipSet, ConfirmRemove, Seg, SyncDot, TextField, useLoad } from '../kit';
+import { Card, ChipSet, ConfirmRemove, PickerSheet, Seg, SyncDot, TextField, useLoad } from '../kit';
+
+type Kind = 'partner_current' | 'partner_previous' | 'family' | 'friend' | 'other';
+const KINDS: { kind: Kind; title: string }[] = [
+  { kind: 'partner_current', title: 'Current Partner' }, { kind: 'partner_previous', title: 'Previous Partner' },
+  { kind: 'family', title: 'Family' }, { kind: 'friend', title: 'Friends' }, { kind: 'other', title: 'Other' },
+];
+const kindOf = (type: string, cur: number | null): Kind => (type === 'partner' ? (cur === 1 ? 'partner_current' : 'partner_previous') : (type as Kind));
+const typeOf = (k: Kind) => (k.startsWith('partner') ? 'partner' : k) as 'partner' | 'family' | 'friend' | 'other';
+const currentOf = (k: Kind): 0 | 1 | null => (k === 'partner_current' ? 1 : k === 'partner_previous' ? 0 : null);
+const STATUSES = [{ value: 'deceased' as const, label: 'Deceased' }, { value: 'estranged' as const, label: 'Estranged' }];
 
 const toItem = (x: { id: string; name: string }) => ({ id: x.id, name: x.name });
 
@@ -25,9 +35,10 @@ export default function Character() {
   const nav = useNavigate();
   const { characterId = '' } = useParams();
   const [error, setError] = useState<string | null>(null);
+  const [addingKind, setAddingKind] = useState<Kind | null>(null);
   const loaded = useLoad(async () => {
-    const [ch, occ, tags, places] = await Promise.all([c.getCharacter(db, characterId), c.listNamed(db, 'occupation'), c.listNamed(db, 'character_tag'), listItems(db, 'place')]);
-    return { ch, occ, tags, places };
+    const [ch, occ, tags, places, picks] = await Promise.all([c.getCharacter(db, characterId), c.listNamed(db, 'occupation'), c.listNamed(db, 'character_tag'), listItems(db, 'place'), c.listCharacterPicks(db)]);
+    return { ch, occ, tags, places, picks };
   }, [db, characterId]);
   const run = async (fn: () => Promise<unknown>) => { try { await fn(); await loaded.reload(); setError(null); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
   const d = loaded.data;
@@ -35,6 +46,7 @@ export default function Character() {
   if (!d) return <p className="ph-muted">Loading...</p>;
   if (!d.ch) return <><div className="ph-top"><button type="button" className="ph-back" onClick={() => nav('/people')}>&#8249;</button></div><p className="ph-muted">That character is not here (it may have been removed on another device).</p></>;
   const { core, books, relationships } = d.ch;
+  const [adding, setAdding] = [addingKind, setAddingKind];
   const upd = (f: Record<string, string | number | null>) => run(() => c.updateCharacter(db, characterId, f));
 
   return (
@@ -79,22 +91,47 @@ export default function Character() {
       </Card>
 
       <Card label="Relationships">
-        {relationships.length === 0 && d.ch.people.length === 0 && <p className="ph-muted ph-small">None yet. Add them on your computer for now.</p>}
-        <ul className="ph-list">
-          {relationships.map((r) => (
-            <li key={r.id} className="ph-item">
-              <Link to={`/character/${r.other_id}`} className="grow" style={{ display: 'block' }}><span className={`t ${r.other_featured ? 'page' : ''}`} style={{ display: 'inline' }}>{r.other_name}</span> <span className="ph-muted">&middot; {r.label ?? r.rel_type}</span></Link>
-              <ConfirmRemove label={`Remove the link to ${r.other_name}`} onConfirm={() => void run(() => c.removeRelationship(db, r.id))} />
-            </li>
-          ))}
-          {d.ch.people.map((p) => (
-            <li key={p.id} className="ph-item">
-              <div className="grow"><b>{p.name}</b> <span className="ph-muted">&middot; {p.label ?? p.rel_type}</span></div>
-              <ConfirmRemove label={`Remove ${p.name}`} onConfirm={() => void run(() => c.removePerson(db, p.id))} />
-            </li>
-          ))}
-        </ul>
+        {KINDS.map(({ kind, title }) => {
+          const links = relationships.filter((r) => kindOf(r.rel_type, r.is_current) === kind);
+          const people = d.ch!.people.filter((p) => kindOf(p.rel_type, p.is_current) === kind);
+          return (
+            <div key={kind} style={{ marginBottom: 14 }} role="group" aria-label={title}>
+              <span className="ph-label">{title}</span>
+              <ul className="ph-list">
+                {links.map((r) => (
+                  <li key={r.id} className="ph-item" style={{ display: 'block' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <Link to={`/character/${r.other_id}`} className="grow" style={{ display: 'block' }}><span className={`t ${r.other_featured ? 'page' : ''}`} style={{ display: 'inline' }}>{r.other_name}</span></Link>
+                      <ConfirmRemove label={`Remove the link to ${r.other_name}`} onConfirm={() => void run(() => c.removeRelationship(db, r.id))} />
+                    </div>
+                    <TextField label={`Label for ${r.other_name}`} placeholder="mother, ex, best friend..." value={r.label} onCommit={(v) => void run(() => c.setRelationshipLabel(db, r.id, characterId, v.trim() || null))} />
+                    {kind !== 'partner_current' && <Seg label={`Status of ${r.other_name}`} allowClear value={r.status} options={STATUSES} onChange={(v) => void run(() => c.setRelationshipStatus(db, r.id, characterId, v))} />}
+                  </li>
+                ))}
+                {people.map((p) => (
+                  <li key={p.id} className="ph-item" style={{ display: 'block' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div className="grow"><b>{p.name}</b> <span className="ph-muted ph-small">no page yet</span></div>
+                      <ConfirmRemove label={`Remove ${p.name}`} onConfirm={() => void run(() => c.removePerson(db, p.id))} />
+                    </div>
+                    <TextField label={`Label for ${p.name}`} placeholder="mother, ex, best friend..." value={p.label} onCommit={(v) => void run(() => c.setPersonLabel(db, p.id, v.trim() || null))} />
+                    {kind !== 'partner_current' && <Seg label={`Status of ${p.name}`} allowClear value={p.status} options={STATUSES} onChange={(v) => void run(() => c.setPersonStatus(db, p.id, v))} />}
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="ph-btn" style={{ minHeight: 40, opacity: 0.8 }} aria-label={`Add relationship under ${title}`} onClick={() => setAdding(kind)}>+ add relationship</button>
+            </div>
+          );
+        })}
       </Card>
+      {adding && (
+        <PickerSheet title={`Add to ${KINDS.find((k) => k.kind === adding)!.title}`} placeholder="Search characters or type a new name"
+          options={d.picks.filter((p) => p.id !== characterId).map((p) => ({ id: p.id, name: p.name, note: p.featured ? undefined : 'no page yet' }))}
+          taken={relationships.map((r) => r.other_id)}
+          onPick={(o) => void run(() => c.addRelationship(db, characterId, { id: o.id }, typeOf(adding), currentOf(adding), null))}
+          onCreate={(name) => void run(() => c.addPerson(db, characterId, name, typeOf(adding), currentOf(adding), null))} createLabel="Add a new character (no page yet):"
+          onClose={() => setAdding(null)} />
+      )}
 
       <TextField label="Description" multiline value={core.description} onCommit={(v) => void upd({ description: v.trim() || null })} />
       <TextField label="Notes" multiline value={core.notes} onCommit={(v) => void upd({ notes: v.trim() || null })} />

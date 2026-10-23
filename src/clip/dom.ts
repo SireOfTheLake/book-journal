@@ -1,5 +1,6 @@
 // Small helpers for reading a web page. Everything takes a Document so it can be tested without a browser.
-export const clean = (s: string | null | undefined): string => (s ?? '').replace(/\s+/g, ' ').trim();
+import { decodeEntities } from '../domain/entities';
+export const clean = (s: string | null | undefined): string => decodeEntities((s ?? '').replace(/\s+/g, ' ').trim()).replace(/\s+/g, ' ').trim();
 
 /** HTML (as found in a description) turned into plain text with paragraph breaks. */
 export function htmlToText(doc: Document, html: string): string {

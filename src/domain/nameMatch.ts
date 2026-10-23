@@ -1,6 +1,8 @@
+import { decodeEntities } from './entities';
+
 // Matching names the way a person would: "AJ Sherwood" is "A.J. Sherwood".
 export const nameKey = (s: string): string =>
-  s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/^the\s+/, '').replace(/[^a-z0-9]/g, '');
+  decodeEntities(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/^the\s+/, '').replace(/[^a-z0-9]/g, '');
 
 function withinOne(a: string, b: string): boolean {
   if (a === b) return true;

@@ -225,3 +225,31 @@ describe('phone: adding and linking characters', () => {
     expect(zed).toBeTruthy();
   });
 });
+
+describe('phone: relationships on a character', () => {
+  it('shows every type, adds an existing or a new unlinked character under one, then sets the label and status', async () => {
+    const db = await freshDb();
+    const ewan = await createCharacter(db, 'Ewan'); await createCharacter(db, 'Shiloh');
+    at(db, `/character/${ewan}`);
+    await screen.findByText('Relationships');
+    for (const t of ['Current Partner', 'Previous Partner', 'Family', 'Friends', 'Other']) expect(screen.getByRole('group', { name: t })).toBeTruthy();
+
+    fireEvent.click(within(screen.getByRole('group', { name: 'Current Partner' })).getByRole('button', { name: /Add relationship under/ }));
+    fireEvent.click(await screen.findByText('Shiloh'));
+    await waitFor(() => within(screen.getByRole('group', { name: 'Current Partner' })).getByText('Shiloh'));
+
+    fireEvent.click(within(screen.getByRole('group', { name: 'Family' })).getByRole('button', { name: /Add relationship under/ }));
+    fireEvent.change(screen.getByLabelText('Search characters or type a new name'), { target: { value: 'Aileen' } });
+    fireEvent.click(screen.getAllByRole('button').filter((b) => b.classList.contains('ph-opt'))[0]);
+    await waitFor(() => within(screen.getByRole('group', { name: 'Family' })).getByText('Aileen'));
+
+    const label = screen.getByLabelText('Label for Aileen');
+    fireEvent.change(label, { target: { value: 'mother' } }); fireEvent.blur(label);
+    fireEvent.click(within(screen.getByRole('group', { name: 'Family' })).getByRole('button', { name: 'Deceased' }));
+    await waitFor(async () => {
+      const d = (await getCharacter(db, ewan))!;
+      expect(d.relationships.map((r) => [r.other_name, r.rel_type, r.is_current])).toEqual([['Shiloh', 'partner', 1]]);
+      expect(d.people.map((p) => [p.name, p.rel_type, p.label, p.status])).toEqual([['Aileen', 'family', 'mother', 'deceased']]);
+    });
+  });
+});

@@ -21,6 +21,13 @@ describe("What's new", () => {
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });
+  it('shows the part of the app as a small label, not as text in the sentence', () => {
+    const { container } = render(<ChangelogModal onClose={vi.fn()} />);
+    const labels = Array.from(container.querySelectorAll('.clarea')).map((l) => l.textContent);
+    expect(labels.length).toBeGreaterThan(0);
+    for (const l of labels) expect(['Desktop', 'Mobile', 'Database', 'Extension', 'Other']).toContain(l);
+    expect(container.textContent).not.toMatch(/\[(Desktop|Mobile|Database|Extension|Other)\]/);
+  });
 });
 
 const cand = (n: number): Candidate => ({ read_id: `r${n}`, book_id: `b${n}`, title: `Book ${n}`, authors: 'A', series: null, status: 'finished', when: null, used_on: null } as unknown as Candidate);

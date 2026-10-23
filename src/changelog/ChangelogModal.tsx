@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import changelogText from '../../CHANGELOG.md?raw';
-import { parseChangelog } from './parse';
+import { parseChangelog, splitArea } from './parse';
 
 const SEEN_KEY = 'bj.changelog.seen';
 export const releases = parseChangelog(changelogText);
@@ -28,7 +28,7 @@ export default function ChangelogModal({ onClose }: { onClose(): void }) {
   const body = useMemo(() => (r: (typeof releases)[number]) => r.groups.map((g) => (
     <div className="clgroup" key={g.title}>
       {g.title && <h4 className="cltitle">{g.title}</h4>}
-      <ul>{g.items.map((it, i) => <li key={i}>{it}</li>)}</ul>
+      <ul>{g.items.map((it, i) => { const { area, text } = splitArea(it); return <li key={i}>{area && <span className={`clarea ${area.toLowerCase()}`}>{area}</span>}{text}</li>; })}</ul>
     </div>
   )), []);
   return (

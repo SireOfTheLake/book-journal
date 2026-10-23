@@ -126,6 +126,10 @@
     }
     return out.join(" ").replace(/\s+/g, " ");
   }
+  function validIsbn(v) {
+    const t = typeof v === "string" ? v.replace(/[\s-]/g, "") : "";
+    return /^(\d{9}[\dXx]|\d{13})$/.test(t) ? t.toUpperCase() : void 0;
+  }
 
   // src/clip/sites/audible.ts
   var slug = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -342,7 +346,7 @@
       pages: pages ? Number(pages.replace(/,/g, "")) : void 0,
       published,
       publisher: editionRow(doc, "Publisher"),
-      isbn: editionRow(doc, "ISBN/UID")?.replace(/-/g, ""),
+      isbn: validIsbn(editionRow(doc, "ISBN/UID")),
       format,
       description: description(doc),
       cover: metaContent(doc, "og:image") ?? void 0,

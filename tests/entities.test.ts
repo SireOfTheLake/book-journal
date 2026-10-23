@@ -30,3 +30,23 @@ describe('symbol codes in titles', () => {
     expect(r.existing?.id).toBe(bookId);
   });
 });
+
+describe('a book with no ISBN is not mistaken for another book with no ISBN', () => {
+  it('"None" is not an identifier', async () => {
+    const { validAsin, validIsbn } = await import('../src/clip/dom');
+    expect([validIsbn('None'), validIsbn(''), validIsbn('978-1-967245-20-8'), validIsbn('0306406152'), validIsbn('030640615X')]).toEqual([undefined, undefined, '9781967245208', '0306406152', '030640615X']);
+    expect([validAsin('B0H6PKSQ48'), validAsin('None'), validAsin('abc')]).toEqual(['B0H6PKSQ48', undefined, undefined]);
+  });
+  it('StoryGraph pages that say ISBN/UID: None give no ISBN, and a different book is not matched', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { extractClip } = await import('../src/clip/extract');
+    const html = readFileSync('tests/clipPages/storygraph.html', 'utf8').replace(/9781967245208/g, 'None');
+    const clip = extractClip(new DOMParser().parseFromString(html, 'text/html'), 'https://app.thestorygraph.com/books/cac24e94-7540-4422-b167-6e29be96adc8')!;
+    expect(clip.isbn).toBeUndefined();
+    const db = migrateNodeDb();
+    const { bookId } = await quickAdd(db, { title: 'Corporate Retreats, Romance, and Revenge', authors: ['Shannon Mae'], status: 'tbr' });
+    await db.execute("UPDATE book SET external_ids = ? WHERE id = ?", [JSON.stringify({ isbn: 'None' }), bookId]); // saved by the old version
+    const r = await reviewClip(db, { ...clip, title: 'A Distant Devotion', authors: ['Hailey Turner'], isbn: 'None' });
+    expect(r.existing).toBeNull();
+  });
+});

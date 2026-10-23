@@ -1,4 +1,5 @@
 import { decodeEntities } from '../domain/entities';
+import { validAsin, validIsbn } from './dom';
 import type { BookClip, ClipSite, ClipTag, TagHint } from './types';
 
 // The extension hands a book to the app as an address:  bookjournal://add?d=<the book, as text>
@@ -59,7 +60,7 @@ export function decodeClipUrl(link: string): BookClip | null {
     return {
       v: 1, site: raw.site as ClipSite, url: str(raw.url, 1000) ?? '', title, authors: strs(raw.authors, 12), narrators: strs(raw.narrators, 12),
       series: str(raw.series, 300), seriesPosition: num(raw.seriesPosition), pages: num(raw.pages) && Math.round(num(raw.pages)!) > 0 ? Math.round(num(raw.pages)!) : undefined,
-      published: str(raw.published, 12), publisher: str(raw.publisher, 200), isbn: str(raw.isbn, 20), asin: str(raw.asin, 20), format,
+      published: str(raw.published, 12), publisher: str(raw.publisher, 200), isbn: validIsbn(raw.isbn), asin: validAsin(raw.asin), format,
       audioSeconds: num(raw.audioSeconds), heat: num(raw.heat) !== undefined && num(raw.heat)! <= 5 ? Math.round(num(raw.heat)!) : undefined, heatLabel: str(raw.heatLabel, 60),
       description: str(raw.description, 6000), cover: cover && /^https?:\/\//i.test(cover) ? cover : undefined, tags,
       authorLinks: Object.keys(links).length ? links : undefined,

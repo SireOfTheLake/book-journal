@@ -2,6 +2,7 @@ import type { Db } from '../db/adapter';
 import { bestMatch, nameKey } from '../domain/nameMatch';
 import { downloadCover } from '../lookup/download';
 import type { BookClip } from '../clip/types';
+import { validAsin, validIsbn } from '../clip/dom';
 import { addTag, createNarrator, ensureBookNarrator, setBookCover, setStatus, updateBook } from './bookLog';
 import { newId } from '../domain/ids';
 import { createBook } from './books';
@@ -37,7 +38,8 @@ export async function reviewClip(db: Db, clip: BookClip): Promise<ClipReview> {
   // Is this book already here? The ISBN or ASIN decides it; otherwise the same title by the same author.
   let existing: ClipReview['existing'] = null;
   const byId = async (key: string, value: string) => (await db.select<{ id: string }>(`SELECT id FROM book WHERE deleted_at IS NULL AND json_extract(external_ids, '$.${key}') = ? LIMIT 1`, [value]))[0]?.id;
-  let bookId = (clip.isbn && await byId('isbn', clip.isbn)) || (clip.asin && await byId('asin', clip.asin)) || null;
+  const isbn = validIsbn(clip.isbn); const asin = validAsin(clip.asin); // "None" and the like are not identifiers
+  let bookId = (isbn && await byId('isbn', isbn)) || (asin && await byId('asin', asin)) || null;
   const aKeys = clip.authors.map((a) => nameKey(match(authors, a)?.name ?? a));
   if (!bookId) {
     const tk = nameKey(clip.title);
@@ -165,8 +167,8 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
   let ext: Record<string, unknown> = {};
   try { ext = row?.external_ids ? JSON.parse(row.external_ids) : {}; } catch { ext = {}; }
   const before = JSON.stringify(ext);
-  if (input.ids.isbn && !ext.isbn) ext.isbn = input.ids.isbn;
-  if (input.ids.asin && !ext.asin) ext.asin = input.ids.asin;
+  if (validIsbn(input.ids.isbn) && !ext.isbn) ext.isbn = validIsbn(input.ids.isbn);
+  if (validAsin(input.ids.asin) && !ext.asin) ext.asin = validAsin(input.ids.asin);
   ext.web_pages = { ...((ext.web_pages as Record<string, string>) ?? {}), ...input.ids.sources };
   if (JSON.stringify(ext) !== before) await db.execute('UPDATE book SET external_ids = ? WHERE id = ?', [JSON.stringify(ext), bookId]);
 

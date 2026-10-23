@@ -78,3 +78,14 @@ export function pageText(doc: Document): string {
   }
   return out.join(' ').replace(/\s+/g, ' ');
 }
+
+/** An ISBN-10 or ISBN-13 (hyphens allowed), or undefined: StoryGraph shows "None" when a book has no ISBN, and that must never be treated as one. */
+export function validIsbn(v: unknown): string | undefined {
+  const t = typeof v === 'string' ? v.replace(/[\s-]/g, '') : '';
+  return /^(\d{9}[\dXx]|\d{13})$/.test(t) ? t.toUpperCase() : undefined;
+}
+/** An Amazon/Audible ASIN: ten letters and digits. */
+export function validAsin(v: unknown): string | undefined {
+  const t = typeof v === 'string' ? v.trim().toUpperCase() : '';
+  return /^[A-Z0-9]{10}$/.test(t) ? t : undefined;
+}

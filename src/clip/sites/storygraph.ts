@@ -1,5 +1,5 @@
 import type { BookClip, ClipTag } from '../types';
-import { clean, htmlToText, metaContent, toIsoDate } from '../dom';
+import { clean, htmlToText, metaContent, toIsoDate, validIsbn } from '../dom';
 
 const MOODS = new Set(['adventurous', 'challenging', 'dark', 'emotional', 'funny', 'hopeful', 'informative', 'inspiring', 'lighthearted', 'mysterious', 'reflective', 'relaxing', 'sad', 'tense']);
 const PACES = new Set(['slow-paced', 'medium-paced', 'fast-paced']);
@@ -62,7 +62,7 @@ export function fromStoryGraph(doc: Document, url: string): BookClip | null {
     v: 1, site: 'storygraph', url: url.split('?')[0], title, authors,
     ...(seriesA ? { series: clean(seriesA.textContent).replace(/\s*#[\d.]+\s*$/, ''), seriesPosition: position ? Number(position) : undefined } : {}),
     pages: pages ? Number(pages.replace(/,/g, '')) : undefined,
-    published, publisher: editionRow(doc, 'Publisher'), isbn: editionRow(doc, 'ISBN/UID')?.replace(/-/g, ''), format,
+    published, publisher: editionRow(doc, 'Publisher'), isbn: validIsbn(editionRow(doc, 'ISBN/UID')), format,
     description: description(doc),
     cover: metaContent(doc, 'og:image') ?? undefined, tags,
   };

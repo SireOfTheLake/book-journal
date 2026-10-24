@@ -121,7 +121,7 @@ export async function renameNamed(db: Db, table: Named, id: string, name: string
   await db.execute(`UPDATE ${table} SET name = ? WHERE id = ?`, [n, id]);
 }
 
-export const listNamed = (db: Db, table: Named | 'place') => db.select<Item>(`SELECT id, name${table === 'character_tag' ? ', color' : ''} FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
+export const listNamed = (db: Db, table: Named | 'place') => db.select<Item>(`SELECT id, name${table === 'character_tag' ? ', color' : table === 'place' ? ', city, state_region AS area, country' : ''} FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
 export const listCharacterOptions = (db: Db) => db.select<Item & { tags: string | null }>(
   `SELECT c.id AS id, c.name AS name,
      (SELECT group_concat(t.name, ', ') FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = c.id AND l.deleted_at IS NULL) AS tags

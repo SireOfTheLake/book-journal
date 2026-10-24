@@ -41,6 +41,20 @@ export function canonicalArea(country: string, t: string): string | null {
 
 export interface Location { city?: string | null; area?: string | null; country?: string | null }
 const clean = (v: string | null | undefined) => (v ?? '').trim().replace(/\s+/g, ' ');
+// Search order for locations by which parts they have: country only, area only, city only, area + country, city + country, city + area, all three, then the rest.
+export function locationRank(l: Location): number {
+  const city = !!clean(l.city), area = !!clean(l.area), country = !!clean(l.country);
+  if (country && !area && !city) return 0;
+  if (area && !country && !city) return 1;
+  if (city && !country && !area) return 2;
+  if (area && country && !city) return 3;
+  if (city && country && !area) return 4;
+  if (city && area && !country) return 5;
+  if (city && area && country) return 6;
+  return 7;
+}
+// Keeps the order the list already has (A to Z) within each rank.
+export const sortByLocation = <T extends Location>(list: T[]): T[] => list.map((x, i) => ({ x, i, r: locationRank(x) })).sort((a, b) => a.r - b.r || a.i - b.i).map((e) => e.x);
 export const locationLabel = (l: Location): string => [clean(l.city), clean(l.area), clean(l.country)].filter(Boolean).join(', ');
 
 // What is wrong with a location, if anything. Only an empty one is refused: every field accepts a custom value, and the lists are suggestions.

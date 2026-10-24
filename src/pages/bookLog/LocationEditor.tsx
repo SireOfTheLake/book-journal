@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { parseLocationText } from '../../domain/geo';
+import { parseLocationText, sortByLocation } from '../../domain/geo';
 import type { Item, LogPlace } from '../../repo/bookLog';
 import type { PlaceInput } from '../../repo/places';
 import LocationDialog from '../locations/LocationDialog';
@@ -34,7 +34,7 @@ export function PlacePicker({ places, options, single, label = 'location', onPic
       {adding ? (
         <Combo autoFocus label={`Search ${label}s`} placeholder="Search your locations" onClose={() => setAdding(false)}
           footer={{ label: '+ New location...', onChoose: () => setDialog({ id: null }) }}
-          options={options.filter((o) => !have.has(o.id)).map((o) => ({ key: o.id, label: o.name }))}
+          options={sortByLocation(options.filter((o) => !have.has(o.id))).map((o) => ({ key: o.id, label: o.name }))}
           onPick={(id) => { setAdding(false); onPick(id); }}
           onCreate={(text) => { const known = parseLocationText(text); setDialog(known ? { id: null, initial: known } : { id: null, initial: { city: text }, typed: text }); }} createLabel={(t) => `New location "${t}"...`} />
       ) : (

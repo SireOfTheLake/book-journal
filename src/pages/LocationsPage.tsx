@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useDb } from '../db/DbContext';
 import { countPurgeable, deletePlace, listPlaces, normalizePlaces, purgeUnusedPlaces, savePlace, type PlaceRow } from '../repo/places';
 import { Link } from 'react-router-dom';
+import { sortByLocation } from '../domain/geo';
 import LocationDialog from './locations/LocationDialog';
 
 // Every location, with the ones that still need updating first. Changing one here changes it for every book that uses it.
@@ -18,7 +19,9 @@ export default function LocationsPage() {
   const [purge, setPurge] = useState<number | null>(null); // how many a purge would remove, while asking
   const reload = useCallback(async () => setRows(await listPlaces(db)), [db]);
   useEffect(() => { reload().catch((e) => setError(String(e))); }, [reload]);
-  const shown = (rows ?? []).filter((r) => (!needsOnly || r.needsUpdate) && (!q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase())));
+  const filtered = (rows ?? []).filter((r) => (!needsOnly || r.needsUpdate) && (!q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase())));
+  // searching orders the matches by which parts they have; the plain list keeps its order (needs-updating first)
+  const shown = q.trim() ? sortByLocation(filtered) : filtered;
   const stale = (rows ?? []).filter((r) => r.needsUpdate).length;
   const retry = async () => { try { const r = await normalizePlaces(db); setNote(r.converted ? `Sorted out ${r.converted} location${r.converted === 1 ? '' : 's'}. ${r.flagged} still need${r.flagged === 1 ? 's' : ''} you.` : 'Nothing more could be sorted out automatically.'); await reload(); } catch (e) { setError(String(e)); } };
   return (

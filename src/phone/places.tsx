@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDb } from '../db/DbContext';
-import { AREAS, areaLabel, canonicalCountry, COUNTRIES_ORDERED, parseLocationText } from '../domain/geo';
+import { AREAS, areaLabel, canonicalCountry, COUNTRIES_ORDERED, parseLocationText, sortByLocation } from '../domain/geo';
 import type { Item, LogPlace } from '../repo/bookLog';
 import { listPlaceParts, type PlaceInput, type PlaceParts } from '../repo/places';
 import { Card, PickerSheet, Sheet } from './kit';
@@ -71,7 +71,7 @@ export function PlaceSet({ label, noun = 'location', places, options, single, on
       </div>
       {places.some((p) => p.needsUpdate) && <p className="ph-note">Tap a location with &#9888; to sort it into a city, area and country, or mark it fictional.</p>}
       {picking && (
-        <PickerSheet title={`Add ${noun}`} placeholder="Search your locations" options={options} taken={places.map((p) => p.id)}
+        <PickerSheet title={`Add ${noun}`} placeholder="Search your locations" options={sortByLocation(options)} taken={places.map((p) => p.id)}
           onPick={(o) => onPick(o.id)} onClose={() => setPicking(false)}
           extra={{ label: 'New location...', onChoose: () => { setPicking(false); setForm({ id: null }); } }}
           onCreate={(text) => { setPicking(false); setForm({ id: null, initial: parseLocationText(text) ?? { city: text } }); }} createLabel="New location" />

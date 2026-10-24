@@ -12,7 +12,7 @@ export type Status = 'tbr' | 'up_next' | 'reading' | 'finished' | 'on_hold' | 'd
 export type TagTable = 'genre' | 'theme' | 'trope' | 'mood' | 'pace' | 'content_warning';
 // Things a book can have several of; places (settings) share the same join-table shape.
 export type BookListTable = TagTable | 'place';
-export interface Item { id: string; name: string; color?: string | null }
+export interface Item { id: string; name: string; color?: string | null; city?: string | null; area?: string | null; country?: string | null }
 
 export interface BookRow {
   id: string; title: string; synopsis: string | null; page_count: number | null;
@@ -127,7 +127,7 @@ export async function getBookLog(db: Db, bookId: string, readId?: string | null)
 }
 
 export const listItems = (db: Db, table: 'source' | 'time_period' | 'accent' | 'place') =>
-  db.select<Item>(`SELECT id, name${table === 'accent' ? ', color' : ''} FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
+  db.select<Item>(`SELECT id, name${table === 'accent' ? ', color' : table === 'place' ? ', city, state_region AS area, country' : ''} FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
 
 // ---------- editing ----------
 const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position', 'own_physical', 'own_ebook', 'own_audio', 'recommended_by', 'placeholder_permanent', 'audio_length_seconds']);

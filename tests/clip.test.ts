@@ -134,3 +134,11 @@ describe('the built extension script', () => {
     for (const host of m.host_permissions as string[]) expect(host).toMatch(/goodreads\.com|thestorygraph\.com|audible\.|romance\.io/);
   });
 });
+
+describe('Audible when the page has no structured data', () => {
+  it('still reads the title, authors and narrators from the page itself', () => {
+    const html = readFileSync('tests/clipPages/audible.html', 'utf8').replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, '');
+    const c = extractClip(new DOMParser().parseFromString(html, 'text/html'), URLS.audible)!;
+    expect(c).toMatchObject({ site: 'audible', title: 'Finest Kind of Fate', authors: ['J.J. Mulder'], narrators: ['Iggy Toma', 'Javi Wilder'], asin: 'B0H6PKSQ48' });
+  });
+});

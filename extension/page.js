@@ -130,6 +130,14 @@
     const t = typeof v === "string" ? v.replace(/[\s-]/g, "") : "";
     return /^(\d{9}[\dXx]|\d{13})$/.test(t) ? t.toUpperCase() : void 0;
   }
+  function deepAll(root, selector) {
+    const out = Array.from(root.querySelectorAll(selector));
+    for (const el of Array.from(root.querySelectorAll("*"))) {
+      const inner = el.shadowRoot ?? (el instanceof HTMLTemplateElement ? el.content : null);
+      if (inner) out.push(...deepAll(inner, selector));
+    }
+    return out;
+  }
 
   // src/clip/sites/audible.ts
   var slug = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -139,7 +147,8 @@
     const product = ldOfType(ld, "Product");
     const title = clean(book?.name) || clean(doc.querySelector("h1")?.textContent) || clean(doc.querySelector('meta[property="og:title"]')?.getAttribute("content"));
     if (!title) return null;
-    const authors = names(book?.author);
+    const pinned = (kind) => Array.from(new Set(deepAll(doc, "a[href]").filter((a) => new RegExp(`_pin_${kind}_`).test(a.getAttribute("href") ?? "")).map((a) => clean(a.textContent)).filter(Boolean)));
+    const authors = names(book?.author).length ? names(book?.author) : pinned("author");
     const sub = clean(doc.querySelector('h2[slot="subtitle"]')?.textContent);
     const seriesLink = Array.from(doc.querySelectorAll('a[href*="/series/"]')).find((a) => clean(a.textContent));
     const parsed = parseSeries(sub) ?? parseSeries(seriesLink?.textContent);
@@ -163,7 +172,7 @@
       url: url.split("?")[0],
       title,
       authors,
-      narrators: names(book?.readBy),
+      narrators: names(book?.readBy).length ? names(book?.readBy) : pinned("narrator"),
       ...parsed ? { series: parsed.series, seriesPosition: parsed.position } : {},
       published: toIsoDate(book?.datePublished),
       publisher: clean(book?.publisher) || void 0,

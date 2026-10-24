@@ -89,3 +89,13 @@ export function validAsin(v: unknown): string | undefined {
   const t = typeof v === 'string' ? v.trim().toUpperCase() : '';
   return /^[A-Z0-9]{10}$/.test(t) ? t : undefined;
 }
+
+/** Like querySelectorAll, but also looks inside shadow roots (Audible keeps its author and narrator links in one) and inside <template> contents. */
+export function deepAll(root: ParentNode, selector: string): Element[] {
+  const out: Element[] = Array.from(root.querySelectorAll(selector));
+  for (const el of Array.from(root.querySelectorAll('*'))) {
+    const inner = (el as Element & { shadowRoot?: ShadowRoot | null }).shadowRoot ?? (el instanceof HTMLTemplateElement ? el.content : null);
+    if (inner) out.push(...deepAll(inner, selector));
+  }
+  return out;
+}

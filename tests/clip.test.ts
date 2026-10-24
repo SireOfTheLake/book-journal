@@ -44,7 +44,7 @@ describe('Romance.io (a saved copy of the real page)', () => {
   it('reads the book, pages, heat and the tags with their votes (leaving out geography and format)', () => {
     const c = clipOf('romanceio');
     expect(c).toMatchObject({ site: 'romanceio', title: 'Finest Kind of Fate', authors: ['J.J. Mulder'], series: "A Siren's Point Story", seriesPosition: 1, pages: 346, published: '2026-02-27', heat: 3, heatLabel: 'Open door' });
-    expect(c.tags.slice(0, 3)).toEqual([{ name: 'gay romance', votes: 6 }, { name: 'queer romance', votes: 5 }, { name: 'friends to lovers', votes: 5 }]);
+    expect(c.tags.slice(0, 4)).toEqual([{ name: 'Romance', hint: 'genre' }, { name: 'gay romance', votes: 6 }, { name: 'queer romance', votes: 5 }, { name: 'friends to lovers', votes: 5 }]);
     const names = c.tags.map((t) => t.name);
     expect(names).toContain('slow burn');
     expect(names).not.toContain('north america'); // geography

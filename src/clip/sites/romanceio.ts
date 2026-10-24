@@ -33,6 +33,9 @@ export function fromRomanceIo(doc: Document, url: string): BookClip | null {
     }
   }
 
+  // The site is all romance, so Romance is always on offer as a genre.
+  if (!tags.some((t) => t.name.toLowerCase() === 'romance')) tags.unshift({ name: 'Romance', hint: 'genre' });
+
   // The description is the paragraphs before "Rated '3/5 - Open door' for".
   const box = doc.querySelector('#book-description');
   let description: string | undefined;

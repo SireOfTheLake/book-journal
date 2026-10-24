@@ -262,6 +262,7 @@
         tags.push({ name, votes: Number.isFinite(votes) && votes > 0 ? votes : void 0 });
       }
     }
+    if (!tags.some((t) => t.name.toLowerCase() === "romance")) tags.unshift({ name: "Romance", hint: "genre" });
     const box = doc.querySelector("#book-description");
     let description2;
     if (box) {

@@ -27,6 +27,22 @@ const saveFrom = (clip: BookClip, over: Partial<ClipSave> = {}): ClipSave => ({
 let db: Db;
 beforeEach(() => { db = migrateNodeDb(); });
 
+describe('how tags are spelled when saved', () => {
+  it('tropes in lower case, genres with a capital on each word, and your own spelling wins', async () => {
+    const { formatTag } = await import('../src/repo/clip');
+    expect(formatTag('Friends To Lovers', 'trope')).toBe('friends to lovers');
+    expect(formatTag('Found Family', 'theme')).toBe('found family');
+    expect(formatTag('m m romance', 'genre')).toBe('M M Romance');
+    expect(formatTag('LGBTQIA+', 'genre')).toBe('LGBTQIA+');
+    expect(formatTag('Slow-paced', 'pace')).toBe('Slow-paced');
+    await db.execute("INSERT INTO genre (id, name) VALUES ('g1', 'Sci-Fi Romance')");
+    const out = await saveClip(db, saveFrom(clipOf('romanceio'), { tags: [{ name: 'Friends To Lovers', kind: 'trope' }, { name: 'gay romance', kind: 'genre' }, { name: 'sci-fi romance', kind: 'genre' }] }));
+    const log = (await getBookLog(db, out.bookId))!;
+    expect(log.tropes.map((t) => t.name)).toEqual(['friends to lovers']);
+    expect(log.genres.map((t) => t.name).sort()).toEqual(['Gay Romance', 'Sci-Fi Romance']);
+  });
+});
+
 describe('choosing what to keep for a book that is already here', () => {
   it('keeps your title, synopsis and cover unless you choose the page\'s, and fills only blanks otherwise', async () => {
     const clip = clipOf('romanceio');

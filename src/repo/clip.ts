@@ -10,9 +10,16 @@ import { createSeries, setBookSeries } from './series';
 
 // Adding a book that was read off a web page (see src/clip): matching it to what the journal already has, then saving it.
 
-export type TagKind = 'genre' | 'trope' | 'mood' | 'pace' | 'content_warning';
-export const TAG_KINDS: TagKind[] = ['genre', 'trope', 'mood', 'pace', 'content_warning'];
-const KIND_WORD: Record<TagKind, string> = { genre: 'Genre', trope: 'Trope', mood: 'Mood', pace: 'Pace', content_warning: 'Content warning' };
+export type TagKind = 'genre' | 'trope' | 'theme' | 'mood' | 'pace' | 'content_warning';
+export const TAG_KINDS: TagKind[] = ['genre', 'trope', 'theme', 'mood', 'pace', 'content_warning'];
+const KIND_WORD: Record<TagKind, string> = { genre: 'Genre', trope: 'Trope', theme: 'Theme', mood: 'Mood', pace: 'Pace', content_warning: 'Content warning' };
+/** How a tag is spelled when it is saved: tropes and themes in lower case, genres with a capital on each word (words already in capitals, like LGBTQ+, stay as they are). */
+export function formatTag(name: string, kind: TagKind | 'skip'): string {
+  const n = name.trim();
+  if (kind === 'trope' || kind === 'theme') return n.toLowerCase();
+  if (kind === 'genre') return n.split(/(\s+)/).map((w) => (/^[A-Z0-9+]{2,}$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join('');
+  return n;
+}
 export const kindWord = (k: TagKind) => KIND_WORD[k];
 
 interface Named { id: string; name: string }
@@ -172,7 +179,7 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
   ext.web_pages = { ...((ext.web_pages as Record<string, string>) ?? {}), ...input.ids.sources };
   if (JSON.stringify(ext) !== before) await db.execute('UPDATE book SET external_ids = ? WHERE id = ?', [JSON.stringify(ext), bookId]);
 
-  for (const t of input.tags) { await addTag(db, bookId, t.kind, t.name); }
+  for (const t of input.tags) { await addTag(db, bookId, t.kind, formatTag(t.name, t.kind)); }
   if (input.tags.length) added.push(`${input.tags.length} tag${input.tags.length === 1 ? '' : 's'}`);
 
   for (const [name, url] of Object.entries(input.authorLinks)) {

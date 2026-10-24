@@ -53,7 +53,7 @@ describe('Add to library window', () => {
     await screen.findByDisplayValue(c.title);
     const tag = c.tags[0]; if (!tag) return;
     const chip = screen.getByRole('button', { name: new RegExp(`^${tag.name}:`) });
-    for (let i = 0; i < 6 && !/: skip$/.test(chip.getAttribute('aria-label') ?? ''); i++) fireEvent.click(chip);
+    for (let i = 0; i < 8 && !/: skip$/.test(chip.getAttribute('aria-label') ?? ''); i++) fireEvent.click(chip);
     expect(chip.getAttribute('aria-label')).toMatch(/: skip$/);
   });
 });
@@ -80,6 +80,53 @@ describe('choosing what to keep in the window', () => {
     expect(c.cover).toBeUndefined();
     render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
     await screen.findByText(/Audible covers are square/);
+  });
+});
+
+describe('default tag choices', () => {
+  it('Audible\'s LGBTQ2S+ category starts on skip, other Audible categories do not', async () => {
+    const db = migrateNodeDb(); const c = { ...clip(), tags: [{ name: 'LGBTQ2S+', hint: 'genre' as const }, { name: 'Romance', hint: 'genre' as const }] };
+    render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
+    await screen.findByDisplayValue(c.title);
+    expect(screen.getByRole('button', { name: 'LGBTQ2S+: skip' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Romance: Genre' })).toBeTruthy();
+  });
+  it('Romance.io always offers Romance as a genre', async () => {
+    const db = migrateNodeDb();
+    const c = extractClip(new DOMParser().parseFromString(readFileSync('tests/clipPages/romanceio.html', 'utf8'), 'text/html'), 'https://www.romance.io/books/6957836c2c7cb2aa786cd4f2/x')!;
+    render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
+    await screen.findByDisplayValue(c.title);
+    expect(screen.getByRole('button', { name: 'Romance: Genre' })).toBeTruthy();
+  });
+});
+
+describe('themes', () => {
+  it('a tag can be made a theme, shown in lower case', async () => {
+    const db = migrateNodeDb(); const c = { ...clip(), tags: [{ name: 'Found Family', hint: 'genre' as const }] };
+    render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
+    await screen.findByDisplayValue(c.title);
+    const chip = screen.getByRole('button', { name: /^Found Family:/ });
+    for (let i = 0; i < 8 && !/: Theme$/.test(chip.getAttribute('aria-label') ?? ''); i++) fireEvent.click(chip);
+    expect(chip.getAttribute('aria-label')).toBe('Found Family: Theme');
+    expect(chip.textContent).toContain('found family');
+    fireEvent.click(screen.getByRole('button', { name: 'Add to TBR' }));
+    await screen.findByText('ADDED');
+    const rows = await db.select<{ name: string }>('SELECT t.name AS name FROM book_theme j JOIN theme t ON t.id = j.theme_id WHERE j.deleted_at IS NULL');
+    expect(rows.map((r) => r.name)).toEqual(['found family']);
+  });
+});
+
+describe('only genres, tropes and themes are offered', () => {
+  it('moods and paces are not shown, and a tag only cycles through Genre, Trope, Theme and skip', async () => {
+    const db = migrateNodeDb(); const c = { ...clip(), tags: [{ name: 'hopeful', hint: 'mood' as const }, { name: 'medium-paced', hint: 'pace' as const }, { name: 'slow burn' }] };
+    render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
+    await screen.findByDisplayValue(c.title);
+    expect(screen.queryByText('hopeful')).toBeNull();
+    expect(screen.queryByText('medium-paced')).toBeNull();
+    const chip = screen.getByRole('button', { name: 'slow burn: skip' }); // no hint, so it waits for you to choose
+    const seen: string[] = [];
+    for (let i = 0; i < 5; i++) { fireEvent.click(chip); seen.push(chip.getAttribute('aria-label')!.split(': ')[1]); }
+    expect(seen).toEqual(['Genre', 'Trope', 'Theme', 'skip', 'Genre']);
   });
 });
 

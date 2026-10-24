@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useDb } from '../db/DbContext';
-import { useFeatures } from '../features/FeaturesContext';
 import { SITE_NAME, type BookClip } from '../clip/types';
-import { kindWord, reviewClip, saveClip, TAG_KINDS, type ClipReview, type ClipSaved, type NameMatch, type TagKind } from '../repo/clip';
+import { formatTag, kindWord, reviewClip, saveClip, type ClipReview, type ClipSaved, type NameMatch, type TagKind } from '../repo/clip';
 
 type Pick = TagKind | 'skip';
 const fmtLength = (s: number) => `${Math.floor(s / 3600)} h ${Math.round((s % 3600) / 60)} min`;
@@ -14,7 +13,6 @@ function Badge({ match }: { match: unknown }) {
 // A book read off a web page by the browser extension: check it, change anything, and add it (to the TBR unless you say otherwise).
 export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }: { clip: BookClip; onClose(): void; onOpenBook(bookId: string): void; onSaved?(): void }) {
   const db = useDb();
-  const { flags } = useFeatures();
   const [review, setReview] = useState<ClipReview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<ClipSaved | null>(null);
@@ -39,7 +37,8 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
   // For a book that is already here: keep what you have, or take the page's version.
   const [use, setUse] = useState<{ title: boolean; synopsis: boolean; cover: boolean }>({ title: false, synopsis: false, cover: false });
 
-  const allowed = useMemo<Pick[]>(() => ['skip', ...TAG_KINDS.filter((k) => (k !== 'mood' && k !== 'pace') || flags.moodpace).filter((k) => k !== 'content_warning' || flags.warnings)], [flags.moodpace, flags.warnings]);
+  // Only the lists you keep: genres, tropes and themes. Moods, paces and warnings on a page are not offered.
+  const allowed = useMemo<Pick[]>(() => ['skip', 'genre', 'trope', 'theme'], []);
 
   useEffect(() => {
     let live = true;
@@ -50,8 +49,9 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
       setSeries(r.series?.match?.name ?? r.series?.name ?? ''); setSeriesId(r.series?.match?.id ?? null);
       const initial: Record<string, Pick> = {};
       for (const t of r.tags) {
-        const want: Pick = t.known ?? (t.hint === 'genre' ? 'genre' : t.hint === 'mood' ? 'mood' : t.hint === 'pace' ? 'pace' : t.hint === 'content_warning' ? 'content_warning' : 'skip');
-        initial[t.name] = allowed.includes(want) ? want : 'skip';
+        const want: Pick = t.known ?? (t.hint === 'genre' ? 'genre' : 'skip');
+        // Audible's LGBTQ2S+ category is left out unless you choose it.
+        initial[t.name] = clip.site === 'audible' && /^lgbtq/i.test(t.name) ? 'skip' : allowed.includes(want) ? want : 'skip';
       }
       setPicks(initial);
     }, (e) => live && setError(e instanceof Error ? e.message : String(e)));
@@ -59,6 +59,8 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [db, clip]);
 
+  // Moods, paces and warnings are not tracked, so they are not shown at all.
+  const shownTags = (review?.tags ?? []).filter((t) => !['mood', 'pace', 'content_warning'].includes(t.hint ?? '') && !['mood', 'pace', 'content_warning'].includes(t.known ?? ''));
   const filling = !!review?.existing && !asNew;
   const have = review?.existing;
   const differs = {
@@ -166,12 +168,12 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
                 </div>
               )}
               <div className="stack"><label className="stack"><span className="lbl2">Synopsis</span><textarea className="field" rows={4} aria-label="Synopsis" value={synopsis} onChange={(e) => setSynopsis(e.target.value)} /></label><Choice field="synopsis" current={have?.synopsis ?? ''} /></div>
-              {review.tags.length > 0 && (
+              {shownTags.length > 0 && (
                 <div className="stack"><span className="lbl2">Tags <span className="muted small">click a tag to choose what it is; tags left as "skip" are not added</span></span>
-                  <div className="chips cliptags">{review.tags.map((t) => {
+                  <div className="chips cliptags">{shownTags.map((t) => {
                     const pick = picks[t.name] ?? 'skip';
                     return <button type="button" key={t.name} className={`chip cliptag ${pick === 'skip' ? 'skip' : 'on'}`} aria-label={`${t.name}: ${pick === 'skip' ? 'skip' : kindWord(pick)}`} onClick={() => cycle(t.name)}>
-                      {t.name}{t.votes ? <span className="muted small"> {t.votes}</span> : null}<span className="clipkind">{pick === 'skip' ? 'skip' : kindWord(pick)}</span></button>;
+                      {formatTag(t.name, pick)}{t.votes ? <span className="muted small"> {t.votes}</span> : null}<span className="clipkind">{pick === 'skip' ? 'skip' : kindWord(pick)}</span></button>;
                   })}</div>
                 </div>
               )}

@@ -2,7 +2,18 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 -->
+
+## 0.2.17 — 2026-10-24
+
+### New
+- [Extension] A tag from the page can now be made a theme; themes are saved in lower case like tropes.
+
+### Improved
+- [Extension] Audible's LGBTQ2S+ category starts on "skip" in the Add to library window.
+- [Extension] Romance.io books always offer "Romance" as a genre tag.
+- [Extension] Tags added from the extension are spelled consistently: tropes in lower case, genres with a capital on each word (a spelling you already use is kept).
+- [Extension] The Add to library window only offers Genre, Trope, Theme or skip for each tag; moods, paces and warnings from the page are hidden.
 
 ## 0.2.16 — 2026-10-23
 

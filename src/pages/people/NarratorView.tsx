@@ -13,6 +13,37 @@ const STYLE: Record<string, string> = { solo: 'Solo', dual: 'Dual', duet: 'Duet'
 const Stat = ({ label, children }: { label: string; children: React.ReactNode }) => <div className="bcard"><span className="lbl2">{label}</span>{children}</div>;
 const Tags = ({ items, empty }: { items: Counted[]; empty: string }) => items.length ? <div className="chips">{items.map((t) => <span key={t.id} className="chip" style={chipStyle(t.color)}>{t.name} <span className="muted small">{t.n}</span></span>)}</div> : <span className="muted">{empty}</span>;
 
+const VOICED_SHOWN = 7;
+// The characters this narrator voiced: the first few, and "See all" for a window with each character's book and series.
+function VoicedList({ voiced }: { voiced: NarratorDetail['voiced'] }) {
+  const [open, setOpen] = useState(false);
+  if (!voiced.length) return <span className="muted">None recorded</span>;
+  const chars = [...new Map(voiced.map((v) => [v.id, v])).values()];
+  const shown = chars.slice(0, VOICED_SHOWN);
+  return (
+    <>
+      {shown.map((v) => <Link key={v.id} className="l inl" to={`/characters/${v.id}`}>{v.name}</Link>)}
+      {chars.length > VOICED_SHOWN && <button type="button" className="quiet voiceadd" onClick={() => setOpen(true)}>{`See All (${chars.length})`}</button>}
+      {open && (
+        <div className="overlay" onKeyDown={(e) => e.key === 'Escape' && setOpen(false)} onMouseDown={(e) => e.target === e.currentTarget && setOpen(false)}>
+          <div className="dialog cldlg" role="dialog" aria-modal="true" aria-label="Characters voiced">
+            <h2 className="pagetitle small2">CHARACTERS VOICED</h2>
+            <div className="clscroll">
+              <table className="voicedtable">
+                <thead><tr><th>Character</th><th>Book</th><th>Series</th></tr></thead>
+                <tbody>{voiced.map((v) => (
+                  <tr key={`${v.id}|${v.book}`}><td><Link className="l" to={`/characters/${v.id}`}>{v.name}</Link></td><td>{v.book}</td><td className="muted">{v.series ?? '—'}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <div className="actions"><span className="grow" /><button type="button" className="btn" autoFocus onClick={() => setOpen(false)}>Close</button></div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function NarratorView({ d, accents, books = [], act }: { d: NarratorDetail; accents: Item[]; books?: (Item & { authors: string | null })[]; act: NarratorActions }) {
   const c = d.core;
   const [accent, setAccent] = useState('');
@@ -40,7 +71,7 @@ export default function NarratorView({ d, accents, books = [], act }: { d: Narra
             <Stat label="Total hours">{d.totalSeconds ? <span className="big">{formatDuration(d.totalSeconds)}</span> : <span className="muted">Add audio lengths</span>}</Stat>
             <Stat label="Rating tally"><span className="tally"><span className="t-up">{`${d.tally.up} up`}</span><span className="t-neutral">{`${d.tally.neutral} okay`}</span><span className="t-down">{`${d.tally.down} down`}</span></span></Stat>
             <Stat label="Co-narrators">{d.coNarrators.length ? d.coNarrators.map((n) => <span key={n.id}><Link className="l inl" to={`/narrators/${n.id}`}>{n.name}</Link><span className="muted small">{n.n} {n.n === 1 ? 'listen' : 'listens'}</span></span>) : <span className="muted">None</span>}</Stat>
-            <Stat label="Characters voiced">{d.voiced.length ? [...new Map(d.voiced.map((v) => [v.id, v])).values()].map((v) => <Link key={v.id} className="l inl" to={`/characters/${v.id}`}>{v.name}</Link>) : <span className="muted">None recorded</span>}</Stat>
+            <Stat label="Characters voiced"><VoicedList voiced={d.voiced} /></Stat>
           </div>
           <Card label="Listens">
             <div className="lrow2 bhead"><span>Title</span><span>Style</span><span>Finished</span><span>Voiced</span><span>Rating</span></div>

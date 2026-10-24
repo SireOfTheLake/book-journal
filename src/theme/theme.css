@@ -1156,3 +1156,7 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .clarea { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 0 6px; margin-right: 6px; border-radius: 8px; border: 1px solid var(--line2); color: var(--muted); vertical-align: 1px; }
 .clarea.desktop { color: var(--accent); border-color: var(--accent); }
 .clarea.mobile { color: var(--ok-text, var(--text)); border-color: var(--ok, var(--line2)); }
+
+.voicedtable { width: 100%; border-collapse: collapse; }
+.voicedtable th { text-align: left; font-size: 12px; color: var(--muted, #888); padding: 4px 8px 6px 0; }
+.voicedtable td { padding: 5px 8px 5px 0; border-top: 1px solid var(--line2, #ddd); vertical-align: top; }

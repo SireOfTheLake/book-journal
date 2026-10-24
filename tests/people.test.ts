@@ -148,7 +148,7 @@ describe('a narrator', () => {
     await db.execute("INSERT INTO character (id, name, is_featured) VALUES (?, 'Hunter Savage', 1)", [ch]);
     await db.execute('INSERT INTO read_narrator_character (id, read_narrator_id, character_id) VALUES (?, ?, ?)', [newId(), rn.id, ch]);
     const n = (await getNarrator(db, id))!;
-    expect(n.voiced).toEqual([{ id: ch, name: 'Hunter Savage', book: 'MateHub: Legend' }]);
+    expect(n.voiced).toEqual([{ id: ch, name: 'Hunter Savage', book: 'MateHub: Legend', series: 'MateHub' }]);
     expect(n.listens[0].voiced).toBe('Hunter Savage');
   });
   it('keeps a list of usual accents, reusing accent entries', async () => {

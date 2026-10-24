@@ -2,7 +2,12 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 -->
+
+## 0.2.21 — 2026-10-24
+
+### Improved
+- [Desktop] A narrator's Characters voiced shows the first 7, with See All opening a window of character, book and series.
 
 ## 0.2.20 — 2026-10-24
 

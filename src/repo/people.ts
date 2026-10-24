@@ -142,7 +142,7 @@ export interface Listen { rn_id: string; read_id: string; book_id: string; title
 export interface NarratorDetail {
   core: PersonCore; aliases: Item[]; usualAccents: Item[]; listens: Listen[];
   totalSeconds: number; tally: { up: number; neutral: number; down: number; unrated: number };
-  coNarrators: Counted[]; voiced: { id: string; name: string; book: string }[]; commonAccents: Counted[];
+  coNarrators: Counted[]; voiced: { id: string; name: string; book: string; series: string | null }[]; commonAccents: Counted[];
   genres: Counted[]; tropes: Counted[]; notListened: { id: string; title: string }[];
 }
 const LISTEN = `rn.narrator_id = ? AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND r.format = 'audio'`;
@@ -167,7 +167,7 @@ export async function getNarrator(db: Db, id: string): Promise<NarratorDetail | 
       `SELECT n.id AS id, n.name AS name, count(*) AS n FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN read_narrator other ON other.read_id = r.id AND other.narrator_id != rn.narrator_id AND other.deleted_at IS NULL
        JOIN narrator n ON n.id = other.narrator_id AND n.deleted_at IS NULL WHERE ${LISTEN} GROUP BY n.id ORDER BY n DESC, CASE WHEN lower(n.name) LIKE \'the %\' THEN lower(substr(n.name, 5)) ELSE lower(n.name) END`, [id]),
     voiced: await db.select(
-      `SELECT DISTINCT ch.id AS id, ch.name AS name, b.title AS book FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id JOIN read_narrator_character rnc ON rnc.read_narrator_id = rn.id AND rnc.deleted_at IS NULL
+      `SELECT DISTINCT ch.id AS id, ch.name AS name, b.title AS book, (SELECT s.title FROM series s WHERE s.id = b.series_id AND s.deleted_at IS NULL) AS series FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN book b ON b.id = r.book_id JOIN read_narrator_character rnc ON rnc.read_narrator_id = rn.id AND rnc.deleted_at IS NULL
        JOIN character ch ON ch.id = rnc.character_id AND ch.deleted_at IS NULL WHERE ${LISTEN} ORDER BY CASE WHEN lower(ch.name) LIKE \'the %\' THEN lower(substr(ch.name, 5)) ELSE lower(ch.name) END`, [id]),
     commonAccents: await db.select<Counted>(
       `SELECT a.id AS id, a.name AS name, count(*) AS n FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN read_narrator_accent x ON x.read_narrator_id = rn.id AND x.deleted_at IS NULL JOIN accent a ON a.id = x.accent_id AND a.deleted_at IS NULL WHERE ${LISTEN} GROUP BY a.id ORDER BY n DESC, CASE WHEN lower(a.name) LIKE \'the %\' THEN lower(substr(a.name, 5)) ELSE lower(a.name) END`, [id]),

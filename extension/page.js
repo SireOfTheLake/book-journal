@@ -164,7 +164,7 @@
       const n = clean(it.item?.name);
       if (n && (it.position ?? 2) > 1) tags.push({ name: n, hint: "genre" });
     }
-    const asin = clean(product?.productID) || /\/pd\/[^/]+\/([A-Z0-9]{10})/.exec(url)?.[1];
+    const asin = clean(product?.productID) || /\/(?:pd|ac)\/[^/]+\/([A-Z0-9]{10})/.exec(url)?.[1];
     const description2 = book?.description ? htmlToText(doc, String(book.description)).replace(/\n*Contains mature content\.[^\n]*$/i, "").trim() : void 0;
     return {
       v: 1,
@@ -372,7 +372,7 @@
     } catch {
       return null;
     }
-    if (/(^|\.)audible\.[a-z.]+$/.test(host)) return /\/pd\//.test(url) ? "audible" : null;
+    if (/(^|\.)audible\.[a-z.]+$/.test(host)) return /\/(pd|ac)\//.test(url) ? "audible" : null;
     if (/(^|\.)goodreads\.com$/.test(host)) return /\/book\/show\//.test(url) ? "goodreads" : null;
     if (/(^|\.)thestorygraph\.com$/.test(host)) return /\/books\//.test(url) ? "storygraph" : null;
     if (/(^|\.)romance\.io$/.test(host)) return /\/books\//.test(url) ? "romanceio" : null;

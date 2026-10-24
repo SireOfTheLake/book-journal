@@ -34,7 +34,7 @@ export function fromAudible(doc: Document, url: string): BookClip | null {
     if (n && (it.position ?? 2) > 1) tags.push({ name: n, hint: 'genre' });
   }
 
-  const asin = clean(product?.productID as string) || /\/pd\/[^/]+\/([A-Z0-9]{10})/.exec(url)?.[1];
+  const asin = clean(product?.productID as string) || /\/(?:pd|ac)\/[^/]+\/([A-Z0-9]{10})/.exec(url)?.[1];
   const description = book?.description ? htmlToText(doc, String(book.description)).replace(/\n*Contains mature content\.[^\n]*$/i, '').trim() : undefined;
   return {
     v: 1, site: 'audible', url: url.split('?')[0], title,

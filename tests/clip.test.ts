@@ -142,3 +142,15 @@ describe('Audible when the page has no structured data', () => {
     expect(c).toMatchObject({ site: 'audible', title: 'Finest Kind of Fate', authors: ['J.J. Mulder'], narrators: ['Iggy Toma', 'Javi Wilder'], asin: 'B0H6PKSQ48' });
   });
 });
+
+describe('Audible /ac/ pages', () => {
+  it('Audible now serves book pages under /ac/ as well as /pd/', async () => {
+    const { siteOf } = await import('../src/clip/extract');
+    expect(siteOf('https://www.audible.ca/ac/Damaged-Audiobook/B0DJC65LZF?ref=x')).toBe('audible');
+    expect(siteOf('https://www.audible.com/pd/Some-Title/B0DJC65LZF')).toBe('audible');
+    expect(siteOf('https://www.audible.ca/series/Unlucky-13-Audiobooks/B0CMTBHRYQ')).toBeNull();
+    const c = extractClip(new DOMParser().parseFromString(readFileSync('tests/clipPages/audible-ac.html', 'utf8'), 'text/html'), 'https://www.audible.ca/ac/Damaged-Audiobook/B0DJC65LZF')!;
+    expect(c).toMatchObject({ site: 'audible', title: 'Damaged', authors: ['Hayden Hall'], narrators: ['Curtis Michael Holland', 'Javi Wilder'], series: 'Unlucky 13', asin: 'B0DJC65LZF', audioSeconds: 31260, publisher: 'Tantor Media' });
+    expect(c.authorLinks).toEqual({ 'Hayden Hall': 'https://www.audible.ca/author/Hayden-Hall/B08R5CSXYS' });
+  });
+});

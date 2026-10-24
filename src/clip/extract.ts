@@ -7,7 +7,7 @@ import { fromStoryGraph } from './sites/storygraph';
 export function siteOf(url: string): ClipSite | null {
   let host = '';
   try { host = new URL(url).hostname.toLowerCase(); } catch { return null; }
-  if (/(^|\.)audible\.[a-z.]+$/.test(host)) return /\/pd\//.test(url) ? 'audible' : null;
+  if (/(^|\.)audible\.[a-z.]+$/.test(host)) return /\/(pd|ac)\//.test(url) ? 'audible' : null;
   if (/(^|\.)goodreads\.com$/.test(host)) return /\/book\/show\//.test(url) ? 'goodreads' : null;
   if (/(^|\.)thestorygraph\.com$/.test(host)) return /\/books\//.test(url) ? 'storygraph' : null;
   if (/(^|\.)romance\.io$/.test(host)) return /\/books\//.test(url) ? 'romanceio' : null;

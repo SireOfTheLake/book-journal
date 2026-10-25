@@ -466,11 +466,9 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
                     </div>
                     <div className="narrside">
                       <div className="narraccents"><TagEditor bare label="Accents" items={n.accents} options={lists.accents} onAdd={(name) => act.addNarratorAccent(n.id, name)} onRemove={(id) => act.removeNarratorAccent(n.id, id)} onRename={(id, name) => act.renameAccent(id, name)} /></div>
-                      <div className="narrtop">
-                    <Thumbs value={n.rating} onChange={(r) => act.narratorRating(n.id, r)} />
-                    <button type="button" className="mini" aria-label={`Remove ${n.name} from this read`} onClick={() => act.removeNarrator(n.id)}>&times;</button>
-                      </div>
+                      <div className="narrtop"><Thumbs value={n.rating} onChange={(r) => act.narratorRating(n.id, r)} /></div>
                     </div>
+                    <button type="button" className="narrx" title="Remove this narrator" aria-label={`Remove ${n.name} from this read`} onClick={() => act.removeNarrator(n.id)}>&times;</button>
                   </div>
                 ))}
                 <AddNarrator log={log} lists={lists} act={act} />

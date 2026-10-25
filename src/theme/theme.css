@@ -1162,7 +1162,9 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .voicedtable td { padding: 5px 8px 5px 0; border-top: 1px solid var(--line2, #ddd); vertical-align: top; }
 
 /* Narrator row: name, then the characters (they wrap as needed), then accents beside the rating */
-.narr { align-items: flex-start; }
-.narr .narrname, .narr .narrside { margin-top: 2px; }
+.narr { align-items: center; position: relative; padding-right: 30px; }
+.narr .narrname, .narr .narrside { margin-top: 0; }
+.narrx { position: absolute; top: 3px; right: 5px; width: 20px; height: 20px; padding: 0; line-height: 1; font-size: 15px; background: none; border: 0; color: var(--muted); opacity: .5; cursor: pointer; }
+.narrx:hover, .narrx:focus-visible { opacity: 1; color: var(--text); }
 .voicechip { white-space: nowrap; }
-.narr .narrside { align-items: flex-start; }
+.narr .narrside { align-items: center; }

@@ -49,10 +49,13 @@ export default function AddFromWebDialog({ clip, onClose, onOpenBook, onSaved }:
       setSeries(r.series?.match?.name ?? r.series?.name ?? ''); setSeriesId(r.series?.match?.id ?? null);
       const initial: Record<string, Pick> = {};
       for (const t of r.tags) {
-        const want: Pick = t.known ?? (t.hint === 'genre' ? 'genre' : 'skip');
+        // Audible's genres are only picked when you already have that tag (you usually add the book from another site too).
+        const want: Pick = clip.site === 'audible' ? (t.known ?? 'skip') : (t.known ?? (t.hint === 'genre' ? 'genre' : 'skip'));
         // Audible's LGBTQ2S+ category is left out unless you choose it.
         initial[t.name] = clip.site === 'audible' && /^lgbtq/i.test(t.name) ? 'skip' : allowed.includes(want) ? want : 'skip';
       }
+      // When a page has both Romance and Dark Romance, Dark Romance wins: Romance is left out (Dark Romance counts as Romance anyway).
+      if (r.tags.some((t) => t.name.trim().toLowerCase() === 'dark romance')) for (const t of r.tags) if (t.name.trim().toLowerCase() === 'romance') initial[t.name] = 'skip';
       setPicks(initial);
     }, (e) => live && setError(e instanceof Error ? e.message : String(e)));
     return () => { live = false; };

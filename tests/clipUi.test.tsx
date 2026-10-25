@@ -84,12 +84,12 @@ describe('choosing what to keep in the window', () => {
 });
 
 describe('default tag choices', () => {
-  it('Audible\'s LGBTQ2S+ category starts on skip, other Audible categories do not', async () => {
+  it('Audible\'s LGBTQ2S+ category starts on skip, and so do other Audible categories you do not already have', async () => {
     const db = migrateNodeDb(); const c = { ...clip(), tags: [{ name: 'LGBTQ2S+', hint: 'genre' as const }, { name: 'Romance', hint: 'genre' as const }] };
     render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
     await screen.findByDisplayValue(c.title);
     expect(screen.getByRole('button', { name: 'LGBTQ2S+: skip' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Romance: Genre' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Romance: skip' })).toBeTruthy();
   });
   it('Romance.io always offers Romance as a genre', async () => {
     const db = migrateNodeDb();
@@ -158,5 +158,33 @@ describe('the page behind the window', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Fill in missing details' }));
     await screen.findByText('UPDATED');
     expect(await screen.findByRole('button', { name: 'Read synopsis' })).toBeTruthy(); // the Book Log behind the window now has the synopsis
+  });
+});
+
+describe('Dark Romance, Westerns and Audible defaults', () => {
+  it('Romance starts on skip when the page also has Dark Romance, and not otherwise', async () => {
+    const db = migrateNodeDb();
+    const c = { ...clip(), site: 'goodreads' as const, tags: [{ name: 'Romance', hint: 'genre' as const }, { name: 'Dark Romance', hint: 'genre' as const }, { name: 'Dark', hint: 'genre' as const }] };
+    render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
+    await screen.findByDisplayValue(c.title);
+    expect(screen.getByRole('button', { name: 'Romance: skip' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Dark Romance: Genre' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Dark: Genre' })).toBeTruthy();
+  });
+  it('Audible tags are only picked when you already have that tag', async () => {
+    const db = migrateNodeDb();
+    await db.execute("INSERT INTO genre (id, name, color) VALUES ('g1', 'Fantasy', '#fff')");
+    const c = { ...clip(), tags: [{ name: 'Fantasy', hint: 'genre' as const }, { name: 'Thriller', hint: 'genre' as const }] };
+    render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
+    await screen.findByDisplayValue(c.title);
+    expect(screen.getByRole('button', { name: 'Fantasy: Genre' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Thriller: skip' })).toBeTruthy();
+  });
+  it('Westerns becomes the genre Western', async () => {
+    const db = migrateNodeDb();
+    const c = { ...clip(), site: 'goodreads' as const, tags: [{ name: 'Westerns', hint: 'genre' as const }] };
+    render(wrap(db, <AddFromWebDialog clip={c} onClose={() => undefined} onOpenBook={() => undefined} />));
+    await screen.findByDisplayValue(c.title);
+    expect(screen.getByRole('button', { name: 'Western: Genre' })).toBeTruthy();
   });
 });

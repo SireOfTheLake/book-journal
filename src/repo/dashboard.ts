@@ -1,4 +1,5 @@
 import type { Db } from '../db/adapter';
+import { BOOK_GENRE_ROLLUP } from './genreRollup';
 import { countMakeups, dayBefore, firstName, nonUsCountry, usState, monthRange, pageDots, sourceMix, splitProgress, starDots, topCounts, uniqueCounts, type Counted, type DotColumn, type Split, type SourceMix } from '../domain/dashboard';
 import { metricInfo, type Metric } from '../domain/goals';
 import { getCovers } from './library';
@@ -109,7 +110,7 @@ async function buildDashboard(db: Db, year: number, from: string, to: string, to
   const covers = await getCovers(db, bookIds);
   const ids = bookIds;
   const q = marks(ids);
-  const genres = await perBook(db, `SELECT bg.book_id AS b, g.name AS n FROM book_genre bg JOIN genre g ON g.id = bg.genre_id AND g.deleted_at IS NULL WHERE bg.deleted_at IS NULL AND bg.book_id IN (${q})`, ids);
+  const genres = await perBook(db, `SELECT bg.book_id AS b, g.name AS n FROM ${BOOK_GENRE_ROLLUP} bg JOIN genre g ON g.id = bg.genre_id AND g.deleted_at IS NULL WHERE bg.deleted_at IS NULL AND bg.book_id IN (${q})`, ids);
   const tropes = await perBook(db, `SELECT bt.book_id AS b, t.name AS n FROM book_trope bt JOIN trope t ON t.id = bt.trope_id AND t.deleted_at IS NULL WHERE bt.deleted_at IS NULL AND bt.book_id IN (${q})`, ids);
   const states = await perBook(db, `SELECT bp.book_id AS b, p.state_region AS n, p.country AS c FROM book_place bp JOIN place p ON p.id = bp.place_id AND p.deleted_at IS NULL WHERE bp.deleted_at IS NULL AND bp.book_id IN (${q})`, ids, (r) => usState(r.n, r.c));
   const countries = await perBook(db, `SELECT bp.book_id AS b, p.country AS n FROM book_place bp JOIN place p ON p.id = bp.place_id AND p.deleted_at IS NULL WHERE bp.deleted_at IS NULL AND bp.book_id IN (${q})`, ids, (r) => nonUsCountry(r.n));

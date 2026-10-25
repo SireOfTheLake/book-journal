@@ -2,7 +2,15 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 -->
+
+## 0.2.26 — 2026-10-25
+
+### Improved
+- [Extension] When a page has both Romance and Dark Romance, Romance starts as skip.
+- [Extension] Audible tags are only picked when you already have a matching tag.
+- [Extension] "Westerns" is added as the genre "Western".
+- [Database] A Dark Romance book also counts as Romance in goals, the dashboard, author and narrator pages, and tag search. Each book is counted once.
 
 ## 0.2.25 — 2026-10-25
 

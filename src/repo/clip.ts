@@ -16,9 +16,12 @@ const KIND_WORD: Record<TagKind, string> = { genre: 'Genre', trope: 'Trope', the
 /** Tags the extension never offers, from any site. */
 const NEVER_TAGS = new Set(['contemporary']);
 
+/** Sites that write a plural where the genre is singular: "Westerns" is the genre "Western". */
+export const tagName = (name: string): string => (/^westerns$/i.test(name.trim()) ? 'Western' : name);
+
 /** How a tag is spelled when it is saved: tropes and themes in lower case, genres with a capital on each word (words already in capitals, like LGBTQ+, stay as they are). */
 export function formatTag(name: string, kind: TagKind | 'skip'): string {
-  const n = name.trim();
+  const n = kind === 'genre' ? tagName(name).trim() : name.trim();
   if (kind === 'trope' || kind === 'theme') return n.toLowerCase();
   if (kind === 'genre') return n.split(/(\s+)/).map((w) => (/^[A-Z0-9+]{2,}$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1))).join('');
   return n;
@@ -68,7 +71,8 @@ export async function reviewClip(db: Db, clip: BookClip): Promise<ClipReview> {
   // Tags that are already one of your genres, tropes and so on keep that meaning.
   const lists = new Map<TagKind, Map<string, string>>();
   for (const k of TAG_KINDS) lists.set(k, new Map((await names(k)).map((x) => [nameKey(x.name), x.name])));
-  const tags = clip.tags.filter((t) => !NEVER_TAGS.has(t.name.trim().toLowerCase())).map((t) => {
+  const tags = clip.tags.filter((t) => !NEVER_TAGS.has(t.name.trim().toLowerCase())).map((raw) => {
+    const t = { ...raw, name: tagName(raw.name) };
     const key = nameKey(t.name);
     const hint = t.hint ? HINT_KIND[t.hint] : undefined;
     const order: TagKind[] = hint ? [hint, ...TAG_KINDS.filter((k) => k !== hint)] : TAG_KINDS;

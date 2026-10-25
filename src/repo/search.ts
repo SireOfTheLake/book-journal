@@ -1,4 +1,5 @@
 import type { Db } from '../db/adapter';
+import { BOOK_GENRE_ROLLUP } from './genreRollup';
 import type { SearchItem } from '../domain/search';
 
 // Everything that can be searched, in one list. A personal library is small, so this is loaded once and filtered in memory.
@@ -39,7 +40,7 @@ export interface TagOption { kind: 'genre' | 'trope' | 'theme'; id: string; name
 // Every genre, trope and theme that at least one book uses, with how many books.
 export async function listTagOptions(db: Db): Promise<TagOption[]> {
   const out: TagOption[] = [];
-  for (const [kind, join, col] of [['genre', 'book_genre', 'genre_id'], ['trope', 'book_trope', 'trope_id'], ['theme', 'book_theme', 'theme_id']] as const) {
+  for (const [kind, join, col] of [['genre', BOOK_GENRE_ROLLUP, 'genre_id'], ['trope', 'book_trope', 'trope_id'], ['theme', 'book_theme', 'theme_id']] as const) {
     const rows = await db.select<{ id: string; name: string; color: string | null; count: number }>(
       `SELECT t.id AS id, t.name AS name, t.color AS color, COUNT(DISTINCT j.book_id) AS count FROM ${kind} t
        JOIN ${join} j ON j.${col} = t.id AND j.deleted_at IS NULL JOIN book b ON b.id = j.book_id AND b.deleted_at IS NULL
@@ -52,8 +53,8 @@ export async function listTagOptions(db: Db): Promise<TagOption[]> {
 // { 'genre:<id>': [bookId, …] } for every tag in use.
 export async function listBookTags(db: Db): Promise<Record<string, string[]>> {
   const out: Record<string, string[]> = {};
-  for (const [kind, join, col] of [['genre', 'book_genre', 'genre_id'], ['trope', 'book_trope', 'trope_id'], ['theme', 'book_theme', 'theme_id']] as const) {
-    const rows = await db.select<{ t: string; b: string }>(`SELECT ${col} AS t, book_id AS b FROM ${join} WHERE deleted_at IS NULL`);
+  for (const [kind, join, col] of [['genre', BOOK_GENRE_ROLLUP, 'genre_id'], ['trope', 'book_trope', 'trope_id'], ['theme', 'book_theme', 'theme_id']] as const) {
+    const rows = await db.select<{ t: string; b: string }>(`SELECT ${col} AS t, book_id AS b FROM ${join} j WHERE deleted_at IS NULL`);
     for (const r of rows) (out[`${kind}:${r.t}`] ??= []).push(r.b);
   }
   return out;

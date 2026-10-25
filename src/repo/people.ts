@@ -1,4 +1,5 @@
 import { bookCharacters, voicesOf, type Voice } from './voicing';
+import { BOOK_GENRE_ROLLUP } from './genreRollup';
 import type { Db, SqlValue } from '../db/adapter';
 import { newId } from '../domain/ids';
 import { first } from '../import/writer';
@@ -99,7 +100,7 @@ export interface AuthorDetail {
 }
 
 const tagCounts = (db: Db, kind: 'genre' | 'trope', whereBooks: string, params: SqlValue[]) => db.select<Counted>(
-  `SELECT t.id AS id, t.name AS name, t.color AS color, count(DISTINCT b.id) AS n FROM book_${kind} j JOIN ${kind} t ON t.id = j.${kind}_id AND t.deleted_at IS NULL
+  `SELECT t.id AS id, t.name AS name, t.color AS color, count(DISTINCT b.id) AS n FROM ${kind === 'genre' ? BOOK_GENRE_ROLLUP : 'book_' + kind} j JOIN ${kind} t ON t.id = j.${kind}_id AND t.deleted_at IS NULL
    JOIN book b ON b.id = j.book_id AND b.deleted_at IS NULL WHERE j.deleted_at IS NULL AND b.id IN (${whereBooks}) GROUP BY t.id ORDER BY n DESC, CASE WHEN lower(t.name) LIKE \'the %\' THEN lower(substr(t.name, 5)) ELSE lower(t.name) END LIMIT 6`, params);
 
 export async function getAuthor(db: Db, id: string): Promise<AuthorDetail | null> {

@@ -1,4 +1,5 @@
 import { byTitle } from '../domain/sortKey';
+import { BOOK_GENRE_ROLLUP } from './genreRollup';
 import type { Db } from '../db/adapter';
 import { autoLabel, metricInfo, paceOf, parseDisplay, parseFilters, parseIds, yearRange, type GoalDisplay, type GoalFilter, type Metric, type Pace } from '../domain/goals';
 import { TOTAL_SQL } from '../domain/challenges';
@@ -154,7 +155,7 @@ export async function loadFacts(db: Db): Promise<Facts> {
     return map;
   };
   // A book has a genre when it, or its series, is tagged with it.
-  const genres = await sets(`SELECT bg.book_id AS b, bg.genre_id AS t FROM book_genre bg WHERE bg.deleted_at IS NULL
+  const genres = await sets(`SELECT bg.book_id AS b, bg.genre_id AS t FROM ${BOOK_GENRE_ROLLUP} bg WHERE bg.deleted_at IS NULL
     UNION SELECT b.id, sg.genre_id FROM book b JOIN series_genre sg ON sg.series_id = b.series_id AND sg.deleted_at IS NULL WHERE b.deleted_at IS NULL`);
   const tropes = await sets('SELECT book_id AS b, trope_id AS t FROM book_trope WHERE deleted_at IS NULL');
 

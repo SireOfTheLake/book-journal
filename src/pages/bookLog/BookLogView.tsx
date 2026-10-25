@@ -464,8 +464,8 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
                     <VoiceChips max={3} narrator={n.name} chars={n.chars ?? []} options={log.characters.filter((c) => !(n.chars ?? []).some((x) => x.id === c.id)).map((c) => ({ id: c.id, name: c.name }))}
                       onAdd={(cid) => act.voiceAdd(n.id, cid)} onRemove={(cid) => act.voiceRemove(n.id, cid)} />
                     </div>
-                    <div className="narraccents"><TagEditor bare label="Accents" items={n.accents} options={lists.accents} onAdd={(name) => act.addNarratorAccent(n.id, name)} onRemove={(id) => act.removeNarratorAccent(n.id, id)} onRename={(id, name) => act.renameAccent(id, name)} /></div>
                     <div className="narrside">
+                      <div className="narraccents"><TagEditor bare label="Accents" items={n.accents} options={lists.accents} onAdd={(name) => act.addNarratorAccent(n.id, name)} onRemove={(id) => act.removeNarratorAccent(n.id, id)} onRename={(id, name) => act.renameAccent(id, name)} /></div>
                       <div className="narrtop">
                     <Thumbs value={n.rating} onChange={(r) => act.narratorRating(n.id, r)} />
                     <button type="button" className="mini" aria-label={`Remove ${n.name} from this read`} onClick={() => act.removeNarrator(n.id)}>&times;</button>

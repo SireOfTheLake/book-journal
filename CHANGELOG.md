@@ -2,7 +2,15 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 -->
+
+## 0.2.22 — 2026-10-24
+
+### Improved
+- [Database] Accents you made earlier now have a color too, like new ones.
+
+### Fixed
+- [Desktop] On a long list of characters voiced, a narrator's row no longer squeezes the accent; the characters wrap and the accent sits beside the rating.
 
 ## 0.2.21 — 2026-10-24
 

@@ -1,7 +1,7 @@
 import type { Db } from '../db/adapter';
 
 // The newest database change this copy of the app knows about. A test keeps it equal to the real newest migration.
-export const SCHEMA_VERSION = 31;
+export const SCHEMA_VERSION = 32;
 
 export type Compatibility = 'same' | 'this_is_older' | 'this_is_newer';
 

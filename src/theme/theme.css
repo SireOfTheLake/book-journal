@@ -1108,7 +1108,7 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .dialog .stack { display: flex; flex-direction: column; gap: 6px; }
 
 /* Accents on a narrator of a listen: tags like genres, inside the narrator's row */
-.narraccents { flex: 1 1 200px; min-width: 0; }
+.narraccents { flex: 0 1 230px; min-width: 0; }
 .tagbare .chips { margin-bottom: 4px; }
 
 /* Links on author and narrator pages: the label is the link; edit and remove sit on its line */
@@ -1160,3 +1160,9 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .voicedtable { width: 100%; border-collapse: collapse; }
 .voicedtable th { text-align: left; font-size: 12px; color: var(--muted, #888); padding: 4px 8px 6px 0; }
 .voicedtable td { padding: 5px 8px 5px 0; border-top: 1px solid var(--line2, #ddd); vertical-align: top; }
+
+/* Narrator row: name, then the characters (they wrap as needed), then accents beside the rating */
+.narr { align-items: flex-start; }
+.narr .narrname, .narr .narrside { margin-top: 2px; }
+.voicechip { white-space: nowrap; }
+.narr .narrside { align-items: flex-start; }

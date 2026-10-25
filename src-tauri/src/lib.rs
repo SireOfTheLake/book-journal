@@ -179,6 +179,12 @@ pub fn run() {
         description: "usual audiobook length on a book",
         sql: include_str!("../migrations/0031_book_audio_length.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 32,
+        description: "colors for existing accents",
+        sql: include_str!("../migrations/0032_accent_colors.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

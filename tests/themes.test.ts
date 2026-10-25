@@ -42,7 +42,7 @@ describe('status colors in both modes', () => {
     });
   }
   it('has no color left in the stylesheet that only works on a dark page, outside images and overlays', () => {
-    const rules = css.split('\n').filter((l) => /#[0-9a-f]{6}/i.test(l) && !l.startsWith('  --') && !/overlay|lightbox|lbclose|libstatus|libfav|seg\.thumbs|\.cover|\.libgen|\.scover/.test(l));
+    const rules = css.split('\n').filter((l) => /#[0-9a-f]{6}/i.test(l) && !l.startsWith('  --') && !/overlay|lightbox|lbclose|libstatus|libnext|libfav|seg\.thumbs|\.cover|\.libgen|\.scover/.test(l));
     expect(rules).toEqual([]);
   });
 });

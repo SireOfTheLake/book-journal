@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { filterLibrary, sortLibrary, STATUS_LABEL, type SortKey, type StatusFilter, type TagMode } from '../domain/library';
+import { filterLibrary, nextInSeries, sortLibrary, STATUS_LABEL, type SortKey, type StatusFilter, type TagMode } from '../domain/library';
 import type { TagOption } from '../repo/search';
 import type { LibraryBook } from '../repo/library';
 import type { Status } from '../repo/bookLog';
@@ -32,6 +32,7 @@ function Cover({ b, src }: { b: LibraryBook; src?: string }) {
     : <div className="libgen" style={{ background: hue(b.title) }} aria-hidden="true"><span className="by">{(b.authors ?? '').split(', ')[0].toUpperCase()}</span><span className="ttl">{b.title.toUpperCase()}</span></div>;
 }
 
+const NextFlag = () => <span className="libnext" title="The next book in a series you have started">Next in series</span>;
 const Badge = ({ b }: { b: LibraryBook }) => <span className={`libstatus st-${b.status ?? 'none'}`}>{STATUS_LABEL[b.status ?? 'none']}</span>;
 
 export default function LibraryView({ books, covers, requestCovers, act, pageSize = 60, tagOptions = [], bookTags = {}, initialTags = [], initialQuery = '' }: { books: LibraryBook[]; covers: Record<string, string>; requestCovers: (ids: string[]) => void; act: LibraryActions; pageSize?: number; tagOptions?: TagOption[]; bookTags?: Record<string, string[]>; initialTags?: string[]; initialQuery?: string }) {
@@ -57,6 +58,7 @@ export default function LibraryView({ books, covers, requestCovers, act, pageSiz
   const [note, setNote] = useState<string | null>(null);
   const [bulkError, setBulkError] = useState<string | null>(null);
 
+  const upNext = useMemo(() => nextInSeries(books), [books]);
   const list = useMemo(() => sortLibrary(filterLibrary(books, { query, status, favorites, noCover, tags, tagMode, bookTags }), sort), [books, query, status, favorites, noCover, sort, tags, tagMode, bookTags]);
   const visible = list.slice(0, shown);
   const missing = books.filter((b) => b.has_cover === 0 && !b.placeholder_permanent).length;
@@ -170,7 +172,7 @@ export default function LibraryView({ books, covers, requestCovers, act, pageSiz
             const label = `${b.title}${b.authors ? ` by ${b.authors}` : ''}`;
             const inner = (
               <>
-                <div className="libcover"><Cover b={b} src={covers[b.id]} /><Badge b={b} />{b.is_favorite === 1 && <span className="libfav" title="Favorite" aria-label="Favorite">&#9829;</span>}{selecting && <span className="libcheck" aria-hidden="true">{picked.has(b.id) ? '\u2713' : ''}</span>}</div>
+                <div className="libcover"><Cover b={b} src={covers[b.id]} /><Badge b={b} />{upNext.has(b.id) && <NextFlag />}{b.is_favorite === 1 && <span className="libfav" title="Favorite" aria-label="Favorite">&#9829;</span>}{selecting && <span className="libcheck" aria-hidden="true">{picked.has(b.id) ? '\u2713' : ''}</span>}</div>
                 <b className="libtitle">{b.title}</b>
                 <span className="muted small">{b.authors ?? 'No author'}</span>
                 {b.series && <span className="libseries">{`${b.series}${b.position !== null ? ` #${b.position}` : ''}`}</span>}
@@ -192,7 +194,7 @@ export default function LibraryView({ books, covers, requestCovers, act, pageSiz
               <b>{b.title}</b>
               <span>{b.authors ?? <span className="muted">—</span>}</span>
               <span>{b.series ? `${b.series}${b.position !== null ? ` #${b.position}` : ''}` : <span className="muted">—</span>}</span>
-              <span><Badge b={b} /></span>
+              <span><Badge b={b} />{upNext.has(b.id) && <NextFlag />}</span>
               <span className="muted">{b.finish_date ?? '—'}</span>
               <span>{stars(b) !== null ? <StarRow value={stars(b)} size={13} /> : <span className="muted">—</span>}</span>
               </>);

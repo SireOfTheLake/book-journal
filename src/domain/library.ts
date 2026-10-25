@@ -45,3 +45,19 @@ export function sortLibrary(books: LibraryBook[], key: SortKey): LibraryBook[] {
   };
   return [...books].sort(by[key]);
 }
+
+// The book to read next in each series you have started: the lowest-numbered book you have not started that comes after the furthest one you have read, are reading or have paused.
+// A DNF does not count as starting a series, and a book that is first in its series is never flagged.
+export function nextInSeries(books: LibraryBook[]): Set<string> {
+  const started = new Set<LibraryStatus | null>(['finished', 'reading', 'on_hold']);
+  const bySeries = new Map<string, LibraryBook[]>();
+  for (const b of books) if (b.series_id && b.position !== null) bySeries.set(b.series_id, [...(bySeries.get(b.series_id) ?? []), b]);
+  const out = new Set<string>();
+  for (const list of bySeries.values()) {
+    const furthest = Math.max(-Infinity, ...list.filter((b) => started.has(b.status)).map((b) => b.position as number));
+    if (furthest === -Infinity) continue;
+    const next = list.filter((b) => (b.position as number) > furthest && !started.has(b.status) && b.status !== 'dnf').sort((a, b) => (a.position as number) - (b.position as number))[0];
+    if (next) out.add(next.id);
+  }
+  return out;
+}

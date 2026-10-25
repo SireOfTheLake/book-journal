@@ -90,7 +90,7 @@ describe('adding a book from a web page', () => {
     expect(log.book).toMatchObject({ title: 'Finest Kind of Fate', shelf: 'tbr', series_position: 1 });
     expect(log.authors.map((a) => a.name)).toEqual(['J.J. Mulder']);
     expect(log.series?.title).toBe("A Siren's Point Story");
-    expect(log.genres.map((g) => g.name).sort()).toEqual(['Contemporary', 'Romance']);
+    expect(log.genres.map((g) => g.name).sort()).toEqual(['Romance']);
     expect(log.cover).toBe('data:image/png;base64,AAAA');
     const [b] = await db.select<{ planned_format: string; external_ids: string }>('SELECT planned_format, external_ids FROM book WHERE id = ?', [out.bookId]);
     expect(b.planned_format).toBe('audio');
@@ -142,7 +142,7 @@ describe('adding a book from a web page', () => {
     const r = await reviewClip(db, clipOf('romanceio'));
     const kind = (n: string) => r.tags.find((t) => t.name === n)!.known;
     expect(kind('slow burn')).toBe('trope');
-    expect(kind('contemporary')).toBe('genre');
+    expect(r.tags.some((t) => t.name.toLowerCase() === 'contemporary')).toBe(false); // never offered
     expect(kind('friends to lovers')).toBeNull();
   });
 

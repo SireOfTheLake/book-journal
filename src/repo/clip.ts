@@ -13,6 +13,9 @@ import { createSeries, setBookSeries } from './series';
 export type TagKind = 'genre' | 'trope' | 'theme' | 'mood' | 'pace' | 'content_warning';
 export const TAG_KINDS: TagKind[] = ['genre', 'trope', 'theme', 'mood', 'pace', 'content_warning'];
 const KIND_WORD: Record<TagKind, string> = { genre: 'Genre', trope: 'Trope', theme: 'Theme', mood: 'Mood', pace: 'Pace', content_warning: 'Content warning' };
+/** Tags the extension never offers, from any site. */
+const NEVER_TAGS = new Set(['contemporary']);
+
 /** How a tag is spelled when it is saved: tropes and themes in lower case, genres with a capital on each word (words already in capitals, like LGBTQ+, stay as they are). */
 export function formatTag(name: string, kind: TagKind | 'skip'): string {
   const n = name.trim();
@@ -65,7 +68,7 @@ export async function reviewClip(db: Db, clip: BookClip): Promise<ClipReview> {
   // Tags that are already one of your genres, tropes and so on keep that meaning.
   const lists = new Map<TagKind, Map<string, string>>();
   for (const k of TAG_KINDS) lists.set(k, new Map((await names(k)).map((x) => [nameKey(x.name), x.name])));
-  const tags = clip.tags.map((t) => {
+  const tags = clip.tags.filter((t) => !NEVER_TAGS.has(t.name.trim().toLowerCase())).map((t) => {
     const key = nameKey(t.name);
     const hint = t.hint ? HINT_KIND[t.hint] : undefined;
     const order: TagKind[] = hint ? [hint, ...TAG_KINDS.filter((k) => k !== hint)] : TAG_KINDS;
@@ -179,6 +182,7 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
   ext.web_pages = { ...((ext.web_pages as Record<string, string>) ?? {}), ...input.ids.sources };
   if (JSON.stringify(ext) !== before) await db.execute('UPDATE book SET external_ids = ? WHERE id = ?', [JSON.stringify(ext), bookId]);
 
+  input = { ...input, tags: input.tags.filter((t) => !NEVER_TAGS.has(t.name.trim().toLowerCase())) };
   for (const t of input.tags) { await addTag(db, bookId, t.kind, formatTag(t.name, t.kind)); }
   if (input.tags.length) added.push(`${input.tags.length} tag${input.tags.length === 1 ? '' : 's'}`);
 

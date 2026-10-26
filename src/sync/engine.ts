@@ -98,11 +98,27 @@ async function repoint(ctx: Ctx, t: TableInfo, from: string, to: string) {
 
 const older = (a: { created_at: string; id: string }, b: { created_at: string; id: string }) => (a.created_at === b.created_at ? a.id < b.id : a.created_at < b.created_at);
 
+// Columns that cannot be empty but have a starting value (such as is_bonus). A row the cloud holds from before such a column existed comes with it empty;
+// leaving it out of the write lets this device use the starting value instead of failing with "NOT NULL constraint failed".
+const defaulted = new WeakMap<Db, Map<string, Set<string>>>();
+async function defaultedColumns(db: Db, table: string): Promise<Set<string>> {
+  let m = defaulted.get(db);
+  if (!m) { m = new Map(); defaulted.set(db, m); }
+  let set = m.get(table);
+  if (!set) {
+    const info = await db.select<{ name: string; notnull: number; dflt_value: string | null }>(`PRAGMA table_info("${table}")`);
+    set = new Set(info.filter((c) => c.notnull && c.dflt_value !== null).map((c) => c.name));
+    m.set(table, set);
+  }
+  return set;
+}
+
 async function writeRow(ctx: Ctx, t: TableInfo, row: RemoteRow, echo = true): Promise<boolean> {
   const db = ctx.db;
   const [local] = await db.select<{ updated_at: string }>(`SELECT updated_at FROM "${t.name}" WHERE id = ?`, [row.id as string]);
   if (local && local.updated_at >= (row.updated_at as string)) return false;
-  const cols = t.columns.filter((c) => c in row);
+  const withDefault = await defaultedColumns(db, t.name);
+  const cols = t.columns.filter((c) => c in row && !(row[c] == null && withDefault.has(c)));
   await db.execute(
     `INSERT INTO "${t.name}" (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${cols.map(() => '?').join(', ')}) ON CONFLICT(id) DO UPDATE SET ${cols.filter((c) => c !== 'id').map((c) => `"${c}" = excluded."${c}"`).join(', ')}`,
     cols.map((c) => row[c]));

@@ -83,3 +83,18 @@ describe('syncing two devices', () => {
     expect((await titles(b)).length).toBe(30);
   });
 });
+
+describe('rows from before a column existed', () => {
+  it('arrive with the column\'s starting value instead of failing', async () => {
+    const { createMap } = await import('../src/repo/usmap');
+    await createMap(a, { year: 2026, name: 'Canada', region: 'canada' });
+    await sync(a);
+    for (const r of cloud.tables.get('challenge_slot')!.values()) (r as Record<string, unknown>).is_bonus = null;
+    for (const r of cloud.tables.get('challenge')!.values()) { (r as Record<string, unknown>).bonus_mode = null; (r as Record<string, unknown>).map_australia = null; }
+    await sync(b);
+    const slots = await b.select<{ is_bonus: number }>('SELECT is_bonus FROM challenge_slot WHERE deleted_at IS NULL');
+    expect(slots).toHaveLength(13);
+    expect(slots.every((s) => s.is_bonus === 0)).toBe(true);
+    expect((await b.select<{ bonus_mode: string }>('SELECT bonus_mode FROM challenge'))[0].bonus_mode).toBe('optional');
+  });
+});

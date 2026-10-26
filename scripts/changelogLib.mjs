@@ -49,3 +49,15 @@ export function stampRelease(changelog, files, version, date) {
   const rest = firstRelease === -1 ? '' : body.slice(firstRelease);
   return { text: head + section + (rest ? `\n${rest}` : ''), filed: fresh.map((f) => f.id), skipped };
 }
+
+// Safety check before a release: the newest tag must already have its section in CHANGELOG.md.
+// If it does not, CHANGELOG.md is an old copy (for example the one from a downloaded zip replaced yours), and releasing now would pile
+// every note since that old copy into the new version. tags: names like "v0.2.22". Returns null when fine, otherwise a message.
+export function staleChangelog(changelog, tags) {
+  const versions = tags.map((t) => /^v?(\d+)\.(\d+)\.(\d+)$/.exec(t.trim())).filter(Boolean).map((m) => ({ v: `${m[1]}.${m[2]}.${m[3]}`, n: [+m[1], +m[2], +m[3]] }));
+  if (!versions.length) return null;
+  versions.sort((a, b) => a.n[0] - b.n[0] || a.n[1] - b.n[1] || a.n[2] - b.n[2]);
+  const latest = versions[versions.length - 1].v;
+  if (new RegExp(`^##\\s+v?${latest.replace(/\./g, '\\.')}\\b`, 'm').test(changelog)) return null;
+  return `CHANGELOG.md has no section for ${latest}, your newest release, so it is an old copy.\nDo not release yet: restore your own CHANGELOG.md (in git: git checkout origin/main -- CHANGELOG.md, or copy back the one from before you unzipped), then run the release again.`;
+}

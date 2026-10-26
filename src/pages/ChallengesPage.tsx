@@ -1,4 +1,4 @@
-import { createUsMap } from '../repo/usmap';
+import { createMap } from '../repo/usmap';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDb } from '../db/DbContext';
@@ -29,7 +29,7 @@ export default function ChallengesPage() {
             const f = input as NewBingoForm;
             const bankId = f.bankId ?? await createBank(db, f.name, f.newBankPrompts);
             try { id = await createBingo(db, { year: f.year, name: f.name, bankId, preferUnused: f.preferUnused, freeText: f.freeText }); } catch (e) { if (!f.bankId) await deleteBank(db, bankId); throw e; }
-          } else if ('usMap' in input) id = await createUsMap(db, input);
+          } else if ('usMap' in input) id = await createMap(db, input);
           else if ('word' in input) id = await createWordBuilder(db, input);
           else id = 'stickers' in input ? await createSticker(db, input) : await createGrid(db, input);
           if (description) await setChallengeDescription(db, id, description);

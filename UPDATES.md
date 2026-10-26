@@ -125,6 +125,7 @@ Every release gets an entry in `CHANGELOG.md`, shown in the app under **What's n
 - With each batch of changes I send, I add a small file in `changelog/unreleased` (r001.md, r002.md, ...). Several batches pile up there until you release.
 - `npm run release -- 0.1.2` files all of them under that version, with today's date, into `CHANGELOG.md`, removes the files from `changelog/unreleased`, and commits everything with the release. You don't edit anything by hand.
 - Don't overwrite `CHANGELOG.md` when you copy over a new zip (my zips won't include it after this one). If a batch file is ever copied back after it was released, the release command skips it, so nothing is listed twice.
+- My zips never contain `CHANGELOG.md`. As a second safety, `npm run release` refuses to run if `CHANGELOG.md` has no section for your newest release (it would mean the file is an old copy), and tells you to restore yours first.
 - Want to change the wording? Edit the lines in `changelog/unreleased` before you run the release, or edit `CHANGELOG.md` afterwards.
 
 

@@ -160,3 +160,16 @@ describe('a limited map', () => {
     expect(screen.getAllByText(/1 of 3 boxes/).length).toBeGreaterThan(0);
   });
 });
+
+describe('creating other maps from the form', () => {
+  it('creates the map that was picked, not always the US', async () => {
+    wrap('/journal/challenges', <ChallengesPage />, '/journal/challenges');
+    fireEvent.click(await screen.findByRole('button', { name: '+ New challenge' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Map' }));
+    fireEvent.change(screen.getByLabelText('Map'), { target: { value: 'canada' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create challenge' }));
+    await screen.findByText('elsewhere');
+    const c = await getChallenge(db, (await listChallenges(db, Y))[0].id);
+    expect(c).toMatchObject({ mapRegion: 'canada', total: 10 });
+  });
+});

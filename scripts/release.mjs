@@ -2,12 +2,19 @@
 // Sets the version in the three places it lives, commits, tags it and pushes. GitHub then builds the installer.
 import { execSync } from 'node:child_process';
 import { existsSync, readdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
-import { mergedIds, stampRelease } from './changelogLib.mjs';
+import { mergedIds, staleChangelog, stampRelease } from './changelogLib.mjs';
 
 const version = process.argv[2];
 if (!/^\d+\.\d+\.\d+$/.test(version ?? '')) {
   console.error('Give the new version number, for example:  npm run release -- 0.1.1');
   process.exit(1);
+}
+// Stop if CHANGELOG.md is an old copy that lacks the newest release (see staleChangelog).
+{
+  let tags = [];
+  try { tags = execSync('git tag', { encoding: 'utf8' }).split(/\r?\n/); } catch { /* no git: skip the check */ }
+  const problem = existsSync('CHANGELOG.md') ? staleChangelog(readFileSync('CHANGELOG.md', 'utf8'), tags) : null;
+  if (problem) { console.error(problem); process.exit(1); }
 }
 // Stop before changing anything if there is nothing new to say, rather than filing "Small improvements and fixes".
 {

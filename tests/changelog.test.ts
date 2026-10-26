@@ -64,3 +64,13 @@ describe('which part of the app a change is in', () => {
     }
   });
 });
+
+import { staleChangelog } from '../scripts/changelogLib.mjs';
+describe('staleChangelog', () => {
+  const log = '# Changelog\n\n## 0.3.0 — 2026-10-26\n\n## 0.2.14 — 2026-10-22\n';
+  it('accepts a changelog that has the newest tag', () => { expect(staleChangelog(log, ['v0.2.14', 'v0.3.0', 'v0.2.9'])).toBeNull(); });
+  it('refuses an old copy that lacks the newest tag (compared as numbers)', () => {
+    expect(staleChangelog('## 0.2.14 — x\n', ['v0.2.9', 'v0.2.22', 'v0.2.14'])).toMatch(/no section for 0\.2\.22/);
+  });
+  it('does nothing without tags', () => { expect(staleChangelog(log, [''])).toBeNull(); });
+});

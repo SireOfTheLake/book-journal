@@ -107,7 +107,7 @@ describe('a US map challenge', () => {
     const { createGrid } = await import('../src/repo/challenges');
     const g = await createGrid(db, { year: Y, name: 'G', prompts: ['x'] });
     const x = (await getChallenge(db, g))!.loose[0];
-    await expect(rerollStateColor(db, x.id)).rejects.toThrow('not a state');
+    await expect(rerollStateColor(db, x.id)).rejects.toThrow('not a place');
   });
   it('shows its states in the Book Log choices, and fills from there', async () => {
     const id = await createUsMap(db, { year: Y, name: 'Map' });

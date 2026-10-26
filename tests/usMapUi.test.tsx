@@ -34,8 +34,8 @@ describe('creating a US map', () => {
   it('is a kind in the new challenge form and opens the map', async () => {
     wrap('/journal/challenges', <ChallengesPage />, '/journal/challenges');
     fireEvent.click(await screen.findByRole('button', { name: '+ New challenge' }));
-    fireEvent.click(screen.getByRole('button', { name: 'US map' }));
-    expect(screen.getByText(/card for each of the 50 states/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Map' }));
+    expect(screen.getByText(/A card for every state/)).toBeTruthy();
     fireEvent.change(screen.getByPlaceholderText('100 Prompts'), { target: { value: 'Across America' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create challenge' }));
     await screen.findByText('elsewhere');
@@ -141,5 +141,22 @@ describe('deleting a challenge from the list', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete Across America' }));
     await waitFor(async () => expect(await listChallenges(db, Y)).toHaveLength(0));
     expect((await db.select('SELECT id FROM book WHERE deleted_at IS NULL')).length).toBe(1);
+  });
+});
+
+describe('a limited map', () => {
+  it('shows N boxes, a place picker, and a warning for a book without a place', async () => {
+    const { createMap } = await import('../src/repo/usmap');
+    const { fillSlot } = await import('../src/repo/challenges');
+    const id = await createMap(db, { year: Y, name: 'World', region: 'world', limit: 3 });
+    const c = (await getChallenge(db, id))!;
+    await fillSlot(db, c.loose[0].id, await read('Nomad'));
+    wrap(`/journal/challenges/${id}`, <ChallengePage />, '/journal/challenges/:id');
+    await screen.findByRole('group', { name: 'Countries' });
+    expect(document.querySelectorAll('.stcard')).toHaveLength(3);
+    expect(await screen.findByText(/no country chosen/)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('country for Book 1'), { target: { value: 'France' } });
+    await waitFor(() => expect(screen.queryByText(/no country chosen/)).toBeNull());
+    expect(screen.getAllByText(/1 of 3 boxes/).length).toBeGreaterThan(0);
   });
 });

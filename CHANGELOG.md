@@ -2,89 +2,46 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 -->
 
-## 0.2.26 — 2026-10-25
-
-### Improved
-- [Extension] When a page has both Romance and Dark Romance, Romance starts as skip.
-- [Extension] Audible tags are only picked when you already have a matching tag.
-- [Extension] "Westerns" is added as the genre "Western".
-- [Database] A Dark Romance book also counts as Romance in goals, the dashboard, author and narrator pages, and tag search. Each book is counted once.
-
-## 0.2.25 — 2026-10-25
-
-### New
-- [Desktop] All Books flags the next book in a series you have started (never the first book of a series).
-
-## 0.2.24 — 2026-10-25
-
-### Improved
-- [Extension] The tag "Contemporary" is never offered when adding a book, from any site.
-
-## 0.2.23 — 2026-10-24
-
-### Fixed
-- [Desktop] The remove button on a narrator is now a small icon in the top right of its box, so the row stays on one line.
-
-## 0.2.22 — 2026-10-24
-
-### Improved
-- [Database] Accents you made earlier now have a color too, like new ones.
-
-### Fixed
-- [Desktop] On a long list of characters voiced, a narrator's row no longer squeezes the accent; the characters wrap and the accent sits beside the rating.
-
-## 0.2.21 — 2026-10-24
-
-### Improved
-- [Desktop] A narrator's Characters voiced shows the first 7, with See All opening a window of character, book and series.
-
-## 0.2.20 — 2026-10-24
-
-### Improved
-- [Desktop] Searching locations now lists country-only matches first, then area-only, city-only, area + country, city + country, city + area, and finally ones with all three.
-- [Mobile] The location search lists matches in the same order.
-
-## 0.2.19 — 2026-10-24
-
-### Fixed
-- [Extension] Audible book pages whose address contains /ac/ (not only /pd/) are now recognised.
-
-## 0.2.18 — 2026-10-24
-
-### Fixed
-- [Extension] Audible: if the page's structured data is missing or changed, the title, authors and narrators are now read from the page's own links instead of the book being skipped.
-
-## 0.2.17 — 2026-10-24
-
-### New
-- [Extension] A tag from the page can now be made a theme; themes are saved in lower case like tropes.
-
-### Improved
-- [Extension] Audible's LGBTQ2S+ category starts on "skip" in the Add to library window.
-- [Extension] Romance.io books always offer "Romance" as a genre tag.
-- [Extension] Tags added from the extension are spelled consistently: tropes in lower case, genres with a capital on each word (a spelling you already use is kept).
-- [Extension] The Add to library window only offers Genre, Trope, Theme or skip for each tag; moods, paces and warnings from the page are hidden.
-
-## 0.2.16 — 2026-10-23
-
-### Fixed
-- [Extension] A StoryGraph book with no ISBN ("None" on the page) is no longer matched to another book that also has none; only real ISBNs and ASINs identify a book.
-
-## 0.2.15 — 2026-10-23
+## 0.3.0 — 2026-10-26
 
 ### New
 - [Mobile] Add relationships on a character, under each type, with a label and a Deceased/Estranged status.
+- [Extension] A tag from the page can now be made a theme (as well as genre, trope, mood, pace or warning); themes are saved in lower case like tropes.
+- [Desktop] All Books flags the next book in a series you have started (never the first book of a series).
+- [Other] [Challenges] Map challenges: Canadian Provinces and Territories, World Continents, a map for each continent's countries (Africa, Asia, Europe, North America, South America, Oceania) and a World Map of all countries. Pick the map when you create a challenge.
+- [Other] [Challenges] Bonus prompts on maps (Canada's territories, Antarctica, and now DC and the US territories on the US map): optional (extra points, shown like 10/10 (+3 bonus)), required, or not included. The US map you already have stays "not included".
+- [Other] [Challenges] Limited maps: "complete after N" gives you N boxes. Put a book in a box, then choose its place. A box without a place does not count and shows a warning, and each place can be used once.
+- [Other] [Challenges] The continents map can call Oceania "Australia". Tiny countries get a small circle on the map and a larger sticker.
+- [Database] Database version 33: paste the new supabase/schema.sql into the Supabase SQL Editor before syncing.
 
 ### Improved
 - [Desktop] Character relationships are listed under Current Partner, Previous Partner, Family, Friends and Other, each with a quiet "+ add relationship" that takes an existing character or a new name with no page.
 - [Desktop] "What's new" shows a small area label (Desktop, Mobile, Database, Extension or Other) on every change.
 - [Other] Release notes are now one short line per change with an area tag, and older entries were shortened and tagged to match.
+- [Extension] Audible's LGBTQ2S+ category starts on "skip" in the Add to library window.
+- [Extension] Romance.io books always offer "Romance" as a genre tag.
+- [Extension] Tags added from the extension are spelled consistently: tropes in lower case, genres with a capital on each word (a spelling you already use is kept).
+- [Extension] The Add to library window only offers Genre, Trope, Theme or skip for each tag; moods, paces and warnings from the page are hidden.
+- [Desktop] Searching locations now lists country-only matches first, then area-only, city-only, area + country, city + country, city + area, and finally ones with all three.
+- [Mobile] The location search lists matches in the same order.
+- [Desktop] A narrator's Characters voiced shows the first 7, with See All opening a window of character, book and series.
+- [Database] Accents you made earlier now have a color too, like new ones.
+- [Extension] The tag "Contemporary" is never offered when adding a book, from any site.
+- [Extension] When a page has both Romance and Dark Romance, Romance starts as skip.
+- [Extension] Audible tags are only picked when you already have a matching tag.
+- [Extension] "Westerns" is added as the genre "Western".
+- [Database] A Dark Romance book also counts as Romance in goals, the dashboard, author and narrator pages, and tag search. Each book is counted once.
 
 ### Fixed
 - [Extension] Audible titles no longer show symbol codes (like &#39;); the normal apostrophe and other symbols are used.
 - [Extension] Books saved earlier with a symbol code in the title are now found when you add or fill them in from the extension.
+- [Extension] A StoryGraph book with no ISBN ("None" on the page) is no longer matched to another book that also has none; only real ISBNs and ASINs identify a book.
+- [Extension] Audible: if the page's structured data is missing or changed, the title, authors and narrators are now read from the page's own links instead of the book being skipped.
+- [Extension] Audible book pages whose address contains /ac/ (not only /pd/) are now recognised.
+- [Desktop] On a long list of characters voiced, a narrator's row no longer squeezes the accent; the characters wrap and the accent sits beside the rating.
+- [Desktop] The remove button on a narrator is now a small icon in the top right of its box, so the row stays on one line.
 
 ## 0.2.14 — 2026-10-22
 

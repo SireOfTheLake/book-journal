@@ -79,6 +79,10 @@ export default function ChallengePage() {
     return {
       fill: (s, r) => run(() => repo.fillSlot(db, s, r)), clear: (s) => run(() => repo.clearSlot(db, s)), search: (q) => repo.searchReads(db, id, q),
       reroll: (s) => run(() => usmap.rerollStateColor(db, s)),
+      place: (s, p) => run(() => usmap.setSlotPlace(db, s, p)),
+      bonus: (m) => run(() => usmap.setBonusMode(db, id, m)),
+      australia: (on) => run(() => usmap.setAustralia(db, id, on)),
+      limit: (n) => run(async () => { const lost = await usmap.setMapLimit(db, id, n); if (lost) setError(`${lost} ${lost === 1 ? 'book was' : 'books were'} in boxes without a place and ${lost === 1 ? 'was' : 'were'} taken off this challenge.`); }),
       describe: (t) => run(() => repo.setChallengeDescription(db, id, t)), rename: (n) => run(() => repo.renameChallenge(db, id, n)), color: (h) => run(() => repo.setChallengeColor(db, id, h)),
       remove: () => { repo.deleteChallenge(db, id).then(() => nav('/journal/challenges'), (e) => setError(String(e))); },
     };

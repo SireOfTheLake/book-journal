@@ -185,6 +185,12 @@ pub fn run() {
         description: "colors for existing accents",
         sql: include_str!("../migrations/0032_accent_colors.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 33,
+        description: "map challenges: regions, bonus places and limited challenges",
+        sql: include_str!("../migrations/0033_map_challenges.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

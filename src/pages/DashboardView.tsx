@@ -73,7 +73,7 @@ export function StickerGrid({ stickers }: { stickers: Sticker[] }) {
         } as React.CSSProperties) : undefined;
         return (
         <div style={style} className={s.word ? 'dsticker dword' : s.usMap ? 'dsticker dstate' : loose ? 'dsticker dloose' : 'dsticker'} key={`${s.challenge_id}${i}`} title={`${s.challenge}: ${s.label}${s.note ? ` — ${s.note}` : ''} (${s.title})`}>
-          {s.word ? <WordTilesRow tiles={s.word} label={s.label} /> : s.usMap ? <StateShape name={s.label} color={s.color} size={64} /> : s.kind === 'bingo' ? <BingoTile label={s.label} art={s.art} color={s.color ?? '#a65e3a'} />
+          {s.word ? <WordTilesRow tiles={s.word} label={s.label} /> : s.usMap ? <StateShape region={s.region} name={s.label} color={s.color} size={s.region && s.region !== 'us' ? 72 : 64} /> : s.kind === 'bingo' ? <BingoTile label={s.label} art={s.art} color={s.color ?? '#a65e3a'} />
             : s.cover ? <img src={s.cover} alt={s.title} /> : s.art ? <img src={s.art} alt={s.label} /> : <div className="dsfallback"><span>{s.title}</span></div>}
         </div>
         );

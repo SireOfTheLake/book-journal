@@ -1,4 +1,6 @@
 import type { Db } from '../db/adapter';
+import { SHOWN_SQL } from '../domain/challenges';
+import { isMapId, type MapId } from '../domain/maps';
 import { BOOK_GENRE_ROLLUP } from './genreRollup';
 import { countMakeups, dayBefore, firstName, nonUsCountry, usState, monthRange, pageDots, sourceMix, splitProgress, starDots, topCounts, uniqueCounts, type Counted, type DotColumn, type Split, type SourceMix } from '../domain/dashboard';
 import { metricInfo, type Metric } from '../domain/goals';
@@ -18,7 +20,7 @@ export interface GoalSplit {
   before: number; month: number; total: number; split: Split;
 }
 export type WordTile = { letter: string; src: string | null } | null; // null = the blank for a space
-export interface Sticker { challenge_id: string; challenge: string; kind: string; label: string; art: string | null; cover: string | null; color: string | null; book_id: string; title: string; note?: string | null; word?: WordTile[]; usMap?: boolean } // word: a Word Builder entry, spelled out in letter stickers
+export interface Sticker { region?: MapId; challenge_id: string; challenge: string; kind: string; label: string; art: string | null; cover: string | null; color: string | null; book_id: string; title: string; note?: string | null; word?: WordTile[]; usMap?: boolean } // word: a Word Builder entry, spelled out in letter stickers
 export interface ChallengeMonth { id: string; name: string; kind: string; color: string | null; total: number; before: number; month: number; split: Split }
 
 export interface DashboardCore {
@@ -63,13 +65,13 @@ async function perBook(db: Db, sql: string, ids: string[], pick: (r: { n: string
 
 // Challenge prompts filled by reads, with the date of the read (finish date, else start date).
 async function loadCompletions(db: Db, year: number) {
-  return db.select<{ challenge_id: string; slot_id: string; label: string; position: number; slot_color: string | null; kind: string; read_id: string; book_id: string; title: string; date: string | null; art_id: string | null; cover_id: string | null; word: number; us_map: number; note: string | null }>(
-    `SELECT k.note AS note, c.us_map AS us_map, c.word_builder AS word, c.id AS challenge_id, s.id AS slot_id, s.label AS label, s.position AS position, s.color AS slot_color, c.kind AS kind, k.read_id AS read_id, b.id AS book_id, b.title AS title,
+  return db.select<{ challenge_id: string; slot_id: string; label: string; position: number; slot_color: string | null; kind: string; read_id: string; book_id: string; title: string; date: string | null; art_id: string | null; cover_id: string | null; word: number; us_map: number; map_region: string | null; note: string | null }>(
+    `SELECT k.note AS note, c.us_map AS us_map, c.map_region AS map_region, c.word_builder AS word, c.id AS challenge_id, s.id AS slot_id, s.label AS label, s.position AS position, s.color AS slot_color, c.kind AS kind, k.read_id AS read_id, b.id AS book_id, b.title AS title,
        COALESCE(r.finish_date, r.start_date) AS date, s.art_image_id AS art_id, b.cover_image_id AS cover_id
      FROM challenge_completion k JOIN challenge_slot s ON s.id = k.slot_id AND s.deleted_at IS NULL
        JOIN challenge c ON c.id = k.challenge_id AND c.deleted_at IS NULL JOIN journal_year y ON y.id = c.journal_year_id AND y.year = ? AND y.deleted_at IS NULL
        JOIN read r ON r.id = k.read_id AND r.deleted_at IS NULL JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL
-     WHERE k.deleted_at IS NULL AND r.status = 'finished' ORDER BY COALESCE(r.finish_date, r.start_date), COALESCE(r.finish_time, ''), r.created_at, r.rowid, c.sort_order, c.created_at, c.rowid, s.position`, [year]);
+     WHERE k.deleted_at IS NULL AND r.status = 'finished' AND ${SHOWN_SQL} ORDER BY COALESCE(r.finish_date, r.start_date), COALESCE(r.finish_time, ''), r.created_at, r.rowid, c.sort_order, c.created_at, c.rowid, s.position`, [year]);
 }
 
 function goalSplit(f: Facts, g: Awaited<ReturnType<typeof listGoals>>[number], year: number, from: string, to: string, prevEnd: string, completions: Awaited<ReturnType<typeof loadCompletions>>, totals: Map<string, number>): GoalSplit | null {
@@ -145,7 +147,7 @@ async function buildDashboard(db: Db, year: number, from: string, to: string, to
   const letterSets = new Map<string, Record<string, string>>();
   for (const id of new Set(inMonth.filter((k) => k.word).map((k) => k.challenge_id))) letterSets.set(id, await letterMap(db, id));
   const stickers: Sticker[] = inMonth.map((k) => ({
-    usMap: k.us_map ? true : undefined,
+    usMap: k.us_map ? true : undefined, region: k.us_map ? (isMapId(k.map_region) ? k.map_region : 'us') : undefined,
     word: k.word ? wordLetters(k.label).map((l) => (l === null ? null : { letter: l, src: letterSets.get(k.challenge_id)?.[l] ?? null })) : undefined,
     challenge_id: k.challenge_id, challenge: nameOf.get(k.challenge_id) ?? '', kind: k.kind, label: k.label || `Square ${k.position + 1}`,
     // a Grid shows the book's cover; Sticker and Bingo show the prompt's picture (Bingo falls back to its colored words)

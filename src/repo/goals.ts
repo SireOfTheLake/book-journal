@@ -2,7 +2,7 @@ import { byTitle } from '../domain/sortKey';
 import { BOOK_GENRE_ROLLUP } from './genreRollup';
 import type { Db } from '../db/adapter';
 import { autoLabel, metricInfo, paceOf, parseDisplay, parseFilters, parseIds, yearRange, type GoalDisplay, type GoalFilter, type Metric, type Pace } from '../domain/goals';
-import { TOTAL_SQL } from '../domain/challenges';
+import { DONE_SQL, TOTAL_SQL } from '../domain/challenges';
 import { newId } from '../domain/ids';
 import { pagesPerDay, type PageRead } from '../domain/pages';
 import { readingDays, streaksFor, type Format, type Streaks, type StreakRead } from '../domain/streaks';
@@ -184,9 +184,7 @@ export async function loadFacts(db: Db): Promise<Facts> {
   const challenges = await db.select<{ id: string; year: number; total: number; done: number }>(
     `SELECT c.id AS id, y.year AS year,
        ${TOTAL_SQL} AS total,
-       (SELECT count(*) FROM challenge_slot s JOIN challenge_completion k ON k.slot_id = s.id AND k.deleted_at IS NULL
-          JOIN read kr ON kr.id = k.read_id AND kr.deleted_at IS NULL AND kr.status = 'finished'
-          WHERE s.challenge_id = c.id AND s.deleted_at IS NULL AND (s.is_free = 0 OR s.label <> '' OR s.art_image_id IS NOT NULL)) AS done
+       ${DONE_SQL} AS done
      FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id WHERE y.deleted_at IS NULL AND c.deleted_at IS NULL`);
   return { reads, entries, genres, tropes, series, challenges };
 }

@@ -37,6 +37,10 @@ function countryGeometry(name: string): Feat {
   return f;
 }
 const countries: Feat[] = COUNTRIES.map(countryGeometry);
+// England, Scotland, Wales and Northern Ireland (Natural Earth map units, 10m: download ne_10m_admin_0_map_units.geojson to /tmp/geo/mu10m.json). They are drawn too, and shown instead of the United Kingdom when a challenge separates it.
+const UK_NATIONS: Feat[] = read('/tmp/geo/mu10m.json').features.filter((f: Feat) => ['England', 'Scotland', 'Wales', 'Northern Ireland'].includes(f.properties.GEOUNIT))
+  .map((f: Feat) => ({ type: 'Feature', properties: { name: f.properties.GEOUNIT }, geometry: f.geometry }));
+if (UK_NATIONS.length !== 4) throw new Error('Expected 4 UK nations');
 
 // ---------- helpers ----------
 // Douglas-Peucker on longitude/latitude: drops points closer than `tol` degrees to a straight line, and islands too small to see.
@@ -160,7 +164,8 @@ const worldProj = () => d3.geoEqualEarth().rotate([-10, 0]);
   proj.fitWidth(W, land);
   const path = d3.geoPath(proj);
   const H = Math.ceil(path.bounds(land)[1][1]) + 2;
-  ts('world', { width: W, height: H, shapes: shapesFor(sc, proj, W, H, 7) }, 'Every country on one map.');
+  const ukW = UK_NATIONS.map((f) => simp(f, tolW));
+  ts('world', { width: W, height: H, shapes: [...shapesFor(sc, proj, W, H, 7), ...shapesFor(ukW, proj, W, H, 7)] }, 'Every country on one map (and the four nations of the United Kingdom).');
 
   // Continents: each one is its countries joined (and the territories that belong with them). Russia is cut at the Urals.
   const territories: Record<string, string[]> = {
@@ -217,6 +222,7 @@ for (const c of CONTINENT_NAMES) {
   proj.fitWidth(W - 2, target);
   const tolC = degTol(proj);
   const feats = raw.map((f) => simp(f, tolC));
+  if (c === 'Europe') feats.push(...UK_NATIONS.map((f) => simp(f, tolC)));
   const [tx, ty] = proj.translate();
   proj.translate([tx + 1, ty + 1]);
   const b = d3.geoPath(proj).bounds(target);

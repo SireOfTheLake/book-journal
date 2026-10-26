@@ -4,7 +4,7 @@ import { migrateNodeDb } from '../src/db/nodeDb';
 import { createBook } from '../src/repo/books';
 import { createRead, updateRead } from '../src/repo/bookLog';
 import { clearSlot, fillSlot, getChallenge, listChallenges } from '../src/repo/challenges';
-import { createMap, createUsMap, setAustralia, setBonusMode, setMapLimit, setSlotPlace } from '../src/repo/usmap';
+import { createMap, createUsMap, setAustralia, setBonusMode, setMapLimit, setSlotPlace, setUkSplit } from '../src/repo/usmap';
 
 let db: Db;
 beforeEach(() => { db = migrateNodeDb(); });
@@ -91,5 +91,46 @@ describe('map challenges', () => {
     expect((await getChallenge(db, id))!.done).toBe(1);
     await setBonusMode(db, id, 'off');
     await expect(setSlotPlace(db, c.loose[1].id, 'Yukon')).rejects.toThrow('not one of');
+  });
+});
+
+describe('the United Kingdom', () => {
+  it('can be one place or four nations on the world and Europe maps', async () => {
+    const id = await createMap(db, { year: Y, name: 'E', region: 'europe' });
+    const names = async () => (await getChallenge(db, id))!.loose.map((s) => s.label);
+    expect(await names()).toContain('United Kingdom');
+    await setUkSplit(db, id, true);
+    const split = await names();
+    expect(split).not.toContain('United Kingdom');
+    expect(split).toEqual(expect.arrayContaining(['England', 'Northern Ireland', 'Scotland', 'Wales']));
+    expect((await getChallenge(db, id))!.total).toBe(split.length);
+    await setUkSplit(db, id, false);
+    expect(await names()).toContain('United Kingdom');
+    expect(await names()).not.toContain('Wales');
+  });
+  it('keeps a book through a split and a merge, and refuses a merge that would lose books', async () => {
+    const id = await createMap(db, { year: Y, name: 'W', region: 'world' });
+    await fillSlot(db, (await slot(id, 'United Kingdom')).id, await read('uk'));
+    await setUkSplit(db, id, true);
+    expect((await slot(id, 'England')).fill).toBeTruthy();
+    await fillSlot(db, (await slot(id, 'Wales')).id, await read('w'));
+    await expect(setUkSplit(db, id, false)).rejects.toThrow('More than one nation');
+    await clearSlot(db, (await slot(id, 'England')).id);
+    await setUkSplit(db, id, false);
+    expect((await slot(id, 'United Kingdom')).fill).toBeTruthy();
+  });
+  it('limited maps offer the nations as places, and other maps ignore the option', async () => {
+    const id = await createMap(db, { year: Y, name: 'W', region: 'world', limit: 2, ukSplit: true });
+    const c = (await getChallenge(db, id))!;
+    expect(c.ukSplit).toBe(true);
+    await setSlotPlace(db, c.loose[0].id, 'Scotland');
+    await expect(setSlotPlace(db, c.loose[1].id, 'United Kingdom')).rejects.toThrow('not one of');
+    const af = await createMap(db, { year: Y, name: 'A', region: 'africa', ukSplit: true });
+    expect((await getChallenge(db, af))!.ukSplit).toBe(false);
+  });
+  it('keeps the Australia option when the UK is split', async () => {
+    const id = await createMap(db, { year: Y, name: 'C', region: 'continents', australia: true });
+    expect((await getChallenge(db, id))!).toMatchObject({ australia: true, ukSplit: false });
+    await expect(setUkSplit(db, id, true)).rejects.toThrow('United Kingdom');
   });
 });

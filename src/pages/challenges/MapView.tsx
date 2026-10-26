@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { hasBonusPlaces, mapDef, mapPlaces, placeLabel, type BonusMode } from '../../domain/maps';
+import { canSplitUk, hasBonusPlaces, mapDef, mapPlaces, placeLabel, type BonusMode } from '../../domain/maps';
 import type { Candidate, Challenge, Slot } from '../../repo/challenges';
 import StateShape from '../../ui/StateShape';
 import { FitText, SaveText, Swatches } from './GridView';
@@ -14,8 +14,10 @@ export interface MapActions {
   search(query: string): Promise<Candidate[]>;
   reroll(slotId: string): void;
   place(slotId: string, place: string | null): void;
+  fillPlace(place: string, readId: string): void;
   bonus(mode: BonusMode): void;
   australia(on: boolean): void;
+  ukSplit(on: boolean): void;
   limit(n: number | null): void;
   rename(name: string): void;
   color(hex: string): void;
@@ -31,6 +33,7 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [picking, setPicking] = useState<Slot | null>(null);
+  const [pickingPlace, setPickingPlace] = useState<string | null>(null); // a place chosen on the map of a limited challenge that has no box yet
   const [hover, setHover] = useState<string | null>(null);
   const [onlyEmpty, setOnlyEmpty] = useState(false);
   const [limitText, setLimitText] = useState(String(c.mapLimit ?? mapDef(c.mapRegion).defaultLimit));
@@ -41,8 +44,9 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
   const filled = slots.filter((s) => s.fill && (!limited || s.label)).length;
   const shown = onlyEmpty ? slots.filter((s) => !s.fill) : slots;
   const hovered = hover ? byName.get(hover) ?? null : null;
+  const choose = (label: string) => { const slot = byName.get(label); if (slot) setPicking(slot); else if (limited) setPickingPlace(label); };
   const taken = new Set(slots.map((s) => s.label).filter(Boolean));
-  const options = mapPlaces(region.id, c.bonusMode, c.australia);
+  const options = mapPlaces(region.id, c.bonusMode, c.australia, c.ukSplit);
   const unplaced = limited ? slots.filter((s) => s.fill && !s.label).length : 0;
   const what = limited ? `${filled} of ${slots.length} boxes` : `${filled} of ${slots.length} ${region.plural}`;
   return (
@@ -67,6 +71,7 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
               <option value="off">Not included</option>
             </select></label>}
           {region.id === 'continents' && <label className="check"><input type="checkbox" checked={c.australia} onChange={(e) => act.australia(e.target.checked)} /> Call Oceania "Australia"</label>}
+          {canSplitUk(region.id) && <label className="check"><input type="checkbox" checked={c.ukSplit} onChange={(e) => act.ukSplit(e.target.checked)} /> Separate the United Kingdom into England, Northern Ireland, Scotland and Wales</label>}
           <span className="movebtns">
             <label className="check"><input type="checkbox" checked={limited} onChange={(e) => act.limit(e.target.checked ? Math.max(1, Number(limitText) || region.defaultLimit) : null)} /> Limited: complete after</label>
             {limited && <><input className="field small" type="number" min={1} max={options.length} aria-label="Complete after" value={limitText} onChange={(e) => setLimitText(e.target.value)} />
@@ -85,13 +90,14 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
             const slot = byName.get(label);
             if (!limited && !slot) return null; // a place that is left out is not drawn
             if (limited && !slot && !options.some((o) => o.name === label)) return null;
+            const open = slot || limited;
             const f = slot?.fill;
             const fillColor = f && f.status === 'finished' ? slot?.color ?? c.color : null;
             const props = {
               className: `ust${f ? ' filled' : ''}${st.marker ? ' tiny' : ''}${hover === label ? ' hot' : ''}`, style: fillColor ? { fill: fillColor } : undefined,
-              role: 'button', tabIndex: 0, 'aria-label': f ? `${label}: ${f.title}` : `${label}${slot ? ': add a book' : ''}`,
+              role: 'button', tabIndex: 0, 'aria-label': f ? `${label}: ${f.title}` : `${label}${open ? ': add a book' : ''}`,
               onMouseEnter: () => setHover(label), onMouseLeave: () => setHover(null), onFocus: () => setHover(label), onBlur: () => setHover(null),
-              onClick: () => slot && setPicking(slot), onKeyDown: (e: React.KeyboardEvent) => { if ((e.key === 'Enter' || e.key === ' ') && slot) { e.preventDefault(); setPicking(slot); } },
+              onClick: () => choose(label), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); choose(label); } },
             };
             return (
               <g key={st.name}>
@@ -103,8 +109,9 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
           })}
         </svg>
         <div className="usmapcap" aria-live="polite">
-          {hovered ? <><strong>{hovered.label}</strong>{hovered.fill ? <span className="muted"> · {hovered.fill.title}{hovered.fill.authors ? ` by ${hovered.fill.authors}` : ''}</span> : <span className="muted"> · no book yet, click to add one</span>}</>
-            : <span className="muted">{filled === 0 ? (limited ? `Add a book to a box and choose its ${region.noun}. It fills in here.` : `Click a ${region.noun} to add a book. It fills in with its own color.`) : `${what} filled in. Point at one to see its book.`}</span>}
+          {hover && !hovered ? <><strong>{hover}</strong><span className="muted"> · no book yet, click to add one</span></>
+            : hovered ? <><strong>{hovered.label}</strong>{hovered.fill ? <span className="muted"> · {hovered.fill.title}{hovered.fill.authors ? ` by ${hovered.fill.authors}` : ''}</span> : <span className="muted"> · no book yet, click to add one</span>}</>
+            : <span className="muted">{filled === 0 ? (limited ? `Click a ${region.noun} on the map to add a book, or add a book to a box and choose its ${region.noun}.` : `Click a ${region.noun} to add a book. It fills in with its own color.`) : `${what} filled in. Point at one to see its book.`}</span>}
         </div>
       </section>
       <div className="usmaptools">
@@ -141,6 +148,7 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
         })}
       </ul>
       {onlyEmpty && shown.length === 0 && <p className="muted">Every {limited ? 'box' : region.noun} has a book. Nice.</p>}
+      {pickingPlace && <ReadPicker prompt={pickingPlace} search={act.search} onClose={() => setPickingPlace(null)} onPick={(readId) => { act.fillPlace(pickingPlace, readId); setPickingPlace(null); }} />}
       {picking && <ReadPicker prompt={picking.label || `Book ${slots.indexOf(picking) + 1}`} search={act.search} onClose={() => setPicking(null)} onPick={(readId) => { act.fill(picking.id, readId); setPicking(null); }} />}
     </div>
   );

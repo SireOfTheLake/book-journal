@@ -5,7 +5,7 @@ import type { BankSummary } from '../repo/bingo';
 import type { ChallengeSummary, NewGrid, NewSticker, StickerImage } from '../repo/challenges';
 import type { NewWordBuilder } from '../repo/words';
 import type { NewMap as NewUsMap } from '../repo/usmap';
-import { MAPS, MAP_IDS, hasBonusPlaces, mapPlaces, type BonusMode, type MapId } from '../domain/maps';
+import { MAPS, MAP_IDS, canSplitUk, hasBonusPlaces, mapPlaces, type BonusMode, type MapId } from '../domain/maps';
 import LetterStickers from '../ui/LetterStickers';
 import { fileToDataUrl } from '../ui/imageFile';
 import StickerStaging, { type Staged } from './challenges/StickerStaging';
@@ -38,6 +38,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   const [mapId, setMapId] = useState<MapId>('us');
   const [bonus, setBonus] = useState<BonusMode>('off');
   const [australia, setAustralia] = useState(false);
+  const [ukSplit, setUkSplit] = useState(false);
   const [limited, setLimited] = useState(false);
   const [limit, setLimit] = useState('25');
   const pickMap = (id: MapId) => { setMapId(id); setBonus(id === 'us' ? 'off' : 'optional'); setLimit(String(MAPS[id].defaultLimit)); if (!name.trim() || MAP_IDS.some((m) => MAPS[m].defaultName === name)) setName(MAPS[id].defaultName); };
@@ -58,7 +59,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
     try {
       const onCreate = (i: CreateInput) => onCreateWith(i, description.trim() || undefined);
       if (kind === 'bingo') { await onCreate({ year, name, bankId: bank ? bank.id : null, newBankPrompts: bank ? [] : splitPrompts(bankText), preferUnused: bank?.lastYear ? prefer : false, freeText }); return; }
-      if (kind === 'map') { await onCreate({ usMap: true, year, name, color, region: mapId, bonus: hasBonusPlaces(mapId) ? bonus : mapId === 'us' ? 'off' : 'optional', australia, limit: limited ? Number(limit) : null }); return; }
+      if (kind === 'map') { await onCreate({ usMap: true, year, name, color, region: mapId, bonus: hasBonusPlaces(mapId) ? bonus : mapId === 'us' ? 'off' : 'optional', australia, ukSplit, limit: limited ? Number(limit) : null }); return; }
       if (kind === 'word') { await onCreate({ word: true, year, name, color, theme, target: target.trim() ? Number(target) : null, letters }); return; }
       if (kind === 'sticker') { await onCreate({ year, name, color, groups: stickerGroups.map((g, i) => ({ name: g, color: accentAt(i + 1) })), stickers: staged.map((s) => ({ prompt: s.prompt, image: s.image, group: s.group })) }); return; }
       await onCreate({ year, name, color, prompts: splitPrompts(main), groups: groups.map((g, i) => ({ name: g.name, color: accentAt(i + 1), prompts: splitPrompts(g.text) })) });
@@ -105,8 +106,9 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
               <option value="off">Not included</option>
             </select></label>}
           {mapId === 'continents' && <label className="check"><input type="checkbox" checked={australia} onChange={(e) => setAustralia(e.target.checked)} /> Call Oceania "Australia"</label>}
+          {canSplitUk(mapId) && <label className="check"><input type="checkbox" checked={ukSplit} onChange={(e) => setUkSplit(e.target.checked)} /> Separate the United Kingdom into England, Northern Ireland, Scotland and Wales</label>}
           <label className="check"><input type="checkbox" checked={limited} onChange={(e) => setLimited(e.target.checked)} /> Limited: complete after a number of {MAPS[mapId].plural}</label>
-          {limited && <label className="stack"><span className="lbl2">Complete after (1 to {mapPlaces(mapId, bonus, australia).length})</span><input className="field small" type="number" min={1} aria-label="Complete after" value={limit} onChange={(e) => setLimit(e.target.value)} /></label>}
+          {limited && <label className="stack"><span className="lbl2">Complete after (1 to {mapPlaces(mapId, bonus, australia, ukSplit).length})</span><input className="field small" type="number" min={1} aria-label="Complete after" value={limit} onChange={(e) => setLimit(e.target.value)} /></label>}
           <span className="muted small">{limited ? `You get ${limit || 'N'} boxes. Put a book in a box, then choose which ${MAPS[mapId].noun} it is for. A box counts once it has a place, and each place can be used once.` : `A card for every ${MAPS[mapId].noun}. Put a book on one and it fills in on the map.`}</span>
         </>
       ) : kind === 'word' ? (

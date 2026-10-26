@@ -173,3 +173,24 @@ describe('creating other maps from the form', () => {
     expect(c).toMatchObject({ mapRegion: 'canada', total: 10 });
   });
 });
+
+describe('a limited map, from the map itself', () => {
+  it('picking a place on the map puts the book in the earliest empty box', async () => {
+    const { createMap } = await import('../src/repo/usmap');
+    await read('Wanderer');
+    const id = await createMap(db, { year: Y, name: 'World', region: 'world', limit: 3 });
+    wrap(`/journal/challenges/${id}`, <ChallengePage />, '/journal/challenges/:id');
+    const map = await screen.findByRole('group', { name: 'Countries' });
+    const france = within(map).getByRole('button', { name: 'France: add a book' });
+    fireEvent.mouseEnter(france);
+    expect(document.querySelector('.usmapcap')!.textContent).toMatch(/France/);
+    fireEvent.click(france);
+    fireEvent.click(await screen.findByText('Wanderer'));
+    await waitFor(async () => {
+      const c = (await getChallenge(db, id))!;
+      expect(c.loose[0]).toMatchObject({ label: 'France' });
+      expect(c.loose[0].fill).toBeTruthy();
+      expect(c.done).toBe(1);
+    });
+  });
+});

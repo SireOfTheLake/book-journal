@@ -64,9 +64,19 @@ export const placeLabel = (region: MapId, name: string, australia: boolean): str
 export const shapeName = (region: MapId, label: string): string => (region === 'continents' && label === AUSTRALIA ? OCEANIA : label);
 export const shapeOf = (region: MapId, label: string): MapShape | null => mapDef(region).geo.shapes.find((s) => s.name === shapeName(region, label)) ?? null;
 
-// The places that can be prompts for a map, with the continent called Australia when asked. `bonus: 'off'` leaves the bonus places out.
-export function mapPlaces(region: MapId, bonus: BonusMode, australia = false): MapPlace[] {
-  return mapDef(region).places.filter((p) => !p.bonus || bonus !== 'off').map((p) => ({ ...p, name: placeLabel(region, p.name, australia) }));
+// The United Kingdom can be split into its four nations on the world map and the Europe map.
+export const UK = 'United Kingdom';
+export const UK_NATIONS = ['England', 'Northern Ireland', 'Scotland', 'Wales'];
+export const canSplitUk = (region: MapId) => region === 'world' || region === 'europe';
+// The options of a map challenge are kept in one number (the column is called map_australia from when Australia was the only one): 1 = Oceania is called Australia, 2 = the UK is split.
+export const optionBits = (o: { australia?: boolean; ukSplit?: boolean }) => (o.australia ? 1 : 0) | (o.ukSplit ? 2 : 0);
+export const optionsOf = (bits: number | null | undefined) => ({ australia: !!((bits ?? 0) & 1), ukSplit: !!((bits ?? 0) & 2) });
+
+// The places that can be prompts for a map, with the continent called Australia when asked and the UK split when asked. `bonus: 'off'` leaves the bonus places out.
+export function mapPlaces(region: MapId, bonus: BonusMode, australia = false, ukSplit = false): MapPlace[] {
+  let list: MapPlace[] = mapDef(region).places.filter((p) => !p.bonus || bonus !== 'off').map((p) => ({ ...p, name: placeLabel(region, p.name, australia) }));
+  if (ukSplit && canSplitUk(region)) list = [...list.filter((p) => p.name !== UK), ...UK_NATIONS.map((name): MapPlace => ({ name }))].sort((a, b) => Number(!!a.bonus) - Number(!!b.bonus) || byName(a.name, b.name));
+  return list;
 }
 export const hasBonusPlaces = (region: MapId) => mapDef(region).places.some((p) => p.bonus);
 export const baseCount = (region: MapId) => mapDef(region).places.filter((p) => !p.bonus).length;

@@ -22,7 +22,7 @@ export interface Group { id: string; name: string; color: string; slots: Slot[] 
 export interface Challenge extends Tracker {
   id: string; name: string; kind: ChallengeKind; color: string; year: number;
   bingo: BingoInfo | null; layout: Layout; groups: Group[]; loose: Slot[]; // loose = prompts that belong to the main category only
-  usMap: boolean; mapRegion: MapId | null; bonusMode: BonusMode; mapLimit: number | null; australia: boolean; bonus: Bonus | null; // usMap = any map challenge; mapLimit: "complete after N" with N boxes
+  usMap: boolean; mapRegion: MapId | null; bonusMode: BonusMode; mapLimit: number | null; australia: boolean; ukSplit: boolean; bonus: Bonus | null; // usMap = any map challenge; mapLimit: "complete after N" with N boxes
   description: string | null; askNote: boolean; noteLabel: string; // askNote: every prompt asks for a short note; noteLabel: what it is called
   word: boolean; theme: string | null; target: number | null; letters: Record<string, string>; // Word Builder: the theme of the words, how many words to aim for, and the sticker picture for each letter
 }
@@ -72,7 +72,7 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
     groups: groups.map((g, i) => ({ id: g.id, name: g.name, color: g.color && isHexColor(g.color) ? g.color : accentAt(i + 1), slots: slots.filter((s) => s.group_id === g.id) })),
     loose: slots.filter((s) => !s.group_id || !groups.some((g) => g.id === s.group_id)),
     bingo: c.kind === 'bingo' ? { published: !!c.published, palette: parsePalette(c.palette), bankId: c.bank_id, bankName: c.bank_name, preferUnused: !!c.prefer_unused } : null,
-    usMap: !!c.usMap, mapRegion: c.usMap ? (isMapId(c.map_region) ? c.map_region : 'us') : null, bonusMode, mapLimit: c.map_limit, australia: !!c.map_australia,
+    usMap: !!c.usMap, mapRegion: c.usMap ? (isMapId(c.map_region) ? c.map_region : 'us') : null, bonusMode, mapLimit: c.map_limit, australia: !!(c.map_australia & 1), ukSplit: !!(c.map_australia & 2),
     bonus: bonusSlots.length ? { done: bonusSlots.filter((s) => s.fill?.status === 'finished').length, total: bonusSlots.length } : null, description: c.description, askNote: !!c.ask_note, noteLabel: c.note_label?.trim() || 'Note', word: !!c.word, theme: c.theme, target: c.target, letters: c.word ? await letterMap(db, id) : {},
     ...tracker(done, c.word ? Math.max(c.target ?? 0, counted.length) : counted.length),
   };

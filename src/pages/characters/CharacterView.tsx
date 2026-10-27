@@ -170,13 +170,13 @@ export default function CharacterView({ d, lists, act }: { d: CharacterDetail; l
           <Card label="Identity">
             <span className="muted">Gender</span>
             <Seg label="Gender" value={c.gender} onChange={(v) => act.update({ gender: v })} options={[...GENDERS]} />
-            <label className="inline"><input type="checkbox" aria-label="Transgender" checked={c.is_transgender === 1} onChange={(e) => act.update({ is_transgender: e.target.checked ? 1 : 0 })} /><span className="muted">Transgender</span></label>
+            <label className="inline"><input type="checkbox" role="switch" className="toggle" aria-label="Transgender" checked={c.is_transgender === 1} onChange={(e) => act.update({ is_transgender: e.target.checked ? 1 : 0 })} /><span className="muted">Transgender</span></label>
             <span className="muted">Age {ageText(c.age_min, c.age_max) && <b>{ageText(c.age_min, c.age_max)}{c.age_is_approximate ? ' (approx.)' : ''}</b>}</span>
             <span className="inline">
               <EditText label="Youngest age" addLabel="Add age" type="number" value={c.age_min} onCommit={(v) => act.update({ age_min: v === '' ? null : Number(v), ...(c.age_max === null && v !== '' ? { age_max: Number(v) } : {}) })} />
               <span className="muted">to</span>
               <EditText label="Oldest age" addLabel="same" type="number" value={c.age_max} onCommit={(v) => act.update({ age_max: v === '' ? null : Number(v) })} />
-              <label className="inline"><input type="checkbox" aria-label="Approximate age" checked={c.age_is_approximate === 1} onChange={(e) => act.update({ age_is_approximate: e.target.checked ? 1 : 0 })} /><span className="muted small">approx.</span></label>
+              <label className="inline"><input type="checkbox" role="switch" className="toggle" aria-label="Approximate age" checked={c.age_is_approximate === 1} onChange={(e) => act.update({ age_is_approximate: e.target.checked ? 1 : 0 })} /><span className="muted small">approx.</span></label>
             </span>
             <span className="muted">Status</span>
             <EditSelect label="Life status" addLabel="Add status" value={c.life_status} options={LIFE_OPTIONS} onChange={(v) => act.update({ life_status: v })} />

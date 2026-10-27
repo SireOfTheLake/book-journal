@@ -68,9 +68,9 @@ export const shapeOf = (region: MapId, label: string): MapShape | null => mapDef
 export const UK = 'United Kingdom';
 export const UK_NATIONS = ['England', 'Northern Ireland', 'Scotland', 'Wales'];
 export const canSplitUk = (region: MapId) => region === 'world' || region === 'europe';
-// The options of a map challenge are kept in one number (the column is called map_australia from when Australia was the only one): 1 = Oceania is called Australia, 2 = the UK is split.
-export const optionBits = (o: { australia?: boolean; ukSplit?: boolean }) => (o.australia ? 1 : 0) | (o.ukSplit ? 2 : 0);
-export const optionsOf = (bits: number | null | undefined) => ({ australia: !!((bits ?? 0) & 1), ukSplit: !!((bits ?? 0) & 2) });
+// The options of a map challenge are kept in one number (the column is called map_australia from when Australia was the only one): 1 = Oceania is called Australia, 2 = the UK is split, 4 = a limited challenge allows extra places as bonuses.
+export const optionBits = (o: { australia?: boolean; ukSplit?: boolean; extras?: boolean }) => (o.australia ? 1 : 0) | (o.ukSplit ? 2 : 0) | (o.extras ? 4 : 0);
+export const optionsOf = (bits: number | null | undefined) => ({ australia: !!((bits ?? 0) & 1), ukSplit: !!((bits ?? 0) & 2), extras: !!((bits ?? 0) & 4) });
 
 // The places that can be prompts for a map, with the continent called Australia when asked and the UK split when asked. `bonus: 'off'` leaves the bonus places out.
 export function mapPlaces(region: MapId, bonus: BonusMode, australia = false, ukSplit = false): MapPlace[] {

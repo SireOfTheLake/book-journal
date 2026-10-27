@@ -178,7 +178,7 @@ function NoteSettings({ ask, label, onSave }: { ask: boolean; label: string; onS
   const [text, setText] = useState(label === 'Note' ? '' : label);
   return (
     <div className="notesettings">
-      <label className="inline"><input type="checkbox" checked={ask} onChange={(e) => onSave(e.target.checked, text)} /><span>Ask for a note with each book</span></label>
+      <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={ask} onChange={(e) => onSave(e.target.checked, text)} /><span>Ask for a note with each book</span></label>
       <input className="field small" aria-label="What the note is called" placeholder="Called (for example, Character)" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== (label === 'Note' ? '' : label) && onSave(ask, text)} />
       <span className="muted small">Each prompt can also decide for itself; choose that under the prompt.</span>
     </div>

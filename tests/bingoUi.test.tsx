@@ -64,7 +64,7 @@ describe('making a bingo challenge', () => {
     fireEvent.click(await screen.findByRole('button', { name: '+ New challenge' }));
     fireEvent.click(screen.getByRole('button', { name: 'Bingo' }));
     expect(await screen.findByText(new RegExp(`were not on your ${YEAR - 1} board`))).toBeTruthy();
-    expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole('switch') as HTMLInputElement).checked).toBe(true);
   });
   it('lists banks and makes a new one', async () => {
     ui('/journal/challenges');

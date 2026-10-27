@@ -71,7 +71,7 @@ export default function SettingsPage() {
         <hr className="rule" />
         <span className="lbl2">Export your data</span>
         <p className="muted">All of your records as one readable JSON file, to keep or to use in another program. This is not a backup you can restore from.</p>
-        <label className="inline"><input type="checkbox" checked={pictures} onChange={(e) => setPictures(e.target.checked)} /><span className="muted">Include pictures (makes the file much larger)</span></label>
+        <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={pictures} onChange={(e) => setPictures(e.target.checked)} /><span className="muted">Include pictures (makes the file much larger)</span></label>
         <div className="pictools">
           <button type="button" className="btn" disabled={busy !== null || unavailable !== null} onClick={() => run('export', async () => { const r = await exportJson(db, await getEnv(), { includePictures: pictures }); return r ? `Exported ${r.rows.toLocaleString()} records from ${r.tables} tables to ${r.path}${r.includesPictures ? '' : ' (without pictures)'}.` : null; })}>{busy === 'export' ? 'Exporting...' : 'Export all data (JSON)...'}</button>
         </div>

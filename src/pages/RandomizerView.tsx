@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { allCategories, challengeKey, spin, spinTarget, TREAT_KEY, TRICK_KEY, wheelCategories, type Pick, type Rng } from '../domain/randomizer';
+import { allCategories, challengeKey, RANDOM_KEY, spin, spinTarget, TREAT_KEY, TRICK_KEY, wheelCategories, type Pick, type Rng } from '../domain/randomizer';
+import type { LibBook, SeriesPool } from '../domain/randomBook';
 import type { DraftRow, PromptKind, RandomizerData } from '../repo/randomizer';
 import Wheel from '../ui/Wheel';
 import { Card, Seg } from './bookLog/parts';
@@ -10,7 +11,15 @@ export interface RandomizerActions {
   removePrompt(id: string): void;
   start(pick: Pick): Promise<void>;
   discard(bookId: string): void;
+  upNext(bookIds: string[]): Promise<void>;
 }
+
+const RANDOM_OFF = 'bookjournal.randomizer.randomBookOff';
+const readOff = (): boolean => { try { return localStorage.getItem(RANDOM_OFF) === '1'; } catch { return false; } };
+const saveOff = (off: boolean) => { try { if (off) localStorage.setItem(RANDOM_OFF, '1'); else localStorage.removeItem(RANDOM_OFF); } catch { /* not saved */ } };
+// What a random book spin landed on: one book, or a series with its unread books.
+type Drawn = { book: LibBook } | { series: SeriesPool };
+const place = (b: LibBook) => (b.series ? `${b.series}${b.position !== null ? ` #${b.position}` : ''}` : 'Standalone');
 
 function PromptList({ kind, title, prompts, used, act }: { kind: PromptKind; title: string; prompts: { id: string; text: string }[]; used: string[]; act: RandomizerActions }) {
   const [text, setText] = useState('');
@@ -42,7 +51,9 @@ function PromptList({ kind, title, prompts, used, act }: { kind: PromptKind; tit
 }
 
 export default function RandomizerView({ data, drafts, year, act, rng = Math.random, spinMs = 4200 }: { data: RandomizerData; drafts: DraftRow[]; year: number; act: RandomizerActions; rng?: Rng; spinMs?: number }) {
-  const [off, setOff] = useState<Set<string>>(new Set());
+  const [off, setOff] = useState<Set<string>>(() => new Set(readOff() ? [RANDOM_KEY] : []));
+  const [drawn, setDrawn] = useState<Drawn | null>(null);
+  const [added, setAdded] = useState<Set<string>>(new Set());
   const [incompleteOnly, setIncompleteOnly] = useState(true);
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
@@ -51,19 +62,30 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  const cats = allCategories({ trick: data.trick.map((p) => p.text), treat: data.treat.map((p) => p.text), challenges: data.challenges }, incompleteOnly);
+  const cats = allCategories({ trick: data.trick.map((p) => p.text), treat: data.treat.map((p) => p.text), challenges: data.challenges, random: data.random }, incompleteOnly);
   const wheel = wheelCategories(cats, { off, incompleteOnly });
-  const toggle = (key: string) => { setResult(null); setOff((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); return n; }); };
+  const toggle = (key: string) => { setResult(null); setDrawn(null); setOff((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); if (key === RANDOM_KEY) saveOff(n.has(key)); return n; }); };
   const reduced = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const doSpin = () => {
     const got = spin(wheel, rng);
     if (!got) return;
-    setResult(null);
+    setResult(null); setDrawn(null); setAdded(new Set()); setError(null);
     const ms = reduced ? 0 : spinMs;
     setRotation((r) => spinTarget(r, got.category, wheel.length, rng));
     setSpinning(true);
-    timer.current = setTimeout(() => { setSpinning(false); setResult(got.pick); }, ms);
+    timer.current = setTimeout(() => {
+      setSpinning(false); setResult(got.pick);
+      const t = got.pick.randomType;
+      if (got.pick.kind === 'random' && t) {
+        const list = t === 'series' ? data.random.series : data.random[t];
+        const i = Math.min(list.length - 1, Math.floor(rng() * list.length));
+        setDrawn(t === 'series' ? { series: data.random.series[i] } : { book: data.random[t][i] });
+      }
+    }, ms);
+  };
+  const addUp = async (ids: string[]) => {
+    try { await act.upNext(ids); setAdded((a) => new Set([...a, ...ids])); setError(null); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
   const begin = async () => {
     if (!result) return;
@@ -74,7 +96,7 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
     <label key={key} className={count === 0 ? 'rzrow dim' : 'rzrow'}>
       <input type="checkbox" checked={!off.has(key)} disabled={spinning} onChange={() => toggle(key)} />
       <span className="grow">{label}</span>
-      <span className="muted small">{count === 0 ? (hint ?? 'no prompts') : `${count} prompt${count === 1 ? '' : 's'}`}</span>
+      <span className="muted small">{count === 0 ? (hint ?? 'no prompts') : `${key === RANDOM_KEY ? `${count} kind${count === 1 ? '' : 's'}` : `${count} prompt${count === 1 ? '' : 's'}`}`}</span>
     </label>
   );
   const byKey = Object.fromEntries(cats.map((c) => [c.key, c]));
@@ -87,6 +109,7 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
         <Card label="What to randomize">
           {row(TRICK_KEY, 'Trick', byKey[TRICK_KEY].picks.length, 'add prompts below')}
           {row(TREAT_KEY, 'Treat', byKey[TREAT_KEY].picks.length, 'add prompts below')}
+          {row(RANDOM_KEY, 'Random book', byKey[RANDOM_KEY].picks.length, 'nothing on your TBR to pick')}
           <span className="lbl2">{`Challenges in ${year}`}</span>
           {data.challenges.length === 0 && <span className="muted small">There are no published challenges for this year.</span>}
           {data.challenges.map((c) => row(challengeKey(c.id), c.name, byKey[challengeKey(c.id)].picks.length, incompleteOnly ? 'all done' : 'no prompts'))}
@@ -99,10 +122,36 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
           {wheel.length === 0 && <span className="muted small">Tick at least one category that has prompts.</span>}
           <button type="button" className="btn on big" disabled={spinning || wheel.length === 0} onClick={doSpin}>{spinning ? 'Spinning...' : result ? 'Spin again' : 'Spin'}</button>
           <div className="rzresult" aria-live="polite">
-            {result && (
+            {result && result.kind === 'random' && drawn && (
+              <>
+                <span className="lbl2">{result.prompt}</span>
+                {'book' in drawn ? (
+                  <>
+                    <b className="rzprompt">{drawn.book.title}</b>
+                    <span className="muted">{drawn.book.authors ?? 'Unknown author'} · {place(drawn.book)}</span>
+                    {added.has(drawn.book.id) ? <span className="muted">Added to Up Next</span> : <button type="button" className="btn on" onClick={() => void addUp([drawn.book.id])}>Add to Up Next</button>}
+                  </>
+                ) : (
+                  <>
+                    <b className="rzprompt">{drawn.series.title}</b>
+                    <span className="muted">{drawn.series.books.length} unread books on your TBR</span>
+                    <ul className="plist">
+                      {drawn.series.books.map((b) => (
+                        <li key={b.id}><span className="grow">{b.position !== null ? `#${b.position} ` : ''}{b.title}</span>
+                          {added.has(b.id) ? <span className="muted small">Added</span> : <button type="button" className="mini" aria-label={`Add ${b.title} to Up Next`} onClick={() => void addUp([b.id])}>Add to Up Next</button>}</li>
+                      ))}
+                    </ul>
+                    <button type="button" className="btn on" disabled={drawn.series.books.every((b) => added.has(b.id))} onClick={() => void addUp(drawn.series.books.filter((b) => !added.has(b.id)).map((b) => b.id))}>Add all to Up Next</button>
+                  </>
+                )}
+              </>
+            )}
+            {result && result.kind !== 'random' && (
               <>
                 <span className="lbl2">{result.categoryLabel}</span>
                 <b className="rzprompt">{result.prompt}</b>
+                {result.bonus && <span className="bonuschip">Bonus Prompt</span>}
+                {result.kind === 'challenge' && !result.slotId && !result.place && <span className="muted small">Choose the word on the Book Log once the book is chosen.</span>}
                 <button type="button" className="btn on" onClick={begin}>Add a new book</button>
               </>
             )}

@@ -91,7 +91,7 @@ function GoalForm({ lists, timed, goal, onSave, onCancel }: { lists: OverviewLis
         </div>
       )}
       <div className="gfrow">
-        <label className="chk"><input type="checkbox" aria-label="Show on Home" checked={home} onChange={(e) => setHome(e.target.checked)} /> Show on Home</label>
+        <label className="chk"><input type="checkbox" role="switch" className="toggle" aria-label="Show on Home" checked={home} onChange={(e) => setHome(e.target.checked)} /> Show on Home</label>
         {home && (
           <div className="seg" role="group" aria-label="How it shows on Home">
             <button type="button" aria-pressed={display === 'ring'} className={display === 'ring' ? 'on' : ''} onClick={() => setDisplay('ring')}>Circle</button>

@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useDb } from '../db/DbContext';
 import { countPurgeable, deletePlace, listPlaces, normalizePlaces, purgeUnusedPlaces, savePlace, type PlaceRow } from '../repo/places';
 import { Link } from 'react-router-dom';
@@ -9,8 +8,6 @@ import LocationDialog from './locations/LocationDialog';
 // Every location, with the ones that still need updating first. Changing one here changes it for every book that uses it.
 export default function LocationsPage() {
   const db = useDb();
-  const [params, setParams] = useSearchParams();
-  const needsOnly = params.get('needs') === '1';
   const [rows, setRows] = useState<PlaceRow[] | null>(null);
   const [editing, setEditing] = useState<PlaceRow | null>(null);
   const [q, setQ] = useState('');
@@ -19,7 +16,7 @@ export default function LocationsPage() {
   const [purge, setPurge] = useState<number | null>(null); // how many a purge would remove, while asking
   const reload = useCallback(async () => setRows(await listPlaces(db)), [db]);
   useEffect(() => { reload().catch((e) => setError(String(e))); }, [reload]);
-  const filtered = (rows ?? []).filter((r) => (!needsOnly || r.needsUpdate) && (!q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase())));
+  const filtered = (rows ?? []).filter((r) => (!q.trim() || r.name.toLowerCase().includes(q.trim().toLowerCase())));
   // searching orders the matches by which parts they have; the plain list keeps its order (needs-updating first)
   const shown = q.trim() ? sortByLocation(filtered) : filtered;
   const stale = (rows ?? []).filter((r) => r.needsUpdate).length;
@@ -31,7 +28,6 @@ export default function LocationsPage() {
       <div className="bcard">
         <div className="movebtns">
           <input className="field small" aria-label="Search locations" placeholder="Search locations" value={q} onChange={(e) => setQ(e.target.value)} />
-          <label className="check"><input type="checkbox" checked={needsOnly} onChange={(e) => setParams(e.target.checked ? { needs: '1' } : {})} /> Only locations that need updating</label>
           <button type="button" className="mini" onClick={retry}>Try to sort them out again</button>
           {purge === null
             ? <button type="button" className="mini" onClick={async () => { const n = await countPurgeable(db); if (n === 0) setNote('No unused locations need purging.'); else setPurge(n); }}>Purge unused locations</button>
@@ -40,7 +36,7 @@ export default function LocationsPage() {
               <button type="button" className="mini" onClick={() => setPurge(null)}>Cancel</button></span>}
         </div>
         {note && <span className="muted small" role="status">{note}</span>}
-        {rows === null ? <p className="muted">Loading...</p> : shown.length === 0 ? <p className="muted">{needsOnly ? 'Every location is sorted out.' : 'No locations yet. Add one from a book\'s Setting card.'}</p> : shown.map((r) => (
+        {rows === null ? <p className="muted">Loading...</p> : shown.length === 0 ? <p className="muted">{'No locations yet. Add one from a book\'s Setting card.'}</p> : shown.map((r) => (
           <div key={r.id} className="locrow">
             <span>{r.needsUpdate && <span className="warnmark" role="img" aria-label="Needs updating">&#9888;</span>}<b>{r.name}</b>{r.fictional && <span className="muted small fictag">fictional</span>}</span>
             <span className="muted small">{r.needsUpdate ? 'Plain text: not sorted into city, area and country yet' : [r.city && `City: ${r.city}`, r.area && `Area: ${r.area}`, r.country && `Country: ${r.country}`].filter(Boolean).join(' · ')}</span>

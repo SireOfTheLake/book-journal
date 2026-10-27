@@ -51,7 +51,7 @@ export default function LocationDialog({ title, initial, typed, shared, onSave, 
           <FieldCombo label="Area" noun="area" value={area} onChange={setArea} options={areaOptions} limit={12} /></div>
         <div className="stack"><span className="lbl2">City</span>
           <FieldCombo label="City" noun="city" value={city} onChange={setCity} options={cityOptions} /></div>
-        <label className="check"><input type="checkbox" checked={fictional} onChange={(e) => setFictional(e.target.checked)} /> Fictional place (made up, like Hogwarts or Tatooine)</label>
+        <label className="check"><input type="checkbox" role="switch" className="toggle" checked={fictional} onChange={(e) => setFictional(e.target.checked)} /> Fictional place (made up, like Hogwarts or Tatooine)</label>
         <span className="muted small" aria-live="polite">{preview ? <>Saved as: <b>{preview}</b>{fictional ? ' (fictional)' : ''}</> : 'Fill in at least one of the three.'}</span>
         {error && <div className="muted" role="alert">{error}</div>}
         {confirming && <span className="notice" role="alert">{`Delete this location? ${usedBy ? `It is removed from ${usedBy} book${usedBy === 1 ? '' : 's'} (the books stay). ` : ''}This cannot be undone.`}</span>}

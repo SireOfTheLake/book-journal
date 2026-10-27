@@ -121,7 +121,7 @@ function Cover({ log, act }: { log: BookLog; act: Actions }) {
       </div>
       {!log.cover && (
         <label className="chk" title="Leave this book out of the No cover filter and the missing-cover warnings.">
-          <input type="checkbox" checked={log.book.placeholder_permanent === 1} onChange={(e) => act.updateBook({ placeholder_permanent: e.target.checked ? 1 : 0 })} />
+          <input type="checkbox" role="switch" className="toggle" checked={log.book.placeholder_permanent === 1} onChange={(e) => act.updateBook({ placeholder_permanent: e.target.checked ? 1 : 0 })} />
           <span>This placeholder cover is permanent</span>
         </label>
       )}

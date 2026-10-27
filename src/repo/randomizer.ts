@@ -4,12 +4,15 @@ import type { Pick } from '../domain/randomizer';
 import { addBookAuthor, createRead, deleteBook, dropPlannedReads } from './bookLog';
 import { createBook } from './books';
 import { fillSlot, listChallengeChoices, type ChallengeChoice } from './challenges';
+import { fillPlace } from './usmap';
+import { loadRandomPool } from './randomBook';
+import type { RandomPool } from '../domain/randomBook';
 import { promptSuggestions, setReason } from './reason';
 import { tidyShelf } from './shelf';
 
 export type PromptKind = 'trick' | 'treat';
 export interface SavedPrompt { id: string; text: string }
-export interface RandomizerData { trick: SavedPrompt[]; treat: SavedPrompt[]; challenges: ChallengeChoice[]; usedBefore: Record<PromptKind, string[]> }
+export interface RandomizerData { trick: SavedPrompt[]; treat: SavedPrompt[]; challenges: ChallengeChoice[]; usedBefore: Record<PromptKind, string[]>; random: RandomPool }
 
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 
@@ -34,20 +37,22 @@ export async function loadRandomizer(db: Db, year: number): Promise<RandomizerDa
     const used = new Set(have.map((p) => p.text.toLowerCase()));
     return (await promptSuggestions(db, kind, null, 50)).filter((t) => !used.has(t.toLowerCase())).slice(0, 8);
   };
-  return { trick, treat, challenges: challenges.filter((c) => !c.word), usedBefore: { trick: await unused('trick', trick), treat: await unused('treat', treat) } };
+  return { trick, treat, challenges, usedBefore: { trick: await unused('trick', trick), treat: await unused('treat', treat) }, random: await loadRandomPool(db) };
 }
 
 // ---------- the blank "next book" page ----------
 // A reading entry with the reason filled in and a placeholder book, until you choose the book.
 export async function startDraft(db: Db, pick: Pick): Promise<{ bookId: string; readId: string }> {
+  if (pick.kind === 'random') throw new Error('A random book is added to Up Next instead.');
   const bookId = await createBook(db, { title: 'Untitled book' });
   await db.execute('UPDATE book SET is_draft = 1 WHERE id = ?', [bookId]);
   try {
     const readId = await createRead(db, bookId, 'reading');
     if (pick.kind === 'challenge') {
-      if (!pick.slotId) throw new Error('That prompt no longer exists.');
       await setReason(db, readId, { kind: 'challenge' });
-      await fillSlot(db, pick.slotId, readId);
+      if (pick.place && pick.challengeId) await fillPlace(db, pick.challengeId, pick.place, readId);
+      else if (pick.slotId) await fillSlot(db, pick.slotId, readId);
+      else if (!pick.challengeId) throw new Error('That prompt no longer exists.'); // a Word Builder has only the challenge: the word is typed on the Book Log
     } else await setReason(db, readId, { kind: pick.kind, prompt: pick.prompt });
     return { bookId, readId };
   } catch (e) { await deleteBook(db, bookId); throw e; }

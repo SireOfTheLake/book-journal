@@ -157,7 +157,7 @@ export default function SeriesView({ page, lists, act }: { page: SeriesPage; lis
           <div className="stack"><span className="lbl2">Average rating</span>
             {page.avgStars !== null ? <span className="inline"><StarRow value={Math.round(page.avgStars * 4) / 4} size={20} /><span className="muted">{(Math.round(page.avgStars * 100) / 100).toString()} · {page.ratedBooks} rated</span></span> : <span className="muted">No ratings yet</span>}</div>
           <label className="stack"><span className="lbl2">Interconnected standalones</span>
-            <span className="inline"><input type="checkbox" checked={series.interconnected_standalones === 1} onChange={(e) => act.update({ interconnected_standalones: e.target.checked ? 1 : 0 })} aria-label="Interconnected standalones" /><span className="muted">{series.interconnected_standalones ? 'Yes' : 'No'}</span></span></label>
+            <span className="inline"><input type="checkbox" role="switch" className="toggle" checked={series.interconnected_standalones === 1} onChange={(e) => act.update({ interconnected_standalones: e.target.checked ? 1 : 0 })} aria-label="Interconnected standalones" /><span className="muted">{series.interconnected_standalones ? 'Yes' : 'No'}</span></span></label>
         </div>
         <div className="spgrid divider">
           <div className="stack"><span className="lbl2">Publication status</span>

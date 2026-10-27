@@ -142,13 +142,17 @@ describe('a Word Builder challenge', () => {
     expect((await getChallenge(db, id))!.loose).toEqual([]);
     expect((await getChallenge(db, id))!).toMatchObject({ done: 0, total: 0 });
   });
-  it('is offered on the Book Log as a word challenge, and is not on the randomizer wheel', async () => {
+  it('is offered on the Book Log as a word challenge, and is on the randomizer wheel while it has room', async () => {
     const id = await createWordBuilder(db, { year: Y, name: 'W', theme: 'Countries', letters: { C: img('C') } });
     const r = await read('One');
     const [choice] = await listChallengeChoices(db, r, [Y]);
     expect(choice).toMatchObject({ id, word: true, theme: 'Countries', slots: [] });
     expect(choice.letters).toEqual({ C: img('C').dataUrl });
-    expect((await loadRandomizer(db, Y)).challenges).toEqual([]);
+    const { allCategories, wheelCategories } = await import('../src/domain/randomizer');
+    const cats = allCategories({ trick: [], treat: [], challenges: (await loadRandomizer(db, Y)).challenges }, true);
+    const wheel = wheelCategories(cats, { off: new Set(), incompleteOnly: true });
+    expect(wheel).toHaveLength(1);
+    expect(wheel[0].picks).toEqual([{ kind: 'challenge', categoryLabel: 'W', prompt: 'W', challengeId: id }]); // only the challenge, no prompt
   });
   it('shows on the dashboard as the letters of the word, with a blank for a space', async () => {
     const id = await createWordBuilder(db, { year: Y, name: 'W', letters: { C: img('C'), R: img('R') } });

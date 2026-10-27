@@ -18,6 +18,7 @@ export interface MapActions {
   bonus(mode: BonusMode): void;
   australia(on: boolean): void;
   ukSplit(on: boolean): void;
+  extras(on: boolean): void;
   limit(n: number | null): void;
   rename(name: string): void;
   color(hex: string): void;
@@ -70,13 +71,14 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
               <option value="required">Required (part of the goal)</option>
               <option value="off">Not included</option>
             </select></label>}
-          {region.id === 'continents' && <label className="check"><input type="checkbox" checked={c.australia} onChange={(e) => act.australia(e.target.checked)} /> Call Oceania "Australia"</label>}
-          {canSplitUk(region.id) && <label className="check"><input type="checkbox" checked={c.ukSplit} onChange={(e) => act.ukSplit(e.target.checked)} /> Separate the United Kingdom into England, Northern Ireland, Scotland and Wales</label>}
+          {region.id === 'continents' && <label className="check"><input type="checkbox" role="switch" className="toggle" checked={c.australia} onChange={(e) => act.australia(e.target.checked)} /> Call Oceania "Australia"</label>}
+          {canSplitUk(region.id) && <label className="check"><input type="checkbox" role="switch" className="toggle" checked={c.ukSplit} onChange={(e) => act.ukSplit(e.target.checked)} /> Separate the United Kingdom into England, Northern Ireland, Scotland and Wales</label>}
           <span className="movebtns">
-            <label className="check"><input type="checkbox" checked={limited} onChange={(e) => act.limit(e.target.checked ? Math.max(1, Number(limitText) || region.defaultLimit) : null)} /> Limited: complete after</label>
+            <label className="check"><input type="checkbox" role="switch" className="toggle" checked={limited} onChange={(e) => act.limit(e.target.checked ? Math.max(1, Number(limitText) || region.defaultLimit) : null)} /> Limited: complete after</label>
             {limited && <><input className="field small" type="number" min={1} max={options.length} aria-label="Complete after" value={limitText} onChange={(e) => setLimitText(e.target.value)} />
               <button type="button" className="mini" onClick={() => act.limit(Number(limitText))}>Set</button></>}
           </span>
+          {limited && <label className="check"><input type="checkbox" role="switch" className="toggle" checked={c.extras} onChange={(e) => act.extras(e.target.checked)} /> Allow more than {c.mapLimit}: each extra {region.noun} counts as a bonus</label>}
           {deleting
             ? <span className="movebtns"><button type="button" className="mini danger" onClick={act.remove}>Delete the whole challenge</button><button type="button" className="mini" onClick={() => setDeleting(false)}>Keep</button></span>
             : <button type="button" className="mini" onClick={() => setDeleting(true)}>Delete challenge</button>}
@@ -116,13 +118,13 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
       </section>
       <div className="usmaptools">
         <h3 className="lbl2">{limited ? 'Boxes' : region.plural.charAt(0).toUpperCase() + region.plural.slice(1)}</h3>
-        <label className="check"><input type="checkbox" checked={onlyEmpty} onChange={(e) => setOnlyEmpty(e.target.checked)} /> Only {limited ? 'boxes' : region.plural} without a book</label>
+        <label className="check"><input type="checkbox" role="switch" className="toggle" checked={onlyEmpty} onChange={(e) => setOnlyEmpty(e.target.checked)} /> Only {limited ? 'boxes' : region.plural} without a book</label>
       </div>
       <ul className="stcards">
         {shown.map((s) => {
           const f = s.fill;
           const cover = f ? covers[f.book_id] : undefined;
-          const name = s.label || `Book ${slots.indexOf(s) + 1}`;
+          const name = s.label || (s.is_bonus ? 'Bonus book' : `Book ${slots.indexOf(s) + 1}`);
           const noPlace = limited && !s.label;
           return (
             <li key={s.id} className="gslot stcard">
@@ -132,11 +134,11 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
               </button>
               {f && f.status !== 'finished' && <span className="plannedtag" title="It fills in once the book is read">planned</span>}
               {limited
-                ? <select className="field placepick" aria-label={`${region.noun} for ${name}`} value={s.label} onChange={(e) => act.place(s.id, e.target.value || null)}>
+                ? <><select className="field placepick" aria-label={`${region.noun} for ${name}`} value={s.label} onChange={(e) => act.place(s.id, e.target.value || null)}>
                     <option value="">Choose a {region.noun}...</option>
                     {options.filter((o) => o.name === s.label || !taken.has(o.name)).map((o) => <option key={o.name} value={o.name}>{o.name}{o.bonus ? ' (bonus)' : ''}</option>)}
-                  </select>
-                : <span className="glabel" title={s.label}>{s.label}{s.is_bonus && <span className="bonustag" title="Bonus prompt"> +</span>}</span>}
+                  </select>{s.is_bonus && <span className="bonuschip">Bonus</span>}</>
+                :  <span className="glabel" title={s.label}>{s.label}{s.is_bonus && <span className="bonustag" title="Bonus prompt"> +</span>}</span>}
               {noPlace && f && <span className="noplace" role="img" aria-label={`Choose a ${region.noun} for this book`} title={`Choose a ${region.noun} or this book does not count`}>&#9888; no {region.noun} chosen</span>}
               <span className="gbook">
                 {f ? <><FitText className="l" to={`/book/${f.book_id}/${f.read_id}`} title={f.title} />

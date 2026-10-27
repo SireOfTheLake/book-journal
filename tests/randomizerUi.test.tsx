@@ -16,7 +16,7 @@ import BookLogPage from '../src/pages/BookLogPage';
 import RandomizerPage from '../src/pages/RandomizerPage';
 import RandomizerView from '../src/pages/RandomizerView';
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); try { localStorage.clear(); } catch { /* none */ } });
 let db: Db;
 beforeEach(() => { db = migrateNodeDb(); });
 const Y = new Date().getFullYear();
@@ -78,6 +78,7 @@ describe('the Prompt Randomizer page', () => {
     await addToShelf(db, { title: 'Shelf Book', authors: ['Wren'], shelf: 'tbr' });
     app();
     await screen.findByText('PROMPT RANDOMIZER');
+    fireEvent.click(screen.getByLabelText(/Random book/)); // the TBR book would put the random book wedge on the wheel
     fireEvent.click(screen.getByRole('button', { name: 'Spin' }));
     const start = await screen.findByRole('button', { name: 'Add a new book' }, { timeout: 8000 });
     expect(document.querySelector('.rzprompt')!.textContent).toBe('Read a 700 page book');
@@ -121,10 +122,46 @@ describe('the Prompt Randomizer page', () => {
 
 describe('the wheel view with a fixed random source', () => {
   it('lands on the chosen prompt without waiting for the animation when spinMs is 0', async () => {
-    const data = { trick: [{ id: '1', text: 'Only one' }], treat: [], challenges: [], usedBefore: { trick: [], treat: [] } };
-    render(<MemoryRouter><RandomizerView data={data} drafts={[]} year={Y} spinMs={0} rng={() => 0} act={{ addPrompt: async () => undefined, removePrompt: () => undefined, start: async () => undefined, discard: () => undefined }} /></MemoryRouter>);
+    const data = { trick: [{ id: '1', text: 'Only one' }], treat: [], challenges: [], usedBefore: { trick: [], treat: [] }, random: { book: [], series_book: [], series: [] } };
+    render(<MemoryRouter><RandomizerView data={data} drafts={[]} year={Y} spinMs={0} rng={() => 0} act={{ addPrompt: async () => undefined, removePrompt: () => undefined, start: async () => undefined, discard: () => undefined, upNext: async () => undefined }} /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Spin' }));
     await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
     expect(document.querySelector('.rzprompt')!.textContent).toBe('Only one');
+  });
+});
+
+describe('the random book wedge', () => {
+  const book = { id: 'b1', title: 'Next Up', authors: 'Ann', series_id: 's', series: 'Saga', position: 2, shelf: 'tbr' as const, read: false, unreleased: false };
+  const series = { id: 's', title: 'Saga', books: [book, { ...book, id: 'b2', title: 'After That', position: 3 }] };
+  const data = { trick: [], treat: [], challenges: [], usedBefore: { trick: [], treat: [] }, random: { book: [book], series_book: [book], series: [series] } };
+  const run = async (rng: () => number, upNext = async (_ids: string[]) => undefined) => {
+    render(<MemoryRouter><RandomizerView data={data} drafts={[]} year={Y} spinMs={0} rng={rng} act={{ addPrompt: async () => undefined, removePrompt: () => undefined, start: async () => undefined, discard: () => undefined, upNext }} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Spin' }));
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+  };
+  it('lands on a book and adds it to Up Next', async () => {
+    const added: string[][] = [];
+    await run(() => 0, async (ids) => { added.push(ids); });
+    expect(screen.getByText('Next Up')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Add to Up Next' }));
+    await waitFor(() => expect(added).toEqual([['b1']]));
+    expect(await screen.findByText('Added to Up Next')).toBeTruthy();
+  });
+  it('a random series lists its unread books and can add them all', async () => {
+    const added: string[][] = [];
+    await run(() => 0.99, async (ids) => { added.push(ids); });
+    expect(screen.getByText('Saga')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Add all to Up Next' }));
+    await waitFor(() => expect(added).toEqual([['b1', 'b2']]));
+  });
+  it('can be turned off and stays off', async () => {
+    cleanup();
+    render(<MemoryRouter><RandomizerView data={data} drafts={[]} year={Y} spinMs={0} act={{ addPrompt: async () => undefined, removePrompt: () => undefined, start: async () => undefined, discard: () => undefined, upNext: async () => undefined }} /></MemoryRouter>);
+    fireEvent.click(screen.getByLabelText(/Random book/));
+    expect((screen.getByRole('button', { name: 'Spin' }) as HTMLButtonElement).disabled).toBe(true);
+    cleanup();
+    render(<MemoryRouter><RandomizerView data={data} drafts={[]} year={Y} spinMs={0} act={{ addPrompt: async () => undefined, removePrompt: () => undefined, start: async () => undefined, discard: () => undefined, upNext: async () => undefined }} /></MemoryRouter>);
+    expect((screen.getByLabelText(/Random book/) as HTMLInputElement).checked).toBe(false);
+    localStorage.clear();
   });
 });

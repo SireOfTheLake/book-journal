@@ -1180,3 +1180,13 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .noplace { color: var(--warn-text); background: var(--warn-bg); border-radius: 6px; padding: 2px 6px; font-size: 12px; }
 .bonustag { color: var(--warn); font-weight: 700; }
 .cbonus { color: var(--muted); font-size: .8em; }
+
+/* Toggle switches: a checkbox drawn as a small switch (used for settings and options; lists of things to pick keep plain checkboxes). */
+input.toggle { appearance: none; -webkit-appearance: none; flex: none; position: relative; width: 36px; height: 20px; margin: 0 8px 0 0; vertical-align: middle; border-radius: 999px; background: color-mix(in srgb, var(--muted) 40%, var(--panel2)); border: 1px solid var(--line2); cursor: pointer; transition: background .15s ease; }
+input.toggle::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text); transition: transform .15s ease; }
+input.toggle:checked { background: var(--accent); border-color: var(--accent); }
+input.toggle:checked::after { transform: translateX(16px); background: #fff; }
+input.toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+input.toggle:disabled { opacity: .5; cursor: default; }
+@media (prefers-reduced-motion: reduce) { input.toggle, input.toggle::after { transition: none; } }
+.chip.bonuschip, .bonuschip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn); font-size: 12px; font-weight: 700; }

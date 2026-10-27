@@ -4,7 +4,7 @@ import { migrateNodeDb } from '../src/db/nodeDb';
 import { createBook } from '../src/repo/books';
 import { createRead, updateRead } from '../src/repo/bookLog';
 import { clearSlot, fillSlot, getChallenge, listChallenges } from '../src/repo/challenges';
-import { createMap, createUsMap, setAustralia, setBonusMode, setMapLimit, setSlotPlace, setUkSplit } from '../src/repo/usmap';
+import { createMap, createUsMap, setAustralia, setBonusMode, setExtras, setMapLimit, setSlotPlace, setUkSplit } from '../src/repo/usmap';
 
 let db: Db;
 beforeEach(() => { db = migrateNodeDb(); });
@@ -132,5 +132,51 @@ describe('the United Kingdom', () => {
     const id = await createMap(db, { year: Y, name: 'C', region: 'continents', australia: true });
     expect((await getChallenge(db, id))!).toMatchObject({ australia: true, ukSplit: false });
     await expect(setUkSplit(db, id, true)).rejects.toThrow('United Kingdom');
+  });
+});
+
+describe('limited challenges, extras and the randomizer', () => {
+  it('the wheel offers the unused places, noting bonus places, and a pick goes in the earliest empty box', async () => {
+    const { loadRandomizer, startDraft } = await import('../src/repo/randomizer');
+    const { allCategories } = await import('../src/domain/randomizer');
+    const id = await createMap(db, { year: Y, name: 'CA', region: 'canada', limit: 2, bonus: 'optional' });
+    const cat = () => loadRandomizer(db, Y).then((d) => allCategories({ trick: [], treat: [], challenges: d.challenges }, true).find((c) => c.label === 'CA')!);
+    const picks = (await cat()).picks;
+    expect(picks).toHaveLength(13);
+    expect(picks.find((p) => p.place === 'Yukon')?.bonus).toBe(true);
+    expect(picks.find((p) => p.place === 'Ontario')?.bonus).toBeUndefined();
+    await startDraft(db, picks.find((p) => p.place === 'Ontario')!);
+    const c = (await getChallenge(db, id))!;
+    expect(c.loose[0]).toMatchObject({ label: 'Ontario' });
+    expect(c.loose[0].fill).toBeTruthy();
+    expect((await cat()).picks.some((p) => p.place === 'Ontario')).toBe(false);
+  });
+  it('without extras a full challenge leaves the wheel; with extras one bonus box appears at a time', async () => {
+    const { loadRandomizer } = await import('../src/repo/randomizer');
+    const { allCategories } = await import('../src/domain/randomizer');
+    const id = await createMap(db, { year: Y, name: 'W', region: 'world', limit: 2, extras: true });
+    const boxes = async () => (await getChallenge(db, id))!.loose;
+    expect(await boxes()).toHaveLength(2);
+    await fillSlot(db, (await boxes())[0].id, await read('a'));
+    await fillSlot(db, (await boxes())[1].id, await read('b'));
+    expect(await boxes()).toHaveLength(3);                       // one extra box once both are filled
+    expect((await boxes())[2]).toMatchObject({ is_bonus: true });
+    await setSlotPlace(db, (await boxes())[0].id, 'France');
+    await setSlotPlace(db, (await boxes())[1].id, 'Spain');
+    await setSlotPlace(db, (await boxes())[2].id, 'Peru');
+    await fillSlot(db, (await boxes())[2].id, await read('c'));
+    expect(await boxes()).toHaveLength(4);                       // filling it adds the next one
+    const c = (await getChallenge(db, id))!;
+    expect(c.total).toBe(2);
+    expect(c.bonus).toMatchObject({ total: 2 });
+    const d = await loadRandomizer(db, Y);
+    const cat = allCategories({ trick: [], treat: [], challenges: d.challenges }, true).find((x) => x.label === 'W')!;
+    expect(cat.picks.every((p) => p.bonus)).toBe(true);
+    await expect(setExtras(db, id, false)).rejects.toThrow('Take those books off');
+    await clearSlot(db, (await boxes())[2].id);
+    await setExtras(db, id, false);
+    expect(await boxes()).toHaveLength(2);
+    const off = allCategories({ trick: [], treat: [], challenges: (await loadRandomizer(db, Y)).challenges }, true).find((x) => x.label === 'W')!;
+    expect(off.picks).toHaveLength(0);                           // full, and no extras allowed
   });
 });

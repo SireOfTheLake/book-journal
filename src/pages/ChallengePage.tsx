@@ -82,6 +82,7 @@ export default function ChallengePage() {
       fillPlace: (p, r) => run(() => usmap.fillPlace(db, id, p, r)),
       place: (s, p) => run(() => usmap.setSlotPlace(db, s, p)),
       bonus: (m) => run(() => usmap.setBonusMode(db, id, m)),
+      extras: (on) => run(() => usmap.setExtras(db, id, on)),
       ukSplit: (on) => run(() => usmap.setUkSplit(db, id, on)),
       australia: (on) => run(() => usmap.setAustralia(db, id, on)),
       limit: (n) => run(async () => { const lost = await usmap.setMapLimit(db, id, n); if (lost) setError(`${lost} ${lost === 1 ? 'book was' : 'books were'} in boxes without a place and ${lost === 1 ? 'was' : 'were'} taken off this challenge.`); }),

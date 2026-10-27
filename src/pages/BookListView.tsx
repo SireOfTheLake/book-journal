@@ -99,7 +99,7 @@ export default function BookListView({ data, year, act }: { data: JournalYear; y
           <option value="">Any format</option><option value="audio">Audio</option><option value="ebook">Ebook</option><option value="physical">Physical</option>
         </select>
         <button type="button" className="mini" onClick={() => setNewestFirst(!newestFirst)}>{newestFirst ? 'Newest first' : 'Oldest first'}</button>
-        <label className="inline"><input type="checkbox" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} /><span className="muted">Group by month</span></label>
+        <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={grouped} onChange={(e) => setGrouped(e.target.checked)} /><span className="muted">Group by month</span></label>
         <span className="grow" />
         <span className="muted">{data.finished.length} finished in {year}</span>
       </div>

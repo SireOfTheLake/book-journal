@@ -122,7 +122,7 @@ describe('the Prompt Randomizer page', () => {
 
 describe('the wheel view with a fixed random source', () => {
   it('lands on the chosen prompt without waiting for the animation when spinMs is 0', async () => {
-    const data = { trick: [{ id: '1', text: 'Only one' }], treat: [], challenges: [], usedBefore: { trick: [], treat: [] }, random: { book: [], series_book: [], series: [] } };
+    const data = { trick: [{ id: '1', text: 'Only one' }], treat: [], challenges: [], usedBefore: { trick: [], treat: [] }, random: { book: [], series_book: [], series: [] }, covers: {} };
     render(<MemoryRouter><RandomizerView data={data} drafts={[]} year={Y} spinMs={0} rng={() => 0} act={{ addPrompt: async () => undefined, removePrompt: () => undefined, start: async () => undefined, discard: () => undefined, upNext: async () => undefined }} /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Spin' }));
     await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
@@ -133,7 +133,7 @@ describe('the wheel view with a fixed random source', () => {
 describe('the random book wedge', () => {
   const book = { id: 'b1', title: 'Next Up', authors: 'Ann', series_id: 's', series: 'Saga', position: 2, shelf: 'tbr' as const, read: false, unreleased: false };
   const series = { id: 's', title: 'Saga', books: [book, { ...book, id: 'b2', title: 'After That', position: 3 }] };
-  const data = { trick: [], treat: [], challenges: [], usedBefore: { trick: [], treat: [] }, random: { book: [book], series_book: [book], series: [series] } };
+  const data = { trick: [], treat: [], challenges: [], usedBefore: { trick: [], treat: [] }, random: { book: [book], series_book: [book], series: [series] }, covers: { b1: 'data:image/png;base64,AAAA' } };
   const run = async (rng: () => number, upNext = async (_ids: string[]) => undefined) => {
     render(<MemoryRouter><RandomizerView data={data} drafts={[]} year={Y} spinMs={0} rng={rng} act={{ addPrompt: async () => undefined, removePrompt: () => undefined, start: async () => undefined, discard: () => undefined, upNext }} /></MemoryRouter>);
     fireEvent.click(screen.getByRole('button', { name: 'Spin' }));
@@ -163,5 +163,31 @@ describe('the random book wedge', () => {
     render(<MemoryRouter><RandomizerView data={data} drafts={[]} year={Y} spinMs={0} act={{ addPrompt: async () => undefined, removePrompt: () => undefined, start: async () => undefined, discard: () => undefined, upNext: async () => undefined }} /></MemoryRouter>);
     expect((screen.getByLabelText(/Random book/) as HTMLInputElement).checked).toBe(false);
     localStorage.clear();
+  });
+});
+
+describe('select all and covers', () => {
+  const book = { id: 'b1', title: 'Next Up', authors: 'Ann', series_id: null, series: null, position: null, shelf: 'tbr' as const, read: false, unreleased: false };
+  const base = { trick: [{ id: '1', text: 'A trick' }], treat: [], challenges: [], usedBefore: { trick: [], treat: [] }, random: { book: [book], series_book: [], series: [] }, covers: { b1: 'data:image/png;base64,AAAA' } };
+  const act2 = { addPrompt: async () => undefined, removePrompt: () => undefined, start: async () => undefined, discard: () => undefined, upNext: async () => undefined };
+  it('is ticked when everything is on, a dash when some are, empty when none are', () => {
+    render(<MemoryRouter><RandomizerView data={base} drafts={[]} year={Y} spinMs={0} act={act2} /></MemoryRouter>);
+    const all = screen.getByLabelText('Select all') as HTMLInputElement;
+    expect(all.checked).toBe(true); expect(all.indeterminate).toBe(false);
+    fireEvent.click(screen.getByLabelText(/^Trick/));
+    expect(all.checked).toBe(false); expect(all.indeterminate).toBe(true);
+    fireEvent.click(all);                                  // a dash turns everything on
+    expect(all.checked).toBe(true);
+    fireEvent.click(all);                                  // ticked turns everything off
+    expect(all.checked).toBe(false); expect(all.indeterminate).toBe(false);
+    expect((screen.getByLabelText(/^Trick/) as HTMLInputElement).checked).toBe(false);
+    expect((screen.getByLabelText(/Random book/) as HTMLInputElement).checked).toBe(false);
+  });
+  it('shows the cover of the random book, and the kind of random book it is', async () => {
+    render(<MemoryRouter><RandomizerView data={{ ...base, trick: [] }} drafts={[]} year={Y} spinMs={0} rng={() => 0} act={act2} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole('button', { name: 'Spin' }));
+    await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect((screen.getByAltText('Cover of Next Up') as HTMLImageElement).src).toContain('data:image/png');
+    expect(document.querySelector('.rzkind')!.textContent).toBe('Random Book');
   });
 });

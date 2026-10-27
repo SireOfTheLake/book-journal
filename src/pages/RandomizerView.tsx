@@ -21,6 +21,13 @@ const saveOff = (off: boolean) => { try { if (off) localStorage.setItem(RANDOM_O
 type Drawn = { book: LibBook } | { series: SeriesPool };
 const place = (b: LibBook) => (b.series ? `${b.series}${b.position !== null ? ` #${b.position}` : ''}` : 'Standalone');
 
+const COVER_COLORS = ['#5a1f3a', '#2f3a5a', '#3a2f5a', '#4a2f3a', '#2d4a3a', '#5a3a1f'];
+function Cover({ src, title }: { src?: string; title: string }) {
+  if (src) return <img className="rzcover" src={src} alt={`Cover of ${title}`} />;
+  const bg = COVER_COLORS[[...title].reduce((n, c) => n + c.charCodeAt(0), 0) % COVER_COLORS.length];
+  return <div className="rzcover rzcoverblank" role="img" aria-label={`No cover for ${title}`}><div className="libgen" style={{ background: bg }}><span className="ttl">{title.toUpperCase()}</span></div></div>;
+}
+
 function PromptList({ kind, title, prompts, used, act }: { kind: PromptKind; title: string; prompts: { id: string; text: string }[]; used: string[]; act: RandomizerActions }) {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +107,15 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
     </label>
   );
   const byKey = Object.fromEntries(cats.map((c) => [c.key, c]));
+  // "Select all": every category that has something to give. Ticked when all of them are on, a dash when only some are, empty when none are.
+  const choosable = cats.filter((c) => c.picks.length > 0).map((c) => c.key);
+  const onCount = choosable.filter((k) => !off.has(k)).length;
+  const allRef = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (allRef.current) allRef.current.indeterminate = onCount > 0 && onCount < choosable.length; }, [onCount, choosable.length]);
+  const setAll = (on: boolean) => {
+    setResult(null); setDrawn(null);
+    setOff((s) => { const n = new Set(s); for (const k of choosable) { if (on) n.delete(k); else n.add(k); } saveOff(n.has(RANDOM_KEY)); return n; });
+  };
 
   return (
     <div className="randomizer">
@@ -107,6 +123,7 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
       <p className="muted">Spin the wheel to find out what your next book has to be. Then add the book that fits.</p>
       <div className="rzgrid">
         <Card label="What to randomize">
+          <label className="rzrow rzall"><input ref={allRef} type="checkbox" aria-label="Select all" checked={choosable.length > 0 && onCount === choosable.length} disabled={spinning || choosable.length === 0} onChange={() => setAll(onCount !== choosable.length)} /><span className="grow"><b>Select all</b></span></label>
           {row(TRICK_KEY, 'Trick', byKey[TRICK_KEY].picks.length, 'add prompts below')}
           {row(TREAT_KEY, 'Treat', byKey[TREAT_KEY].picks.length, 'add prompts below')}
           {row(RANDOM_KEY, 'Random book', byKey[RANDOM_KEY].picks.length, 'nothing on your TBR to pick')}
@@ -124,9 +141,10 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
           <div className="rzresult" aria-live="polite">
             {result && result.kind === 'random' && drawn && (
               <>
-                <span className="lbl2">{result.prompt}</span>
+                <span className="rzkind">{result.prompt}</span>
                 {'book' in drawn ? (
                   <>
+                    <Cover src={data.covers[drawn.book.id]} title={drawn.book.title} />
                     <b className="rzprompt">{drawn.book.title}</b>
                     <span className="muted">{drawn.book.authors ?? 'Unknown author'} · {place(drawn.book)}</span>
                     {added.has(drawn.book.id) ? <span className="muted">Added to Up Next</span> : <button type="button" className="btn on" onClick={() => void addUp([drawn.book.id])}>Add to Up Next</button>}
@@ -137,7 +155,7 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
                     <span className="muted">{drawn.series.books.length} unread books on your TBR</span>
                     <ul className="plist">
                       {drawn.series.books.map((b) => (
-                        <li key={b.id}><span className="grow">{b.position !== null ? `#${b.position} ` : ''}{b.title}</span>
+                        <li key={b.id} className="rzseriesrow"><Cover src={data.covers[b.id]} title={b.title} /><span className="grow">{b.position !== null ? `#${b.position} ` : ''}{b.title}</span>
                           {added.has(b.id) ? <span className="muted small">Added</span> : <button type="button" className="mini" aria-label={`Add ${b.title} to Up Next`} onClick={() => void addUp([b.id])}>Add to Up Next</button>}</li>
                       ))}
                     </ul>

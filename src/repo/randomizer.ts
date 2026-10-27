@@ -6,13 +6,14 @@ import { createBook } from './books';
 import { fillSlot, listChallengeChoices, type ChallengeChoice } from './challenges';
 import { fillPlace } from './usmap';
 import { loadRandomPool } from './randomBook';
+import { getCovers } from './library';
 import type { RandomPool } from '../domain/randomBook';
 import { promptSuggestions, setReason } from './reason';
 import { tidyShelf } from './shelf';
 
 export type PromptKind = 'trick' | 'treat';
 export interface SavedPrompt { id: string; text: string }
-export interface RandomizerData { trick: SavedPrompt[]; treat: SavedPrompt[]; challenges: ChallengeChoice[]; usedBefore: Record<PromptKind, string[]>; random: RandomPool }
+export interface RandomizerData { trick: SavedPrompt[]; treat: SavedPrompt[]; challenges: ChallengeChoice[]; usedBefore: Record<PromptKind, string[]>; random: RandomPool; covers: Record<string, string> }
 
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 
@@ -37,7 +38,8 @@ export async function loadRandomizer(db: Db, year: number): Promise<RandomizerDa
     const used = new Set(have.map((p) => p.text.toLowerCase()));
     return (await promptSuggestions(db, kind, null, 50)).filter((t) => !used.has(t.toLowerCase())).slice(0, 8);
   };
-  return { trick, treat, challenges, usedBefore: { trick: await unused('trick', trick), treat: await unused('treat', treat) }, random: await loadRandomPool(db) };
+  const random = await loadRandomPool(db);
+  return { trick, treat, challenges, usedBefore: { trick: await unused('trick', trick), treat: await unused('treat', treat) }, random, covers: await getCovers(db, [...new Set([...random.book, ...random.series_book, ...random.series.flatMap((x) => x.books)].map((b) => b.id))]) };
 }
 
 // ---------- the blank "next book" page ----------

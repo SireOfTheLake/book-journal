@@ -1190,3 +1190,10 @@ input.toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2
 input.toggle:disabled { opacity: .5; cursor: default; }
 @media (prefers-reduced-motion: reduce) { input.toggle, input.toggle::after { transition: none; } }
 .chip.bonuschip, .bonuschip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--warn-bg); color: var(--warn-text); border: 1px solid var(--warn); font-size: 12px; font-weight: 700; }
+.rzkind { font-weight: 700; font-size: 15px; color: var(--accent); }
+.rzcover { width: 96px; height: 144px; object-fit: cover; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,.35); background: var(--panel2); }
+.rzcoverblank { overflow: hidden; }
+.rzcoverblank .libgen { width: 100%; height: 100%; }
+.rzseriesrow { display: flex; align-items: center; gap: 10px; }
+.rzseriesrow .rzcover { width: 36px; height: 54px; flex: none; }
+.rzall { border-bottom: 1px solid var(--line2); padding-bottom: 6px; margin-bottom: 4px; }

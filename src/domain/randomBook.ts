@@ -9,7 +9,7 @@ export interface LibBook {
 }
 export type RandomType = 'book' | 'series_book' | 'series';
 export const RANDOM_TYPES: { type: RandomType; label: string }[] = [
-  { type: 'book', label: 'Random book' }, { type: 'series_book', label: 'Random book from a series' }, { type: 'series', label: 'Random series' },
+  { type: 'book', label: 'Random Book' }, { type: 'series_book', label: 'Random Book from Series' }, { type: 'series', label: 'Random Series' },
 ];
 export interface SeriesPool { id: string; title: string; books: LibBook[] }
 export interface RandomPool { book: LibBook[]; series_book: LibBook[]; series: SeriesPool[] }

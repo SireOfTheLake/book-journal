@@ -103,3 +103,18 @@ describe('the random book pool from the database', () => {
     expect((await listShelf(db)).filter((x) => x.shelf === 'up_next').map((x) => x.title)).toEqual(['B2', 'B3']);
   });
 });
+
+import { allCategories, spin } from '../src/domain/randomizer';
+describe('the three random book types are weighted equally', () => {
+  it('each type comes up about a third of the time, however many books it has', () => {
+    const many = Array.from({ length: 200 }, (_, i) => b(null, null, { id: `m${i}` }));
+    const one = b('Z', 2);
+    const pool = { book: many, series_book: [one], series: [{ id: 'Z', title: 'Z', books: [one, b('Z', 3)] }] };
+    const cat = allCategories({ trick: [], treat: [], challenges: [], random: pool }, true).filter((c) => c.picks.length)[0];
+    expect(cat.picks.map((p) => p.prompt)).toEqual(['Random Book', 'Random Book from Series', 'Random Series']);
+    let seed = 12345; const rng = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+    const counts: Record<string, number> = {};
+    for (let i = 0; i < 3000; i++) { const t = spin([cat], rng)!.pick.randomType!; counts[t] = (counts[t] ?? 0) + 1; }
+    for (const t of ['book', 'series_book', 'series']) expect(counts[t]).toBeGreaterThan(850);
+  });
+});

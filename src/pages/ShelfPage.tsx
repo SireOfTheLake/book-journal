@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDb } from '../db/DbContext';
 import { getCovers } from '../repo/library';
-import { addToShelf, listShelf, moveOnShelf, moveToShelf, removeFromShelf, startFromShelf, type ShelfBook } from '../repo/shelf';
+import { addToShelf, applyMove, listShelf, moveOnShelf, moveToShelf, removeFromShelf, startFromShelf, type ShelfBook } from '../repo/shelf';
 import ShelfView, { type ShelfActions } from './ShelfView';
 
 export default function ShelfPage() {
@@ -12,6 +12,7 @@ export default function ShelfPage() {
   const [covers, setCovers] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const asked = useRef(new Set<string>());
+  const saving = useRef<Promise<unknown>>(Promise.resolve()); // moves are saved one after the other, in the order they were made
 
   const reload = useCallback(async () => setBooks(await listShelf(db)), [db]);
   useEffect(() => { reload().catch((e) => setError(String(e))); }, [reload]);
@@ -27,7 +28,11 @@ export default function ShelfPage() {
     const run = async (fn: () => Promise<unknown>) => { try { await fn(); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
     return {
       start: (id) => { startFromShelf(db, id).then((readId) => nav(`/book/${id}${readId ? `/${readId}` : ''}`), (e) => setError(e instanceof Error ? e.message : String(e))); },
-      move: (id, m) => run(() => moveOnShelf(db, id, m)),
+      // The list on screen changes at once; the move is saved behind it, and the list is only read again if saving fails.
+      move: (id, m) => {
+        setBooks((cur) => (cur ? applyMove(cur, id, m) : cur));
+        saving.current = saving.current.then(() => moveOnShelf(db, id, m)).catch(async (e) => { setError(e instanceof Error ? e.message : String(e)); await reload(); });
+      },
       toShelf: (id, s) => run(() => moveToShelf(db, id, s)),
       remove: (id) => run(() => removeFromShelf(db, id)),
       add: (title, authors, shelf) => run(() => addToShelf(db, { title, authors, shelf })),

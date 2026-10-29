@@ -39,14 +39,32 @@ async function orderOf(db: Db, shelf: Shelf): Promise<string[]> {
 }
 
 // Priorities are kept as 1, 2, 3... with Up Next first and TBR after it, so the order is always clear.
+// Only the books whose number changes are written, and in a few statements instead of one per book, so moving a book in a long list is quick.
 async function save(db: Db, upNext: string[], tbr: string[]) {
-  let n = 0;
-  for (const id of [...upNext, ...tbr]) await db.execute('UPDATE book SET tbr_priority = ? WHERE id = ?', [++n, id]);
+  const want = new Map<string, number>([...upNext, ...tbr].map((id, i) => [id, i + 1]));
+  const have = new Map((await db.select<{ id: string; p: number | null }>('SELECT id, tbr_priority AS p FROM book WHERE shelf IS NOT NULL AND deleted_at IS NULL')).map((r) => [r.id, r.p]));
+  const changed = [...want].filter(([id, n]) => have.get(id) !== n);
+  const CHUNK = 200;
+  for (let i = 0; i < changed.length; i += CHUNK) {
+    const part = changed.slice(i, i + CHUNK);
+    await db.execute(`UPDATE book SET tbr_priority = CASE id ${part.map(() => 'WHEN ? THEN ?').join(' ')} END WHERE id IN (${part.map(() => '?').join(',')})`, [...part.flatMap(([id, n]) => [id, n]), ...part.map(([id]) => id)]);
+  }
 }
 
 export async function tidyShelf(db: Db) { await save(db, await orderOf(db, 'up_next'), await orderOf(db, 'tbr')); }
 
 export type Move = 'up' | 'down' | 'top' | 'bottom';
+// The same move on a list already on screen (Up Next first, then TBR), so the page can show it at once while it is saved.
+export function applyMove<T extends { id: string; shelf: Shelf; priority: number | null }>(books: T[], bookId: string, move: Move): T[] {
+  const b = books.find((x) => x.id === bookId);
+  if (!b) return books;
+  const upNext = books.filter((x) => x.shelf === 'up_next'), tbr = books.filter((x) => x.shelf === 'tbr');
+  const list = b.shelf === 'up_next' ? upNext : tbr;
+  const i = list.indexOf(b);
+  list.splice(i, 1);
+  list.splice(move === 'top' ? 0 : move === 'bottom' ? list.length : move === 'up' ? Math.max(0, i - 1) : Math.min(list.length, i + 1), 0, b);
+  return [...upNext, ...tbr].map((x, n) => ({ ...x, priority: n + 1 }));
+}
 export async function moveOnShelf(db: Db, bookId: string, move: Move) {
   const [b] = await db.select<{ shelf: Shelf | null }>('SELECT shelf FROM book WHERE id = ? AND deleted_at IS NULL', [bookId]);
   if (!b?.shelf) return;

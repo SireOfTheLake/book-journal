@@ -16,6 +16,24 @@ async function seed() {
 }
 
 describe('the TBR and Up Next shelves', () => {
+  it('a move shown on screen (applyMove) matches the move that is saved', async () => {
+    await seed();
+    const { applyMove } = await import('../src/repo/shelf');
+    for (const [t, m] of [['E', 'top'], ['C', 'down'], ['A', 'bottom'], ['D', 'up'], ['B', 'top']] as const) {
+      const before = await listShelf(db);
+      const shown = applyMove(before, await idOf(t), m);
+      await moveOnShelf(db, await idOf(t), m);
+      const saved = await listShelf(db);
+      expect(shown.map((b) => [b.title, b.priority])).toEqual(saved.map((b) => [b.title, b.priority]));
+    }
+  });
+  it('saves only the books whose place changed', async () => {
+    await seed();
+    await db.execute("UPDATE book SET updated_at = '2000-01-01T00:00:00.000Z'");
+    await moveOnShelf(db, await idOf('D'), 'up');
+    const touched = (await db.select<{ title: string }>("SELECT title FROM book WHERE updated_at <> '2000-01-01T00:00:00.000Z' ORDER BY title")).map((r) => r.title);
+    expect(touched).toEqual(['C', 'D']);
+  });
   it('lists Up Next first, then TBR, each in the order you added them, with tidy priorities', async () => {
     await seed();
     expect(await titles()).toEqual(['U:A', 'U:B', 'T:C', 'T:D', 'T:E']);

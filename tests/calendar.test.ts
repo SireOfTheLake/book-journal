@@ -69,6 +69,15 @@ describe('a month of the calendar', () => {
     const sep = await getCalendarMonth(db, 2026, 9, '2026-10-09');
     expect(sep.lines[0].title).toBe('Killer Love');
   });
+  it('does not draw a book still being read in the months after today', async () => {
+    const db = await setup();
+    await updateRead(db, await rid(db, 'Killer Love'), { start_date: '2026-10-29', finish_date: null, status: 'reading' });
+    const nov = await getCalendarMonth(db, 2026, 11, '2026-10-29');
+    expect(nov.lines).toEqual([]);
+    const oct = await getCalendarMonth(db, 2026, 10, '2026-10-29');
+    expect(oct.lines).toHaveLength(1);
+    expect(oct.lines[0]).toMatchObject({ from: '2026-10-29', to: '2026-10-29', open: true });
+  });
   it('works out pages per day from page counts', async () => {
     const db = await setup();
     await updateBook(db, await id(db, 'Bro Doll'), { page_count: 300 });

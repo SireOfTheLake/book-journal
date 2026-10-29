@@ -37,7 +37,8 @@ export async function getCalendarMonth(db: Db, year: number, month: number, toda
   // A reading line runs from the start date to the finish date (or to today for a book still being read).
   const lines: CalLine[] = reads.filter((r) => r.start_date && (r.finish_date || r.status === 'reading' || r.status === 'on_hold'))
     .map((r) => ({ read_id: r.read_id, book_id: r.book_id, title: r.title, color_index: r.color_index, from: r.start_date!, to: r.finish_date ?? (today < r.start_date! ? r.start_date! : today), open: !r.finish_date }))
-    .filter((l) => l.to > l.from || l.open);
+    .filter((l) => l.to > l.from || l.open)
+    .filter((l) => l.from <= end && l.to >= start); // only a line that touches this month: a book still being read does not reach into months after today
 
   const pageReads: PageRead[] = reads.map((r) => ({
     start: r.start_date, finish: r.status === 'finished' ? r.finish_date : null, pages: r.page_count,

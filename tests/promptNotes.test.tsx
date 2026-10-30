@@ -118,7 +118,7 @@ describe('the note under a prompt', () => {
     const askAll = vi.fn(); const askPrompt = vi.fn();
     show(challenge([slot({ id: 'a' })]), acts({ askAll, askPrompt, note: vi.fn() }));
     fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
-    fireEvent.click(screen.getByLabelText('Ask for a note with each book'));
+    fireEvent.click(screen.getByLabelText('Ask for a Label'));
     expect(askAll).toHaveBeenCalledWith(true, 'Character');
     fireEvent.change(screen.getByLabelText('Note for Prompt'), { target: { value: 'yes' } });
     expect(askPrompt).toHaveBeenCalledWith('a', true);

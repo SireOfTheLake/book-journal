@@ -7,6 +7,7 @@ import { readableOn } from '../../theme/themes';
 import ReadPicker from './ReadPicker';
 import StickerStaging, { type Staged } from './StickerStaging';
 import Blurb from './Blurb';
+import { ZoomImage } from '../bookLog/parts';
 import TrackerBar from './TrackerBar';
 
 export interface GridActions {
@@ -104,7 +105,7 @@ function SlotCard({ slot, cover, editing, sticker, revealed, onPick, act, dnd, a
       {sticker && (
         <>
           <span className={`sticker${(f && !planned) || editing || revealed ? ' got' : ''}${revealed && !f ? ' revealed' : ''}`} title={slot.label}>
-            {((f && !planned) || editing || revealed) && slot.art ? <img src={slot.art} alt={f ? `Sticker: ${slot.label}` : `Sticker for ${slot.label}`} /> : <span className="num" aria-hidden="true">?</span>}
+            {((f && !planned) || editing || revealed) && slot.art ? (editing ? <img src={slot.art} alt={`Sticker for ${slot.label}`} /> : <ZoomImage src={slot.art} alt={f ? `Sticker: ${slot.label}` : `Sticker for ${slot.label}`} />) : <span className="num" aria-hidden="true">?</span>}
           </span>
           {editing && act.replaceSticker && <ReplaceSticker label={slot.label} onFile={(file) => act.replaceSticker!(slot.id, file)} />}
         </>
@@ -142,7 +143,7 @@ function StickerSheet({ slots, editing, revealed, act }: { slots: Slot[]; editin
         return (
           <li key={s.id} className="stickerspot">
             <span className={`sticker${got || editing || revealed ? ' got' : ''}${revealed && !got ? ' revealed' : ''}`} title={s.label}>
-              {(got || editing || revealed) && s.art ? <img src={s.art} alt={got ? `Sticker: ${s.label}` : `Sticker for ${s.label}`} /> : <span className="num" aria-hidden="true">?</span>}
+              {(got || editing || revealed) && s.art ? (editing ? <img src={s.art} alt={`Sticker for ${s.label}`} /> : <ZoomImage src={s.art} alt={got ? `Sticker: ${s.label}` : `Sticker for ${s.label}`} />) : <span className="num" aria-hidden="true">?</span>}
             </span>
             {editing && act.replaceSticker && <ReplaceSticker label={s.label} onFile={(file) => act.replaceSticker!(s.id, file)} />}
             <span className="glabel" title={s.label}>{s.label}</span>
@@ -178,31 +179,32 @@ function AddStickers({ add, groups }: { add(items: { prompt: string; image: Stic
   );
 }
 
-// "Ask for a note": a small text box under each book (a character's name, a sport...), for every prompt or only the ones you choose.
+// "Ask for a Label": a small text box under each book (a character's name, a sport...), for every prompt or only the ones you choose.
 function NoteSettings({ ask, label, onSave }: { ask: boolean; label: string; onSave(ask: boolean, label: string): void }) {
   const [text, setText] = useState(label === 'Note' ? '' : label);
   return (
     <div className="notesettings">
-      <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={ask} onChange={(e) => onSave(e.target.checked, text)} /><span>Ask for a note with each book</span></label>
-      <input className="field small" aria-label="What the note is called" placeholder="Called (for example, Character)" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== (label === 'Note' ? '' : label) && onSave(ask, text)} />
-      <span className="muted small">Each prompt can also decide for itself; choose that under the prompt.</span>
+      <div className="toggleline">
+        <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={ask} onChange={(e) => onSave(e.target.checked, text)} /><span>Ask for a Label</span></label>
+        {ask && <input className="field tiny wide" aria-label="Label" placeholder="Label" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== (label === 'Note' ? '' : label) && onSave(ask, text)} />}
+      </div>
+      {ask && <span className="muted small">Each prompt can also decide for itself; choose that under the prompt.</span>}
     </div>
   );
 }
 
-// "Only some of these are needed": a limited challenge, bonus prompts, and the button that reveals the stickers that were not needed.
-function LimitSettings({ required, allowBonus, prompts, onSave }: { required: number | null; allowBonus: boolean; prompts: number; onSave(required: number | null, allowBonus: boolean): void }) {
+// "Limited Challenge": only some of the prompts are needed. The number sits on the toggle's line and the bonus switch appears underneath once it is on.
+export function LimitSettings({ required, allowBonus, prompts, onSave }: { required: number | null; allowBonus: boolean; prompts: number; onSave(required: number | null, allowBonus: boolean): void }) {
   const [text, setText] = useState(required === null ? String(Math.max(1, prompts)) : String(required));
   useLayoutEffect(() => { if (required !== null) setText(String(required)); }, [required]);
   const limited = required !== null;
   return (
     <div className="notesettings">
-      <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={limited} onChange={(e) => onSave(e.target.checked ? Math.max(1, Math.min(prompts, Number(text) || prompts)) : null, false)} /><span>Limited: only some of the prompts are needed</span></label>
-      {limited && <>
-        <label className="inline"><span className="muted small">Prompts needed (1 to {prompts})</span> <input className="field small" type="number" min={1} max={prompts} aria-label="Prompts needed" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => Number(text) !== required && onSave(Number(text), allowBonus)} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} /></label>
-        <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={allowBonus} onChange={(e) => onSave(required, e.target.checked)} /><span>Allow bonus prompts: keep earning points after it is complete</span></label>
-      </>}
-      <span className="muted small">Optional prompts (switch them on under a prompt) are always bonuses and never count toward finishing.</span>
+      <div className="toggleline">
+        <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={limited} onChange={(e) => onSave(e.target.checked ? Math.max(1, Math.min(prompts, Number(text) || prompts)) : null, false)} /><span>Limited Challenge</span></label>
+        {limited && <input className="field tiny" type="number" min={1} max={prompts} aria-label="Prompts needed" title={`Prompts needed (1 to ${prompts})`} value={text} onChange={(e) => setText(e.target.value)} onBlur={() => Number(text) !== required && onSave(Number(text), allowBonus)} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />}
+      </div>
+      {limited && <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={allowBonus} onChange={(e) => onSave(required, e.target.checked)} /><span>Bonus prompts</span></label>}
     </div>
   );
 }

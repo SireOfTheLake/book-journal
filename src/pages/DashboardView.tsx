@@ -5,7 +5,7 @@ import { formatDuration } from '../domain/format';
 import { monthName } from '../domain/dashboard';
 import type { DashboardCore, GoalSplit, MonthBook, MonthlyDashboard, Sticker, YearlyDashboard } from '../repo/dashboard';
 import { monthColor } from '../domain/months';
-import { Card, StarRow } from './bookLog/parts';
+import { Card, Lightbox, StarRow } from './bookLog/parts';
 import { MakeupTiles, PageDots, SourcesChart, StarDots } from './DashboardCharts';
 import BingoTile from './challenges/BingoTile';
 import { WordTilesRow } from '../ui/WordTiles';
@@ -59,7 +59,14 @@ function jitter(seed: string, salt: number): number {
   return ((h >>> 0) % 1000) / 1000;
 }
 
+// A cover or sticker that opens as big as it can go; the book it belongs to is one click away from there.
+type Zoomed = { src: string; alt: string; to: string; label: string };
+function ZoomLightbox({ z, onClose }: { z: Zoomed; onClose: () => void }) {
+  return <Lightbox src={z.src} alt={z.alt} onClose={onClose}><Link className="l" to={z.to}>{z.label}</Link></Lightbox>;
+}
+
 export function StickerGrid({ stickers }: { stickers: Sticker[] }) {
+  const [zoom, setZoom] = useState<Zoomed | null>(null);
   if (stickers.length === 0) return <span className="muted small">No challenge prompts were filled in this period.</span>;
   return (
     <div className="dstickers">
@@ -74,10 +81,12 @@ export function StickerGrid({ stickers }: { stickers: Sticker[] }) {
         return (
         <div style={style} className={s.word ? 'dsticker dword' : s.usMap ? 'dsticker dstate' : loose ? 'dsticker dloose' : 'dsticker'} key={`${s.challenge_id}${i}`} title={`${s.challenge}: ${s.label}${s.note ? ` — ${s.note}` : ''} (${s.title})`}>
           {s.word ? <WordTilesRow tiles={s.word} label={s.label} /> : s.usMap ? <StateShape region={s.region} name={s.label} color={s.color} size={s.region && s.region !== 'us' ? 72 : 64} /> : s.kind === 'bingo' ? <BingoTile label={s.label} art={s.art} color={s.color ?? '#a65e3a'} />
-            : s.cover ? <img src={s.cover} alt={s.title} /> : s.art ? <img src={s.art} alt={s.label} /> : <div className="dsfallback"><span>{s.title}</span></div>}
+            : s.cover ? <button type="button" className="dzoom" aria-label={`View ${s.title} full size`} onClick={() => setZoom({ src: s.cover!, alt: s.title, to: `/book/${s.book_id}`, label: `Open ${s.title}` })}><img src={s.cover} alt={s.title} /></button>
+            : s.art ? <button type="button" className="dzoom" aria-label={`View sticker ${s.label} full size`} onClick={() => setZoom({ src: s.art!, alt: s.label, to: `/book/${s.book_id}`, label: `Open ${s.title}` })}><img src={s.art} alt={s.label} /></button> : <div className="dsfallback"><span>{s.title}</span></div>}
         </div>
         );
       })}
+      {zoom && <ZoomLightbox z={zoom} onClose={() => setZoom(null)} />}
     </div>
   );
 }
@@ -123,18 +132,20 @@ function FavoritesCard({ books }: { books: MonthBook[] }) {
 }
 
 export function SharedCards({ d, period }: { d: DashboardCore; period: string }) {
+  const [zoom, setZoom] = useState<Zoomed | null>(null);
   return (
     <>
         <Card label="Books finished" className="span4">
           {d.books.length === 0 ? <span className="muted small">No books finished in {period} yet.</span> : (
             <div className="dcovers">
               {d.books.map((b) => (
-                <Link key={b.read_id} className="dcover" to={`/book/${b.book_id}/${b.read_id}`} title={b.title} aria-label={b.title}>
-                  {d.covers[b.book_id] ? <img src={d.covers[b.book_id]} alt="" /> : <span className="dsfallback"><span>{b.title}</span></span>}
-                </Link>
+                d.covers[b.book_id]
+                  ? <button key={b.read_id} type="button" className="dcover dzoom" title={b.title} aria-label={`View the cover of ${b.title} full size`} onClick={() => setZoom({ src: d.covers[b.book_id], alt: b.title, to: `/book/${b.book_id}/${b.read_id}`, label: `Open ${b.title}` })}><img src={d.covers[b.book_id]} alt="" /></button>
+                  : <Link key={b.read_id} className="dcover" to={`/book/${b.book_id}/${b.read_id}`} title={b.title} aria-label={b.title}><span className="dsfallback"><span>{b.title}</span></span></Link>
               ))}
             </div>
           )}
+          {zoom && <ZoomLightbox z={zoom} onClose={() => setZoom(null)} />}
         </Card>
 
         <Counts title="Most read authors" items={d.top.authors} />

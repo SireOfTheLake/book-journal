@@ -5,7 +5,7 @@ export const MAX_COLS = 12;
 // Card keys: 'main' (prompts not in a sub-category) and a sub-category id (Grid and Sticker challenges), or 'board' (Bingo).
 // A sticker challenge without sub-categories also has a 'stickers' card, next to the 'main' card of covers.
 export const defaultKeys = (kind: string, groupIds: string[]): string[] => (kind === 'bingo' ? ['board'] : kind === 'sticker' && groupIds.length === 0 ? ['stickers', 'main'] : ['main', ...groupIds]);
-export const defaultCols = (key: string, split = false): number => (key === 'board' ? 3 : split ? (key === 'stickers' ? 3 : 6) : 0);
+export const defaultCols = (key: string, split = false): number => (key === 'board' ? 3 : split ? 5 : 0);
 
 export function resolveLayout(kind: string, groupIds: string[], stored: string | null | undefined): Layout {
   let raw: { order?: unknown; cols?: unknown } = {};

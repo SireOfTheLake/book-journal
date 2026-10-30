@@ -183,7 +183,7 @@ describe('arranging: order and size', () => {
     expect(c.layout.order).toEqual(['main', c.groups[0].id, c.groups[1].id]);
     expect(Object.values(c.layout.cols)).toEqual([0, 0, 0]);
     const sid = await ch.createSticker(db, { year: 2026, name: 'S', stickers: [{ prompt: 'a', image: { dataUrl: 'data:x' } }] });
-    expect((await ch.getChallenge(db, sid))!.layout).toEqual({ order: ['stickers', 'main'], cols: { stickers: 3, main: 6 } }); // stickers get a card of their own, side by side with the covers
+    expect((await ch.getChallenge(db, sid))!.layout).toEqual({ order: ['stickers', 'main'], cols: { stickers: 5, main: 5 } }); // stickers get a card of their own, side by side with the covers
   });
   it('resizes a card and rejects silly sizes', async () => {
     const id = await make();

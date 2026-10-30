@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { BINGO_COLOR_CHOICES, bingoGoalState, bingoLines, MAX_BINGO_GOAL, MAX_PALETTE, squarePx, tint } from '../../domain/bingo';
+import { BINGO_COLOR_CHOICES, MAX_BINGO_GOAL, MAX_PALETTE, squarePx, tint } from '../../domain/bingo';
 import { countsTowardTracker, type Challenge, type Candidate, type Slot } from '../../repo/challenges';
 import BingoTile from './BingoTile';
 import ReadPicker from './ReadPicker';
@@ -37,9 +37,6 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
   const dragId = useRef<string | null>(null);
   const step = c.layout.cols.board || 3;
   const px = squarePx(step);
-  const filled = c.loose.map((s) => s.fill?.status === 'finished'); // a line needs read books; the free space takes a book like any other square
-  const lines = bingoLines(filled);
-  const goal = bingoGoalState(filled, c.bingoGoal);
   const [pickColor, setPickColor] = useState<string | 'new' | null>(null); // which palette color is being changed
   // BINGO over the five columns: each letter gets a colour from the palette, chosen the same way every time for this board.
   const letterColors = (() => {
@@ -69,9 +66,8 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
           ) : <h2 className="pagetitle small2">{c.name}</h2>}
           <span className="muted small">Bingo · Journal {c.year}{info.bankName ? ` · ${info.bankName}` : ''}{draft ? ' · Draft' : ''}</span>
         </div>
-        <TrackerBar t={c} color={c.color} />
-        <span className="chip" aria-label="Bingos">Bingos: {lines}</span>
-        <span className={`chip${goal.reached ? ' on' : ''}`} aria-label="Goal">{goal.label}{goal.reached ? ' ✓' : ''}</span>
+        <TrackerBar t={c} color={c.color} unit={c.trackerUnit} />
+        {c.bingoGoal !== null && <span className="chip" aria-label="Squares">Squares: {c.squares}/25</span>}
         {draft
           ? <button type="button" className="btn on" onClick={act.publish}>Publish board</button>
           : <button type="button" className={`btn${toggled ? ' on' : ''}`} aria-pressed={toggled} onClick={() => setToggled((e) => !e)}>{toggled ? 'Done editing' : 'Edit'}</button>}
@@ -104,7 +100,7 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
             {pickColor && (
               <div className="palpop" role="group" aria-label={pickColor === 'new' ? 'Choose a color to add' : `Choose a new color for ${pickColor}`}>
                 <span className="swatches">{BINGO_COLOR_CHOICES.filter((a) => !info.palette.includes(a)).map((a) => <button key={a} type="button" className="swatch" style={{ background: a }} aria-label={`Use color ${a}`} onClick={() => choose(a)} />)}</span>
-                <label className="inline"><span className="muted small">Custom</span> <input type="color" className="colorpick" aria-label="Pick a custom color" defaultValue={pickColor === 'new' ? '#888888' : pickColor} onChange={(e) => choose(e.target.value.toLowerCase(), true)} /></label>
+                <label className="inline"><span className="muted small">Custom</span> <input type="color" className="bingocolor" aria-label="Pick a custom color" defaultValue={pickColor === 'new' ? '#888888' : pickColor} onChange={(e) => choose(e.target.value.toLowerCase(), true)} /></label>
               </div>
             )}
           </div>

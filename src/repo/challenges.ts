@@ -1,7 +1,7 @@
 import type { Db } from '../db/adapter';
 import { accentAt, isHexColor, tracker, BONUS_DONE_SQL, BONUS_TOTAL_SQL, DONE_SQL, SHOWN_SQL, TOTAL_SQL, type Tracker } from '../domain/challenges';
 import { isMapId, isUsTerritory, type BonusMode, type MapId } from '../domain/maps';
-import { DEFAULT_PALETTE } from '../domain/bingo';
+import { bingoLines, DEFAULT_PALETTE } from '../domain/bingo';
 import { moveBefore, resolveLayout, serializeLayout, shuffled, MAX_COLS, type Layout } from '../domain/challengeLayout';
 import { newId } from '../domain/ids';
 import { pickMapColor } from '../domain/usMap';
@@ -26,7 +26,7 @@ export interface Challenge extends Tracker {
   bingo: BingoInfo | null; layout: Layout; groups: Group[]; loose: Slot[]; // loose = prompts that belong to the main category only
   usMap: boolean; mapRegion: MapId | null; bonusMode: BonusMode; territoryMode: BonusMode; mapLimit: number | null; australia: boolean; ukSplit: boolean; extras: boolean; bonus: Bonus | null; // usMap = any map challenge; mapLimit: "complete after N" with N boxes
   description: string | null; askNote: boolean; noteLabel: string; // askNote: every prompt asks for a short note; noteLabel: what it is called
-  required: number | null; allowBonus: boolean; bonusLimit: number | null; bingoGoal: number | null; revealed: boolean; canReveal: boolean; hasOptional: boolean; // limited challenge: how many prompts it needs, whether bonuses are allowed (a Word Builder: how many, empty = no limit), the Bingo goal (empty = blackout), and whether the unused stickers have been revealed
+  trackerUnit: string | null; squares: number; required: number | null; allowBonus: boolean; bonusLimit: number | null; bingoGoal: number | null; revealed: boolean; canReveal: boolean; hasOptional: boolean; // limited challenge: how many prompts it needs, whether bonuses are allowed (a Word Builder: how many, empty = no limit), the Bingo goal (empty = blackout), and whether the unused stickers have been revealed
   word: boolean; theme: string | null; target: number | null; letters: Record<string, string>; // Word Builder: the theme of the words, how many words to aim for, and the sticker picture for each letter
 }
 
@@ -83,6 +83,7 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
   const bonusTotal = bonusSlots.length + extraTotal;
   const bonusDone = bonusSlots.filter((s) => s.fill?.status === 'finished' && placed(s)).length + extraDone;
   const hasOptional = slots.some((s) => s.is_optional);
+  const bingoGoalSet = c.kind === 'bingo' && c.bingo_goal !== null;
   const canReveal = generic && c.kind === 'sticker' && !c.stickers_revealed && !allowBonus && !hasOptional && counted.length > c.required_count! && done >= c.required_count!;
   return {
     id: c.id, name: c.name, kind: c.kind, color: c.color && isHexColor(c.color) ? c.color : accentAt(0), year: c.year, layout: resolveLayout(c.kind, groups.map((g) => g.id), c.layout),
@@ -92,7 +93,9 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
     usMap: !!c.usMap, mapRegion: c.usMap ? (isMapId(c.map_region) ? c.map_region : 'us') : null, bonusMode, territoryMode, mapLimit: c.map_limit, australia: !!(c.map_australia & 1), ukSplit: !!(c.map_australia & 2), extras: !!(c.map_australia & 4),
     required: c.kind === 'bingo' || c.word ? null : c.required_count, allowBonus, bonusLimit: c.bonus_limit, bingoGoal: c.kind === 'bingo' ? c.bingo_goal : null, revealed: !!c.stickers_revealed && generic, canReveal, hasOptional,
     bonus: bonusTotal > 0 ? { done: bonusDone, total: bonusTotal } : null, description: c.description, askNote: !!c.ask_note, noteLabel: c.note_label?.trim() || 'Note', word: !!c.word, theme: c.theme, target: c.target, letters: c.word ? await letterMap(db, id) : {},
-    ...tracker(done, total),
+    // A Bingo board's bar follows its goal (a number of bingos, or all 25 squares); every square still counts toward Overview and Goals.
+    trackerUnit: bingoGoalSet ? 'bingos' : null, squares: rawDone,
+    ...(bingoGoalSet ? tracker(Math.min(bingoLines(slots.map((s) => s.fill?.status === 'finished')), c.bingo_goal!), c.bingo_goal!) : tracker(done, total)),
   };
 }
 
@@ -101,13 +104,19 @@ export const letterMap = async (db: Db, challengeId: string): Promise<Record<str
     'SELECT l.letter AS letter, i.file_path AS file_path FROM challenge_letter l JOIN image i ON i.id = l.image_id AND i.deleted_at IS NULL WHERE l.challenge_id = ? AND l.deleted_at IS NULL', [challengeId])).map((r) => [r.letter, r.file_path]));
 
 // ---------- creating ----------
-export interface NewGrid { year: number; name: string; color?: string; prompts?: string[]; groups?: { name: string; color?: string; prompts: string[] }[] }
+function checkRequired(required: number | null | undefined, total: number) {
+  if (required == null) return;
+  if (!Number.isInteger(required) || required < 1) throw new Error('The number of prompts needed must be a whole number above zero.');
+  if (required > total) throw new Error(`This challenge has only ${total} prompt${total === 1 ? '' : 's'}. Choose a smaller number needed.`);
+}
+export interface NewGrid { required?: number | null; allowBonus?: boolean; year: number; name: string; color?: string; prompts?: string[]; groups?: { name: string; color?: string; prompts: string[] }[] }
 export async function createGrid(db: Db, input: NewGrid): Promise<string> {
   const name = input.name.trim();
   if (!name) throw new Error('Give the challenge a name.');
   const groups = (input.groups ?? []).filter((g) => g.name.trim() || g.prompts.length);
   const total = (input.prompts ?? []).length + groups.reduce((n, g) => n + g.prompts.length, 0);
   if (!total) throw new Error('Add at least one prompt.');
+  checkRequired(input.required, total);
   if (groups.some((g) => !g.name.trim())) throw new Error('Every sub-category needs a name.');
   const yearId = await ensureJournalYear(db, input.year);
   const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
@@ -123,6 +132,7 @@ export async function createGrid(db: Db, input: NewGrid): Promise<string> {
     gi++;
     for (const label of g.prompts) await db.execute(`INSERT INTO challenge_slot (id, challenge_id, label, group_id, position) VALUES (?, ?, ?, ?, ?)`, [newId(), id, label.trim(), gid, pos++]);
   }
+  if (input.required != null) await setLimit(db, id, { required: input.required, allowBonus: !!input.allowBonus });
   return id;
 }
 
@@ -130,7 +140,7 @@ export async function createGrid(db: Db, input: NewGrid): Promise<string> {
 // A sticker is a small picture kept inside the database (already shrunk by the screen), the same way other pictures are.
 export interface StickerImage { dataUrl: string; width?: number; height?: number; mime?: string }
 // A sticker can sit in a sub-category: `group` is the name of one of the challenge's groups (empty or missing = the main prompts).
-export interface NewSticker { year: number; name: string; color?: string; groups?: { name: string; color?: string }[]; stickers: { prompt: string; image: StickerImage; group?: string }[] }
+export interface NewSticker { required?: number | null; allowBonus?: boolean; year: number; name: string; color?: string; groups?: { name: string; color?: string }[]; stickers: { prompt: string; image: StickerImage; group?: string }[] }
 export const saveImage = async (db: Db, img: StickerImage) => {
   const id = newId();
   await db.execute('INSERT INTO image (id, file_path, mime_type, width, height) VALUES (?, ?, ?, ?, ?)', [id, img.dataUrl, img.mime ?? null, img.width ?? null, img.height ?? null]);
@@ -140,6 +150,7 @@ export async function createSticker(db: Db, input: NewSticker): Promise<string> 
   const name = input.name.trim();
   if (!name) throw new Error('Give the challenge a name.');
   if (!input.stickers.length) throw new Error('Add at least one sticker.');
+  checkRequired(input.required, input.stickers.length);
   if (input.stickers.some((s) => !s.prompt.trim())) throw new Error('Every sticker needs a prompt.');
   const yearId = await ensureJournalYear(db, input.year);
   const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
@@ -163,6 +174,7 @@ export async function createSticker(db: Db, input: NewSticker): Promise<string> 
     if (st.group?.trim() && !gid) throw new Error(`There is no sub-category called "${st.group.trim()}".`);
     await db.execute('INSERT INTO challenge_slot (id, challenge_id, label, position, art_image_id, group_id) VALUES (?, ?, ?, ?, ?, ?)', [newId(), id, st.prompt.trim(), pos++, img, gid]);
   }
+  if (input.required != null) await setLimit(db, id, { required: input.required, allowBonus: !!input.allowBonus });
   return id;
 }
 export async function addStickers(db: Db, challengeId: string, stickers: { prompt: string; image: StickerImage; groupId?: string | null }[]) {

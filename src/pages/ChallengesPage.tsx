@@ -28,7 +28,7 @@ export default function ChallengesPage() {
           if ('preferUnused' in input) {
             const f = input as NewBingoForm;
             const bankId = f.bankId ?? await createBank(db, f.name, f.newBankPrompts);
-            try { id = await createBingo(db, { year: f.year, name: f.name, bankId, preferUnused: f.preferUnused, freeText: f.freeText }); } catch (e) { if (!f.bankId) await deleteBank(db, bankId); throw e; }
+            try { id = await createBingo(db, { year: f.year, name: f.name, bankId, preferUnused: f.preferUnused, freeText: f.freeText, goal: f.goal }); } catch (e) { if (!f.bankId) await deleteBank(db, bankId); throw e; }
           } else if ('usMap' in input) id = await createMap(db, input);
           else if ('word' in input) id = await createWordBuilder(db, input);
           else id = 'stickers' in input ? await createSticker(db, input) : await createGrid(db, input);

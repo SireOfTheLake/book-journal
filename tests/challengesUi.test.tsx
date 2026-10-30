@@ -43,8 +43,21 @@ describe('challenge screens', () => {
   it('shows an error instead of creating an empty challenge', async () => {
     ui('/journal/challenges');
     fireEvent.click(await screen.findByRole('button', { name: '+ New challenge' }));
+    fireEvent.change(screen.getByDisplayValue('Reading Challenge'), { target: { value: ' ' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create challenge' }));
     expect((await screen.findByRole('alert')).textContent).toMatch(/name/i);
+  });
+  it('starts with a name that fits the kind of challenge chosen, until you type your own', async () => {
+    ui('/journal/challenges');
+    fireEvent.click(await screen.findByRole('button', { name: '+ New challenge' }));
+    expect(screen.getByDisplayValue('Reading Challenge')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Bingo' }));
+    expect(screen.getByDisplayValue('Bingo')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Sticker' }));
+    expect(screen.getByDisplayValue('Sticker Challenge')).toBeTruthy();
+    fireEvent.change(screen.getByDisplayValue('Sticker Challenge'), { target: { value: 'My Own' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Word builder' }));
+    expect(screen.getByDisplayValue('My Own')).toBeTruthy();
   });
   it('lists the year\'s challenges with progress', async () => {
     await grid();
@@ -174,7 +187,7 @@ describe('arranging in Edit mode', () => {
     const before = (screen.getByRole('region', { name: 'Stickers' }) as HTMLElement).style.getPropertyValue('--cols');
     fireEvent.click(screen.getByRole('button', { name: 'Make Stickers wider' }));
     await waitFor(() => expect((screen.getByRole('region', { name: 'Stickers' }) as HTMLElement).style.getPropertyValue('--cols')).toBe(String(Number(before) + 1)));
-    expect((screen.getByRole('region', { name: 'S' }) as HTMLElement).style.getPropertyValue('--cols')).toBe('6');
+    expect((screen.getByRole('region', { name: 'S' }) as HTMLElement).style.getPropertyValue('--cols')).toBe('5');
   });
   it('with sub-categories each sticker sits above its cover', async () => {
     const id = await ch.createSticker(db, { year: new Date().getFullYear(), name: 'S', groups: [{ name: 'Heroes', color: '#c4683d' }], stickers: [{ prompt: 'one', image: { dataUrl: 'data:a' }, group: 'Heroes' }] });

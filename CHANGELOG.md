@@ -2,7 +2,23 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 -->
+
+## 0.3.12 — 2026-10-30
+
+### New
+- [Desktop] Limited Challenge can be set when a grid or sticker challenge is created, and its settings are tidier: the number sits on the toggle's line and Bonus prompts appears under it
+- [Desktop] New challenges start with a name that fits the kind of challenge you choose
+- [Desktop] Click a sticker on a challenge or the dashboard, or a cover on the dashboard, to see it as big as possible
+
+### Improved
+- [Desktop] Bingo: the progress bar now follows the goal (all 25 squares, or the number of bingos), and the goal can be chosen when the board is made. Every square still counts toward Overview and Goals
+- [Desktop] Bingo: removed the Bingos and Goal chips; with a bingo goal the squares filled are shown instead
+- [Desktop] "Ask for a Label" only shows its small text box when switched on
+- [Desktop] Sticker challenges without sub-categories show five stickers and five covers across, side by side
+
+### Fixed
+- [Desktop] The color boxes on Appearance and Themes show up again
 
 ## 0.3.11 — 2026-10-30
 

@@ -56,6 +56,28 @@ describe('limited challenges', () => {
   });
 });
 
+describe('creating a limited challenge, and a bingo with a goal', () => {
+  it('a grid or sticker challenge can be limited from the start', async () => {
+    const id = await createGrid(db, { year: Y, name: 'G', prompts: prompts(5), required: 3, allowBonus: true });
+    expect(await getChallenge(db, id)).toMatchObject({ required: 3, allowBonus: true, total: 3 });
+    await expect(createGrid(db, { year: Y, name: 'H', prompts: prompts(2), required: 3 })).rejects.toThrow('only 2');
+    const sid = await createSticker(db, { year: Y, name: 'S', required: 1, stickers: [{ prompt: 'a', image: { dataUrl: 'data:image/png;base64,a' } }, { prompt: 'b', image: { dataUrl: 'data:image/png;base64,b' } }] });
+    expect(await getChallenge(db, sid)).toMatchObject({ required: 1, total: 1 });
+  });
+  it('the bar of a bingo board follows its goal, while every square still counts for Overview and Goals', async () => {
+    const bank = await createBank(db, 'B', Array.from({ length: 30 }, (_, i) => `P${i}`));
+    const id = await createBingo(db, { year: Y, name: 'Bingo', bankId: bank, goal: 2 });
+    await publishBingo(db, id);
+    let c = (await getChallenge(db, id))!;
+    expect(c).toMatchObject({ bingoGoal: 2, total: 2, done: 0, trackerUnit: 'bingos' });
+    for (const i of [0, 1, 2, 3, 4, 5]) await fillSlot(db, c.loose[i].id, await read(`b${i}`));
+    c = (await getChallenge(db, id))!;
+    expect(c).toMatchObject({ done: 1, total: 2, squares: 6 }); // one row so far
+    expect(challengeTotals(await loadFacts(db), Y, [id])).toMatchObject({ done: 6, total: 25 });
+    await expect(createBingo(db, { year: Y, name: 'X', bankId: bank, goal: 12 })).rejects.toThrow('1 to 11');
+  });
+});
+
 describe('optional prompts', () => {
   it('are always bonuses and never part of the total', async () => {
     const id = await grid(5);

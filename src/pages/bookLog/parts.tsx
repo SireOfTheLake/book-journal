@@ -332,12 +332,13 @@ export function Combo({ options, placeholder, label, onPick, onCreate, createLab
 }
 
 // A picture shown full screen. Click outside it, or the X, to close.
-export function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+export function Lightbox({ src, alt, onClose, children }: { src: string; alt: string; onClose: () => void; children?: ReactNode }) {
   useEffect(() => { const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onClose]);
   return (
     <div className="lightbox" role="dialog" aria-modal="true" aria-label={alt} onClick={onClose}>
       <button type="button" className="lbclose" aria-label="Close" onClick={onClose}>&times;</button>
       <img src={src} alt={alt} onClick={(e) => e.stopPropagation()} />
+      {children && <div className="lbextra" onClick={(e) => e.stopPropagation()}>{children}</div>}
     </div>
   );
 }

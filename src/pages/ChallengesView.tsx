@@ -12,6 +12,8 @@ import StickerStaging, { type Staged } from './challenges/StickerStaging';
 import TrackerBar from './challenges/TrackerBar';
 
 const KIND: Record<string, string> = { grid: 'Grid', sticker: 'Sticker', bingo: 'Bingo' };
+// What a new challenge is called until you type your own name.
+const DEFAULT_NAME = { grid: 'Reading Challenge', sticker: 'Sticker Challenge', word: 'Word Builder', bingo: 'Bingo' } as const;
 
 // A color for a new challenge: chosen at random, from the ones no other challenge this year has when there are any left.
 export function randomAccent(used: (string | null)[], rng: () => number = Math.random): string {
@@ -21,13 +23,13 @@ export function randomAccent(used: (string | null)[], rng: () => number = Math.r
   return pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
 }
 // What the form hands over for a Bingo board: an existing bank, or the prompts for a new one.
-export interface NewBingoForm { year: number; name: string; bankId: string | null; newBankPrompts: string[]; preferUnused: boolean; freeText: string }
+export interface NewBingoForm { year: number; name: string; bankId: string | null; newBankPrompts: string[]; preferUnused: boolean; freeText: string; goal?: number | null }
 export type NewWordForm = NewWordBuilder & { word: true };
 export type NewMapForm = NewUsMap & { usMap: true };
 export type CreateInput = NewGrid | NewSticker | NewBingoForm | NewWordForm | NewMapForm;
 
 function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: { year: number; banks: BankSummary[]; used: (string | null)[]; onCreate(input: CreateInput, description?: string): Promise<void>; onCancel(): void }) {
-  const [name, setName] = useState('');
+  const [name, setName] = useState<string>(DEFAULT_NAME.grid);
   const [description, setDescription] = useState('');
   const [color, setColor] = useState(() => randomAccent(used));
   const [theme, setTheme] = useState('');
@@ -45,6 +47,12 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   const [limit, setLimit] = useState('25');
   const pickMap = (id: MapId) => { setMapId(id); setBonus(id === 'us' ? 'off' : 'optional'); setTerritories('off'); setLimit(String(MAPS[id].defaultLimit)); if (!name.trim() || MAP_IDS.some((m) => MAPS[m].defaultName === name)) setName(MAPS[id].defaultName); };
   const [kind, setKind] = useState<'grid' | 'sticker' | 'word' | 'map' | 'bingo'>('grid');
+  const [goal, setGoal] = useState('blackout'); // Bingo: a full blackout or a number of bingos
+  const [reqOn, setReqOn] = useState(false); // a limited challenge needs only some of its prompts
+  const [reqText, setReqText] = useState('');
+  const [reqBonus, setReqBonus] = useState(false);
+  const isDefaultName = (n: string) => !n.trim() || Object.values(DEFAULT_NAME).includes(n as never) || MAP_IDS.some((m) => MAPS[m].defaultName === n);
+  const pickKind = (k: 'grid' | 'sticker' | 'word' | 'bingo') => { setKind(k); if (isDefaultName(name)) setName(DEFAULT_NAME[k]); };
   const [bankId, setBankId] = useState<string>(banks[0]?.id ?? 'new');
   const [bankText, setBankText] = useState('');
   const [prefer, setPrefer] = useState(true);
@@ -59,23 +67,24 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   const setGroup = (i: number, patch: Partial<{ name: string; text: string }>) => setGroups((g) => g.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   const submit = async () => {
     try {
+      const limitInput = reqOn ? { required: Number(reqText) || 0, allowBonus: reqBonus } : {};
       const onCreate = (i: CreateInput) => onCreateWith(i, description.trim() || undefined);
-      if (kind === 'bingo') { await onCreate({ year, name, bankId: bank ? bank.id : null, newBankPrompts: bank ? [] : splitPrompts(bankText), preferUnused: bank?.lastYear ? prefer : false, freeText }); return; }
+      if (kind === 'bingo') { await onCreate({ year, name, bankId: bank ? bank.id : null, newBankPrompts: bank ? [] : splitPrompts(bankText), preferUnused: bank?.lastYear ? prefer : false, freeText, goal: goal === 'blackout' ? null : Number(goal) }); return; }
       if (kind === 'map') { await onCreate({ usMap: true, year, name, color, region: mapId, bonus: hasBonusPlaces(mapId) ? bonus : mapId === 'us' ? 'off' : 'optional', territories: mapId === 'us' ? territories : undefined, australia, ukSplit, extras: limited && extras, limit: limited ? Number(limit) : null }); return; }
       if (kind === 'word') { await onCreate({ word: true, year, name, color, theme, target: target.trim() ? Number(target) : null, letters }); return; }
-      if (kind === 'sticker') { await onCreate({ year, name, color, groups: stickerGroups.map((g, i) => ({ name: g, color: accentAt(i + 1) })), stickers: staged.map((s) => ({ prompt: s.prompt, image: s.image, group: s.group })) }); return; }
-      await onCreate({ year, name, color, prompts: splitPrompts(main), groups: groups.map((g, i) => ({ name: g.name, color: accentAt(i + 1), prompts: splitPrompts(g.text) })) });
+      if (kind === 'sticker') { await onCreate({ ...limitInput, year, name, color, groups: stickerGroups.map((g, i) => ({ name: g, color: accentAt(i + 1) })), stickers: staged.map((s) => ({ prompt: s.prompt, image: s.image, group: s.group })) }); return; }
+      await onCreate({ ...limitInput, year, name, color, prompts: splitPrompts(main), groups: groups.map((g, i) => ({ name: g.name, color: accentAt(i + 1), prompts: splitPrompts(g.text) })) });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
   return (
     <div className="bcard newchal">
       <div className="stack"><span className="lbl2">Kind</span>
         <div className="seg" role="group" aria-label="Kind">
-          <button type="button" className={kind === 'grid' ? 'on' : ''} aria-pressed={kind === 'grid'} onClick={() => setKind('grid')}>Grid</button>
-          <button type="button" className={kind === 'sticker' ? 'on' : ''} aria-pressed={kind === 'sticker'} onClick={() => setKind('sticker')}>Sticker</button>
-          <button type="button" className={kind === 'word' ? 'on' : ''} aria-pressed={kind === 'word'} onClick={() => setKind('word')}>Word builder</button>
-          <button type="button" className={kind === 'map' ? 'on' : ''} aria-pressed={kind === 'map'} onClick={() => { setKind('map'); if (!name.trim()) setName(MAPS[mapId].defaultName); }}>Map</button>
-          <button type="button" className={kind === 'bingo' ? 'on' : ''} aria-pressed={kind === 'bingo'} onClick={() => setKind('bingo')}>Bingo</button>
+          <button type="button" className={kind === 'grid' ? 'on' : ''} aria-pressed={kind === 'grid'} onClick={() => pickKind('grid')}>Grid</button>
+          <button type="button" className={kind === 'sticker' ? 'on' : ''} aria-pressed={kind === 'sticker'} onClick={() => pickKind('sticker')}>Sticker</button>
+          <button type="button" className={kind === 'word' ? 'on' : ''} aria-pressed={kind === 'word'} onClick={() => pickKind('word')}>Word builder</button>
+          <button type="button" className={kind === 'map' ? 'on' : ''} aria-pressed={kind === 'map'} onClick={() => { setKind('map'); if (isDefaultName(name)) setName(MAPS[mapId].defaultName); }}>Map</button>
+          <button type="button" className={kind === 'bingo' ? 'on' : ''} aria-pressed={kind === 'bingo'} onClick={() => pickKind('bingo')}>Bingo</button>
         </div>
       </div>
       <label className="stack"><span className="lbl2">Name</span><input className="field big" value={name} placeholder="100 Prompts" onChange={(e) => setName(e.target.value)} /></label>
@@ -93,6 +102,11 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
             <textarea className="field" rows={8} aria-label="Bank prompts" value={bankText} onChange={(e) => setBankText(e.target.value)} /></label>}
           {bank?.lastYear ? <label className="check"><input type="checkbox" role="switch" className="toggle" checked={prefer} onChange={(e) => setPrefer(e.target.checked)} /> Start with prompts that were not on your {bank.lastYear} board</label> : null}
           <label className="stack"><span className="lbl2">Free space prompt (optional; leave empty for a plain FREE)</span><input className="field" value={freeText} onChange={(e) => setFreeText(e.target.value)} /></label>
+          <label className="stack"><span className="lbl2">Goal</span>
+            <select className="field" aria-label="Bingo goal" value={goal} onChange={(e) => setGoal(e.target.value)}>
+              <option value="blackout">Full blackout (all 25 squares)</option>
+              {Array.from({ length: 11 }, (_, i) => i + 1).map((n) => <option key={n} value={String(n)}>{n} bingo{n === 1 ? '' : 's'}</option>)}
+            </select></label>
           <span className="muted small">The board starts as a draft you can change before publishing. Pictures can be added in the bank or on the board.</span>
         </>
       ) : kind === 'map' ? (
@@ -149,6 +163,15 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
         </div>
       ))}
       <button type="button" className="mini" onClick={() => setGroups((g) => [...g, { name: '', text: '' }])}>+ Add a sub-category</button></>}
+      {(kind === 'grid' || kind === 'sticker') && (
+        <div className="notesettings">
+          <div className="toggleline">
+            <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={reqOn} onChange={(e) => { setReqOn(e.target.checked); if (!reqText) setReqText(String(Math.max(1, kind === 'sticker' ? staged.length : splitPrompts(main).length))); if (!e.target.checked) setReqBonus(false); }} /><span>Limited Challenge</span></label>
+            {reqOn && <input className="field tiny" type="number" min={1} aria-label="Prompts needed" value={reqText} onChange={(e) => setReqText(e.target.value)} />}
+          </div>
+          {reqOn && <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={reqBonus} onChange={(e) => setReqBonus(e.target.checked)} /><span>Bonus prompts</span></label>}
+        </div>
+      )}
       {error && <div className="muted" role="alert">{error}</div>}
       <div className="actions"><button type="button" className="btn" onClick={onCancel}>Cancel</button><span className="grow" /><button type="button" className="btn on" onClick={submit}>Create challenge</button></div>
     </div>

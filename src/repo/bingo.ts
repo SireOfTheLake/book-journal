@@ -98,12 +98,13 @@ async function copyImage(db: Db, imageId: string | null): Promise<string | null>
 }
 
 // ---------- boards ----------
-export interface NewBingo { year: number; name: string; bankId: string; preferUnused?: boolean; palette?: string[]; freeText?: string; rng?: Rng }
+export interface NewBingo { year: number; name: string; bankId: string; preferUnused?: boolean; palette?: string[]; freeText?: string; goal?: number | null; rng?: Rng }
 export async function createBingo(db: Db, input: NewBingo): Promise<string> {
   const name = input.name.trim();
   if (!name) throw new Error('Give the challenge a name.');
   const bank = await first<{ id: string }>(db, 'SELECT id FROM bingo_bank WHERE id = ? AND deleted_at IS NULL', [input.bankId]);
   if (!bank) throw new Error('Choose a prompt bank.');
+  if (input.goal != null && (!Number.isInteger(input.goal) || input.goal < 1 || input.goal > 11)) throw new Error('A bingo goal is from 1 to 11 bingos. A blackout is the most there is.');
   const rng = input.rng ?? Math.random;
   const prefer = input.preferUnused ?? true;
   const picked = await draw(db, input.bankId, input.year, PLAYABLE, prefer, new Set(), rng);
@@ -112,8 +113,8 @@ export async function createBingo(db: Db, input: NewBingo): Promise<string> {
   const yearId = await ensureJournalYear(db, input.year);
   const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
   const id = newId();
-  await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order, published, palette, bank_id, prefer_unused)
-    VALUES (?, ?, ?, ?, 'grid', 'bingo', ?, ?, 0, ?, ?, ?)`, [id, yearId, name, palette[0] ?? accentAt(0), PLAYABLE, order + 1, JSON.stringify(palette), input.bankId, prefer ? 1 : 0]);
+  await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order, published, palette, bank_id, prefer_unused, bingo_goal)
+    VALUES (?, ?, ?, ?, 'grid', 'bingo', ?, ?, 0, ?, ?, ?, ?)`, [id, yearId, name, palette[0] ?? accentAt(0), PLAYABLE, order + 1, JSON.stringify(palette), input.bankId, prefer ? 1 : 0, input.goal ?? null]);
   const colors = assignColors(palette, 25, rng);
   let k = 0;
   for (let pos = 1; pos <= 25; pos++) {

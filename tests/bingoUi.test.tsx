@@ -83,7 +83,6 @@ describe('a draft board', () => {
     ui(`/journal/challenges/${id}`);
     await screen.findByText(/This board is a draft/);
     expect(screen.getByText('FREE')).toBeTruthy();
-    expect(screen.getByText('Bingos: 0')).toBeTruthy();
     expect(screen.getByText('0/25')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Publish board' })).toBeTruthy();
   });
@@ -167,15 +166,18 @@ describe('a published board', () => {
     expect((free as HTMLButtonElement).disabled).toBe(false);
     const c = (await ch.getChallenge(db, id))!;
     for (let i = 0; i < 5; i++) { const b = await createBook(db, { title: `Book ${i}`, authors: ['A'] }); const r = await createRead(db, b, 'finished'); await ch.fillSlot(db, c.loose[10 + i].id, r); } // the middle row has the free space in it
+    await bg.setBingoGoal(db, id, 1);
     cleanup(); ui(`/journal/challenges/${id}`);
-    await screen.findByText('Bingos: 1');
+    await screen.findByText('1/1'); // one row of five makes the one bingo the goal asks for
   });
   it('changes a color from the set or the color wheel, and sets the goal', async () => {
     const { id } = await board(true);
     ui(`/journal/challenges/${id}`);
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     const palette = within(screen.getByRole('group', { name: 'Palette' }));
-    expect(screen.getByText('Goal: blackout (0/25)')).toBeTruthy();
+    expect(screen.getByText('0/25')).toBeTruthy();
+    expect(screen.queryByText(/^Goal:/)).toBeNull();
+    expect(screen.queryByText(/^Bingos:/)).toBeNull();
     fireEvent.click(palette.getByRole('button', { name: 'Change color #c0566b' }));
     fireEvent.click(palette.getByRole('button', { name: 'Use color #6c9a4f' }));
     await waitFor(async () => expect((await ch.getChallenge(db, id))!.bingo!.palette).toContain('#6c9a4f'));
@@ -183,7 +185,9 @@ describe('a published board', () => {
     fireEvent.change(palette.getByLabelText('Pick a custom color'), { target: { value: '#112233' } });
     await waitFor(async () => expect((await ch.getChallenge(db, id))!.bingo!.palette).toContain('#112233'));
     fireEvent.change(screen.getByLabelText('Bingo goal'), { target: { value: '2' } });
-    await screen.findByText('Goal: 2 bingos (0/2)');
+    await screen.findByText('0/2');
+    expect(screen.getByText('bingos')).toBeTruthy();
+    expect(screen.getByText('Squares: 0/25')).toBeTruthy();
   });
   it('stays editable: squares open the editor in Edit mode, the palette and size can change', async () => {
     const { id } = await board(true);

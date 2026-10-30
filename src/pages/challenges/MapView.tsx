@@ -16,6 +16,7 @@ export interface MapActions {
   place(slotId: string, place: string | null): void;
   fillPlace(place: string, readId: string): void;
   bonus(mode: BonusMode): void;
+  territories?(mode: BonusMode): void; // US map: what the territories do, apart from DC
   australia(on: boolean): void;
   ukSplit(on: boolean): void;
   extras(on: boolean): void;
@@ -47,7 +48,7 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
   const hovered = hover ? byName.get(hover) ?? null : null;
   const choose = (label: string) => { const slot = byName.get(label); if (slot) setPicking(slot); else if (limited) setPickingPlace(label); };
   const taken = new Set(slots.map((s) => s.label).filter(Boolean));
-  const options = mapPlaces(region.id, c.bonusMode, c.australia, c.ukSplit);
+  const options = mapPlaces(region.id, c.bonusMode, c.australia, c.ukSplit, c.territoryMode);
   const unplaced = limited ? slots.filter((s) => s.fill && !s.label).length : 0;
   const what = limited ? `${filled} of ${slots.length} boxes` : `${filled} of ${slots.length} ${region.plural}`;
   return (
@@ -65,8 +66,14 @@ export default function MapView({ challenge: c, covers = {}, act }: { challenge:
       {editing && (
         <div className="bcard gedit">
           <span className="lbl2">Challenge color</span><Swatches value={c.color} label="Challenge color" onPick={act.color} />
-          {hasBonusPlaces(region.id) && <label className="stack"><span className="lbl2">Bonus prompts ({region.bonusNote})</span>
-            <select className="field" aria-label="Bonus prompts" value={c.bonusMode} onChange={(e) => act.bonus(e.target.value as BonusMode)}>
+          {hasBonusPlaces(region.id) && <label className="stack"><span className="lbl2">{region.id === 'us' ? 'District of Columbia' : `Bonus prompts (${region.bonusNote})`}</span>
+            <select className="field" aria-label={region.id === 'us' ? 'District of Columbia' : 'Bonus prompts'} value={c.bonusMode} onChange={(e) => act.bonus(e.target.value as BonusMode)}>
+              <option value="optional">Optional (extra points, not part of the goal)</option>
+              <option value="required">Required (part of the goal)</option>
+              <option value="off">Not included</option>
+            </select></label>}
+          {region.id === 'us' && act.territories && <label className="stack"><span className="lbl2">Territories (Puerto Rico, Guam and the others)</span>
+            <select className="field" aria-label="Territories" value={c.territoryMode} onChange={(e) => act.territories!(e.target.value as BonusMode)}>
               <option value="optional">Optional (extra points, not part of the goal)</option>
               <option value="required">Required (part of the goal)</option>
               <option value="off">Not included</option>

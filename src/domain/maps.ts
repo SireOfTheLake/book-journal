@@ -73,8 +73,10 @@ export const optionBits = (o: { australia?: boolean; ukSplit?: boolean; extras?:
 export const optionsOf = (bits: number | null | undefined) => ({ australia: !!((bits ?? 0) & 1), ukSplit: !!((bits ?? 0) & 2), extras: !!((bits ?? 0) & 4) });
 
 // The places that can be prompts for a map, with the continent called Australia when asked and the UK split when asked. `bonus: 'off'` leaves the bonus places out.
-export function mapPlaces(region: MapId, bonus: BonusMode, australia = false, ukSplit = false): MapPlace[] {
-  let list: MapPlace[] = mapDef(region).places.filter((p) => !p.bonus || bonus !== 'off').map((p) => ({ ...p, name: placeLabel(region, p.name, australia) }));
+export const isUsTerritory = (region: MapId, name: string) => region === 'us' && US_TERRITORIES.some((t) => t.name === name);
+// On the US map DC follows `bonus` and the territories follow `territories` (the same as `bonus` unless given).
+export function mapPlaces(region: MapId, bonus: BonusMode, australia = false, ukSplit = false, territories: BonusMode = bonus): MapPlace[] {
+  let list: MapPlace[] = mapDef(region).places.filter((p) => !p.bonus || (isUsTerritory(region, p.name) ? territories : bonus) !== 'off').map((p) => ({ ...p, name: placeLabel(region, p.name, australia) }));
   if (ukSplit && canSplitUk(region)) list = [...list.filter((p) => p.name !== UK), ...UK_NATIONS.map((name): MapPlace => ({ name }))].sort((a, b) => Number(!!a.bonus) - Number(!!b.bonus) || byName(a.name, b.name));
   return list;
 }

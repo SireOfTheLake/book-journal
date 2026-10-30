@@ -34,6 +34,9 @@ export interface GridActions {
   shuffleCards(): void;
   movePrompt(slotId: string, groupId: string | null, beforeSlotId: string | null): void;
   shufflePrompts(groupId: string | null): void;
+  setLimit?(required: number | null, allowBonus: boolean): void; // a limited challenge needs only some of its prompts; bonus prompts keep earning points after
+  optional?(slotId: string, optional: boolean): void; // an optional prompt is always a bonus
+  reveal?(): void; // show the stickers that were not needed
 }
 
 // What is being dragged while you rearrange in Edit mode.
@@ -90,7 +93,7 @@ export function NoteText({ value, onSave }: { value: string; onSave(text: string
   return <button type="button" className={`gnotetext${value ? '' : ' empty'}`} aria-label={value ? `Note: ${value}. Click to change` : 'Add a note'} onClick={() => { done.current = false; setEditing(true); }}>{value || 'Note'}</button>;
 }
 
-function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd, askAll, noteLabel }: { slot: Slot; cover: string | undefined; editing: boolean; sticker?: boolean; onPick(): void; act: GridActions; dnd?: Dnd; askAll: boolean; noteLabel: string }) {
+function SlotCard({ slot, cover, editing, sticker, revealed, onPick, act, dnd, askAll, noteLabel }: { slot: Slot; cover: string | undefined; editing: boolean; sticker?: boolean; revealed?: boolean; onPick(): void; act: GridActions; dnd?: Dnd; askAll: boolean; noteLabel: string }) {
   const [confirming, setConfirming] = useState(false);
   const f = slot.fill;
   const planned = !!f && f.status !== 'finished'; // a book is on the prompt but has not been read yet
@@ -100,8 +103,8 @@ function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd, askAll, not
       onDragOver={(e) => editing && dnd?.over(e)} onDrop={(e) => editing && dnd?.slotDrop(e, slot.id)}>
       {sticker && (
         <>
-          <span className={`sticker${(f && !planned) || editing ? ' got' : ''}`} title={slot.label}>
-            {((f && !planned) || editing) && slot.art ? <img src={slot.art} alt={f ? `Sticker: ${slot.label}` : `Sticker for ${slot.label}`} /> : <span className="num" aria-hidden="true">?</span>}
+          <span className={`sticker${(f && !planned) || editing || revealed ? ' got' : ''}${revealed && !f ? ' revealed' : ''}`} title={slot.label}>
+            {((f && !planned) || editing || revealed) && slot.art ? <img src={slot.art} alt={f ? `Sticker: ${slot.label}` : `Sticker for ${slot.label}`} /> : <span className="num" aria-hidden="true">?</span>}
           </span>
           {editing && act.replaceSticker && <ReplaceSticker label={slot.label} onFile={(file) => act.replaceSticker!(slot.id, file)} />}
         </>
@@ -109,6 +112,7 @@ function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd, askAll, not
       <button type="button" className={`gframe${f ? ' filled' : ''}${planned ? ' planned' : ''}`} aria-label={f ? `Change the book for ${slot.label}` : `Add a book for ${slot.label}`} onClick={onPick}>
         {f ? (cover ? <img className="libimg" src={cover} alt="" /> : <div className="libgen" style={{ background: hue(f.title) }}><span className="ttl">{f.title.toUpperCase()}</span></div>) : <span className="plus" aria-hidden="true">+</span>}
       </button>
+      {slot.is_optional && <span className="plannedtag" title="Always a bonus: it does not count toward finishing">optional</span>}
       {planned && <span className="plannedtag" title="It counts once the book is read">planned</span>}
       {editing ? <SaveText value={slot.label} label={`Prompt: ${slot.label}`} onSave={(v) => act.renamePrompt(slot.id, v)} /> : <span className="glabel" title={slot.label}>{slot.label}</span>}
       {asks && f && act.note && <NoteText value={slot.note ?? ''} onSave={(t) => act.note!(slot.id, t)} />}
@@ -116,6 +120,7 @@ function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd, askAll, not
         {f ? <><FitText className="l" to={`/book/${f.book_id}/${f.read_id}`} title={f.title} />
           <button type="button" className="xbtn" aria-label={`Take ${f.title} off ${slot.label}`} title="Take this book off" onClick={() => act.clear(slot.id)}>&times;</button></> : null}
       </span>
+      {editing && act.optional && <label className="inline small"><input type="checkbox" role="switch" className="toggle" aria-label={`Optional: ${slot.label}`} checked={slot.is_optional} onChange={(e) => act.optional!(slot.id, e.target.checked)} /><span>Optional</span></label>}
       {editing && act.askPrompt && (
         <select className="gasks" aria-label={`Note for ${slot.label}`} value={slot.askNote === null ? '' : slot.askNote ? 'yes' : 'no'} onChange={(e) => act.askPrompt!(slot.id, e.target.value === '' ? null : e.target.value === 'yes')}>
           <option value="">{`${noteLabel}: as the challenge`}</option><option value="yes">{`${noteLabel}: ask`}</option><option value="no">{`${noteLabel}: don't ask`}</option>
@@ -129,15 +134,15 @@ function SlotCard({ slot, cover, editing, sticker, onPick, act, dnd, askAll, not
 }
 
 // A sticker challenge without sub-categories keeps its stickers in a card of their own, next to the card of book covers.
-function StickerSheet({ slots, editing, act }: { slots: Slot[]; editing: boolean; act: GridActions }) {
+function StickerSheet({ slots, editing, revealed, act }: { slots: Slot[]; editing: boolean; revealed: boolean; act: GridActions }) {
   return (
     <ul className="stickersheet">
       {slots.map((s) => {
         const got = !!s.fill && s.fill.status === 'finished';
         return (
           <li key={s.id} className="stickerspot">
-            <span className={`sticker${got || editing ? ' got' : ''}`} title={s.label}>
-              {(got || editing) && s.art ? <img src={s.art} alt={got ? `Sticker: ${s.label}` : `Sticker for ${s.label}`} /> : <span className="num" aria-hidden="true">?</span>}
+            <span className={`sticker${got || editing || revealed ? ' got' : ''}${revealed && !got ? ' revealed' : ''}`} title={s.label}>
+              {(got || editing || revealed) && s.art ? <img src={s.art} alt={got ? `Sticker: ${s.label}` : `Sticker for ${s.label}`} /> : <span className="num" aria-hidden="true">?</span>}
             </span>
             {editing && act.replaceSticker && <ReplaceSticker label={s.label} onFile={(file) => act.replaceSticker!(s.id, file)} />}
             <span className="glabel" title={s.label}>{s.label}</span>
@@ -181,6 +186,23 @@ function NoteSettings({ ask, label, onSave }: { ask: boolean; label: string; onS
       <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={ask} onChange={(e) => onSave(e.target.checked, text)} /><span>Ask for a note with each book</span></label>
       <input className="field small" aria-label="What the note is called" placeholder="Called (for example, Character)" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== (label === 'Note' ? '' : label) && onSave(ask, text)} />
       <span className="muted small">Each prompt can also decide for itself; choose that under the prompt.</span>
+    </div>
+  );
+}
+
+// "Only some of these are needed": a limited challenge, bonus prompts, and the button that reveals the stickers that were not needed.
+function LimitSettings({ required, allowBonus, prompts, onSave }: { required: number | null; allowBonus: boolean; prompts: number; onSave(required: number | null, allowBonus: boolean): void }) {
+  const [text, setText] = useState(required === null ? String(Math.max(1, prompts)) : String(required));
+  useLayoutEffect(() => { if (required !== null) setText(String(required)); }, [required]);
+  const limited = required !== null;
+  return (
+    <div className="notesettings">
+      <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={limited} onChange={(e) => onSave(e.target.checked ? Math.max(1, Math.min(prompts, Number(text) || prompts)) : null, false)} /><span>Limited: only some of the prompts are needed</span></label>
+      {limited && <>
+        <label className="inline"><span className="muted small">Prompts needed (1 to {prompts})</span> <input className="field small" type="number" min={1} max={prompts} aria-label="Prompts needed" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => Number(text) !== required && onSave(Number(text), allowBonus)} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} /></label>
+        <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={allowBonus} onChange={(e) => onSave(required, e.target.checked)} /><span>Allow bonus prompts: keep earning points after it is complete</span></label>
+      </>}
+      <span className="muted small">Optional prompts (switch them on under a prompt) are always bonuses and never count toward finishing.</span>
     </div>
   );
 }
@@ -251,7 +273,7 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
 
   const slotList = (slots: Slot[], groupId: string | null) => (
     <>
-      <ul className="gslots">{slots.map((s) => <SlotCard key={s.id} slot={s} sticker={stacked} cover={s.fill ? covers[s.fill.book_id] : undefined} editing={editing} onPick={() => setPicking(s)} act={act} dnd={dnd} askAll={c.askNote} noteLabel={c.noteLabel} />)}</ul>
+      <ul className="gslots">{slots.map((s) => <SlotCard key={s.id} slot={s} sticker={stacked} revealed={c.revealed} cover={s.fill ? covers[s.fill.book_id] : undefined} editing={editing} onPick={() => setPicking(s)} act={act} dnd={dnd} askAll={c.askNote} noteLabel={c.noteLabel} />)}</ul>
       {editing && !sticker && <AddPrompt label={groupId ? 'New prompt for this sub-category' : 'New main prompt'} onAdd={(t) => act.addPrompt(groupId, t)} />}
     </>
   );
@@ -270,7 +292,7 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
   const renderCard = (k: string) => {
     if (k === 'stickers') return (
       <Card key={k} cardKey={k} label="Stickers" color={c.color} cols={cols(k)} cell="sticker" editing={editing} groupId={null} {...nav(k)} act={act} dnd={dnd} noShuffle>
-        <StickerSheet slots={c.loose} editing={editing} act={act} />
+        <StickerSheet slots={c.loose} editing={editing} revealed={c.revealed} act={act} />
       </Card>);
     if (k === 'main') return (
       <Card cardKey={k} label={c.groups.length ? 'Main prompts' : c.name} color={c.color} cols={cols(k)} editing={editing} groupId={null} {...nav(k)} act={act} dnd={dnd} className="main">
@@ -300,7 +322,8 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
           {editing ? <SaveText value={c.name} label="Challenge name" onSave={act.rename} className="field big" /> : <h2 className="pagetitle small2">{c.name}</h2>}
           <span className="muted small">{sticker ? 'Sticker' : 'Grid'} · Journal {c.year}</span>
         </div>
-        <TrackerBar t={c} color={c.color} />
+        <TrackerBar t={c} color={c.color} bonus={c.bonus} />
+        {c.canReveal && act.reveal && <button type="button" className="btn" onClick={act.reveal}>Reveal all stickers</button>}
         <button type="button" className={`btn${editing ? ' on' : ''}`} aria-pressed={editing} onClick={() => setEditing((e) => !e)}>{editing ? 'Done editing' : 'Edit'}</button>
       </div>
       <Blurb text={c.description} editing={editing} onSave={act.describe} />
@@ -309,6 +332,7 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
           <span className="lbl2">Challenge color</span><Swatches value={c.color} label="Challenge color" onPick={act.color} />
           {<div className="addrow"><input className="field small" aria-label="New sub-category" placeholder="New sub-category" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} />
             <button type="button" className="mini" onClick={() => { if (newGroup.trim()) { act.addGroup(newGroup.trim()); setNewGroup(''); } }}>Add sub-category</button></div>}
+          {act.setLimit && <LimitSettings required={c.required} allowBonus={c.allowBonus} prompts={c.loose.concat(c.groups.flatMap((g) => g.slots)).filter((x) => !x.is_optional).length} onSave={act.setLimit} />}
           {act.askAll && <NoteSettings ask={c.askNote} label={c.noteLabel} onSave={act.askAll} />}
           {keys.length > 1 && <button type="button" className="mini" onClick={act.shuffleCards}>Shuffle the cards</button>}
           {deleting

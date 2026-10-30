@@ -68,23 +68,21 @@ describe('making a board', () => {
     expect(c.loose[12]).toMatchObject({ is_free: true, label: '' });
     expect(new Set(c.loose.filter((s) => !s.is_free).map((s) => s.label)).size).toBe(24);
     expect(c.loose.every((s) => s.color && DEFAULT_PALETTE.includes(s.color))).toBe(true);
-    expect(c).toMatchObject({ total: 24, done: 0, left: 24 });
+    expect(c).toMatchObject({ total: 25, done: 0, left: 25 }); // the free space is a square too
     expect(c.layout).toEqual({ order: ['board'], cols: { board: 3 } });
-    expect((await ch.listChallenges(db, 2026))[0]).toMatchObject({ kind: 'bingo', published: false, total: 24 });
+    expect((await ch.listChallenges(db, 2026))[0]).toMatchObject({ kind: 'bingo', published: false, total: 25 });
   });
   it('needs a name, a bank and at least 24 prompts', async () => {
     await expect(bg.createBingo(db, { year: 2026, name: ' ', bankId: await bank() })).rejects.toThrow('name');
     await expect(bg.createBingo(db, { year: 2026, name: 'X', bankId: 'nope' })).rejects.toThrow('bank');
     await expect(bg.createBingo(db, { year: 2026, name: 'X', bankId: await bank(23) })).rejects.toThrow('24 prompts');
   });
-  it('lets the free space take a prompt, and then it counts', async () => {
+  it('counts the free space whether or not it has a prompt', async () => {
     const id = await bg.createBingo(db, { year: 2026, name: 'B', bankId: await bank(), freeText: 'Read outside' });
     const c = (await ch.getChallenge(db, id))!;
     expect(c.loose[12].label).toBe('Read outside');
     expect(c.total).toBe(25);
     await bg.setSquareText(db, c.loose[12].id, '');
-    expect((await ch.getChallenge(db, id))!.total).toBe(24);
-    await bg.setSquareImage(db, c.loose[12].id, img('F'));
     expect((await ch.getChallenge(db, id))!.total).toBe(25);
   });
   it('copies bank images onto the board so later edits do not touch the bank', async () => {
@@ -185,15 +183,14 @@ describe('changing a draft, publishing, and playing', () => {
     expect([...now].sort()).toEqual([...before].sort());
     expect(now).not.toEqual(before);
   });
-  it('only lets books go on a published board, never on a plain free space, and counts bingos', async () => {
+  it('only lets books go on a published board, the free space included, and counts bingos', async () => {
     const { id, c } = await setup();
     const b = await createBook(db, { title: 'Pumpkin Book', authors: ['Au'] });
     const r = await createRead(db, b, 'finished');
     await expect(ch.fillSlot(db, c.loose[0].id, r)).rejects.toThrow('Publish');
     await bg.publishBingo(db, id);
-    await expect(ch.fillSlot(db, c.loose[12].id, r)).rejects.toThrow('free space');
     await ch.fillSlot(db, c.loose[0].id, r);
-    expect((await ch.getChallenge(db, id))!).toMatchObject({ done: 1, left: 23, bingo: { published: true } });
+    expect((await ch.getChallenge(db, id))!).toMatchObject({ done: 1, left: 24, bingo: { published: true } });
     await bg.setSquareText(db, c.loose[0].id, 'Edited after publishing'); // a published board stays editable
     expect((await ch.getChallenge(db, id))!.loose[0].fill?.title).toBe('Pumpkin Book');
   });
@@ -205,5 +202,24 @@ describe('changing a draft, publishing, and playing', () => {
     await ch.deleteChallenge(db, id);
     expect((await db.select("SELECT id FROM image WHERE deleted_at IS NULL AND file_path LIKE '%base64,P'")).length).toBe(1); // the bank's own copy
     expect((await bg.getBank(db, bankId))!.prompts).toHaveLength(24);
+  });
+});
+
+describe('bingo goals and colors', () => {
+  it('takes a goal of 1 to 11 bingos or a blackout, and changes one color of the set', async () => {
+    const id = await bg.createBingo(db, { year: 2026, name: 'G', bankId: await bank(40) });
+    expect((await ch.getChallenge(db, id))!.bingoGoal).toBeNull();
+    await bg.setBingoGoal(db, id, 3);
+    expect((await ch.getChallenge(db, id))!.bingoGoal).toBe(3);
+    await expect(bg.setBingoGoal(db, id, 12)).rejects.toThrow('1 to 11');
+    await expect(bg.setBingoGoal(db, id, 0)).rejects.toThrow('1 to 11');
+    await bg.setBingoGoal(db, id, null);
+    expect((await ch.getChallenge(db, id))!.bingoGoal).toBeNull();
+    const before = (await ch.getChallenge(db, id))!;
+    const from = before.bingo!.palette[1];
+    await bg.replacePaletteColor(db, id, from, '#123456');
+    const after = (await ch.getChallenge(db, id))!;
+    expect(after.bingo!.palette[1]).toBe('#123456');
+    expect(after.loose.map((s) => s.color)).toEqual(before.loose.map((s) => (s.color === from ? '#123456' : s.color)));
   });
 });

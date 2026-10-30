@@ -191,6 +191,12 @@ pub fn run() {
         description: "map challenges: regions, bonus places and limited challenges",
         sql: include_str!("../migrations/0033_map_challenges.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 34,
+        description: "limited challenges, optional and bonus prompts, bingo goals",
+        sql: include_str!("../migrations/0034_limited_challenges.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

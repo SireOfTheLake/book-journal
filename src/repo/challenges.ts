@@ -1,6 +1,6 @@
 import type { Db } from '../db/adapter';
 import { accentAt, isHexColor, tracker, BONUS_DONE_SQL, BONUS_TOTAL_SQL, DONE_SQL, SHOWN_SQL, TOTAL_SQL, type Tracker } from '../domain/challenges';
-import { isMapId, type BonusMode, type MapId } from '../domain/maps';
+import { isMapId, isUsTerritory, type BonusMode, type MapId } from '../domain/maps';
 import { DEFAULT_PALETTE } from '../domain/bingo';
 import { moveBefore, resolveLayout, serializeLayout, shuffled, MAX_COLS, type Layout } from '../domain/challengeLayout';
 import { newId } from '../domain/ids';
@@ -16,16 +16,17 @@ export type ChallengeKind = 'grid' | 'sticker' | 'bingo';
 export interface Bonus { done: number; total: number } // bonus places on a map: how many you have read, and how many there are
 export interface ChallengeSummary extends Tracker { id: string; name: string; kind: ChallengeKind; color: string | null; published: boolean; word: boolean; usMap: boolean; bonus: Bonus | null; limited: boolean } // usMap = a US map challenge (a Grid of the 50 states); word = a Word Builder (a kind of Sticker challenge)
 export interface SlotFill { read_id: string; book_id: string; title: string; authors: string | null; status: string }
-export interface Slot { id: string; is_bonus: boolean; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: boolean; bank_prompt_id: string | null; fill: SlotFill | null; askNote: boolean | null; note: string | null } // askNote: true / false = this prompt decides, null = follows the challenge; note = what you wrote for the book on it
+export interface Slot { id: string; is_bonus: boolean; is_optional: boolean; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: boolean; bank_prompt_id: string | null; fill: SlotFill | null; askNote: boolean | null; note: string | null } // askNote: true / false = this prompt decides, null = follows the challenge; note = what you wrote for the book on it
 export interface BingoInfo { published: boolean; palette: string[]; bankId: string | null; bankName: string | null; preferUnused: boolean }
-// The free space of a Bingo board does not count toward the tracker until it is given a prompt.
-export const countsTowardTracker = (s: { is_free: boolean; label: string; art: string | null }) => !s.is_free || s.label !== '' || !!s.art;
+// Every square counts, the free space of a Bingo board too: it is a square where any book goes.
+export const countsTowardTracker = (_s: { is_free: boolean; label: string; art: string | null }) => true;
 export interface Group { id: string; name: string; color: string; slots: Slot[] }
 export interface Challenge extends Tracker {
   id: string; name: string; kind: ChallengeKind; color: string; year: number;
   bingo: BingoInfo | null; layout: Layout; groups: Group[]; loose: Slot[]; // loose = prompts that belong to the main category only
-  usMap: boolean; mapRegion: MapId | null; bonusMode: BonusMode; mapLimit: number | null; australia: boolean; ukSplit: boolean; extras: boolean; bonus: Bonus | null; // usMap = any map challenge; mapLimit: "complete after N" with N boxes
+  usMap: boolean; mapRegion: MapId | null; bonusMode: BonusMode; territoryMode: BonusMode; mapLimit: number | null; australia: boolean; ukSplit: boolean; extras: boolean; bonus: Bonus | null; // usMap = any map challenge; mapLimit: "complete after N" with N boxes
   description: string | null; askNote: boolean; noteLabel: string; // askNote: every prompt asks for a short note; noteLabel: what it is called
+  required: number | null; allowBonus: boolean; bonusLimit: number | null; bingoGoal: number | null; revealed: boolean; canReveal: boolean; hasOptional: boolean; // limited challenge: how many prompts it needs, whether bonuses are allowed (a Word Builder: how many, empty = no limit), the Bingo goal (empty = blackout), and whether the unused stickers have been revealed
   word: boolean; theme: string | null; target: number | null; letters: Record<string, string>; // Word Builder: the theme of the words, how many words to aim for, and the sticker picture for each letter
 }
 
@@ -45,15 +46,15 @@ export async function listChallenges(db: Db, year: number): Promise<ChallengeSum
 }
 
 export async function getChallenge(db: Db, id: string): Promise<Challenge | null> {
-  const c = await first<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; layout: string | null; published: number; palette: string | null; bank_id: string | null; bank_name: string | null; prefer_unused: number; word: number; usMap: number; map_region: string | null; bonus_mode: string; map_limit: number | null; map_australia: number; description: string | null; ask_note: number; note_label: string | null; theme: string | null; target: number | null }>(
-    db, `SELECT c.us_map AS usMap, c.map_region AS map_region, c.bonus_mode AS bonus_mode, c.map_limit AS map_limit, c.map_australia AS map_australia, c.description AS description, c.ask_note AS ask_note, c.note_label AS note_label, c.word_builder AS word, c.word_theme AS theme, c.word_target AS target, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.layout AS layout, c.published AS published, c.palette AS palette, c.bank_id AS bank_id, c.prefer_unused AS prefer_unused,
+  const c = await first<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; layout: string | null; published: number; palette: string | null; bank_id: string | null; bank_name: string | null; prefer_unused: number; word: number; usMap: number; map_region: string | null; bonus_mode: string; territory_mode: string | null; map_limit: number | null; map_australia: number; description: string | null; ask_note: number; note_label: string | null; theme: string | null; target: number | null; required_count: number | null; allow_bonus: number; bonus_limit: number | null; bingo_goal: number | null; stickers_revealed: number }>(
+    db, `SELECT c.required_count AS required_count, c.allow_bonus AS allow_bonus, c.bonus_limit AS bonus_limit, c.bingo_goal AS bingo_goal, c.stickers_revealed AS stickers_revealed, c.us_map AS usMap, c.map_region AS map_region, c.bonus_mode AS bonus_mode, c.territory_mode AS territory_mode, c.map_limit AS map_limit, c.map_australia AS map_australia, c.description AS description, c.ask_note AS ask_note, c.note_label AS note_label, c.word_builder AS word, c.word_theme AS theme, c.word_target AS target, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.layout AS layout, c.published AS published, c.palette AS palette, c.bank_id AS bank_id, c.prefer_unused AS prefer_unused,
        (SELECT b.name FROM bingo_bank b WHERE b.id = c.bank_id AND b.deleted_at IS NULL) AS bank_name, y.year AS year FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id WHERE c.id = ? AND c.deleted_at IS NULL`, [id]);
   if (!c) return null;
   if (c.usMap && c.map_limit !== null && (c.map_australia & 4)) await syncBonusBoxes(db, id); // keeps the one empty extra box in step
   const groups = await db.select<{ id: string; name: string; color: string | null }>(
     'SELECT id, name, color FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [id]);
-  const rows = await db.select<{ id: string; is_bonus: number; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: number; bank_prompt_id: string | null; ask_note: number | null; note: string | null; read_id: string | null; book_id: string | null; title: string | null; authors: string | null; status: string | null }>(
-    `SELECT s.id AS id, s.is_bonus AS is_bonus, s.label AS label, s.position AS position, s.group_id AS group_id, im.file_path AS art, s.color AS color, s.is_free AS is_free, s.bank_prompt_id AS bank_prompt_id, s.ask_note AS ask_note, k.note AS note, k.read_id AS read_id, r.book_id AS book_id, b.title AS title, r.status AS status,
+  const rows = await db.select<{ id: string; is_bonus: number; is_optional: number; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: number; bank_prompt_id: string | null; ask_note: number | null; note: string | null; read_id: string | null; book_id: string | null; title: string | null; authors: string | null; status: string | null }>(
+    `SELECT s.id AS id, s.is_bonus AS is_bonus, s.is_optional AS is_optional, s.label AS label, s.position AS position, s.group_id AS group_id, im.file_path AS art, s.color AS color, s.is_free AS is_free, s.bank_prompt_id AS bank_prompt_id, s.ask_note AS ask_note, k.note AS note, k.read_id AS read_id, r.book_id AS book_id, b.title AS title, r.status AS status,
        (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors
      FROM challenge_slot s
      LEFT JOIN image im ON im.id = s.art_image_id AND im.deleted_at IS NULL
@@ -63,22 +64,35 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
      WHERE s.challenge_id = ? AND s.deleted_at IS NULL ORDER BY s.position`, [id]);
   const bonusMode: BonusMode = c.bonus_mode === 'required' || c.bonus_mode === 'off' ? c.bonus_mode : 'optional';
   const limitedMap = c.map_limit !== null;
-  const slots: Slot[] = rows.filter((r) => !r.is_bonus || limitedMap || bonusMode !== 'off').map((r) => ({
-    id: r.id, is_bonus: !!r.is_bonus, label: r.label, position: r.position, group_id: r.group_id, art: r.art, color: r.color, is_free: !!r.is_free, bank_prompt_id: r.bank_prompt_id, askNote: r.ask_note === null ? null : !!r.ask_note, note: r.note,
+  const territoryMode: BonusMode = c.territory_mode === 'required' || c.territory_mode === 'off' || c.territory_mode === 'optional' ? c.territory_mode : bonusMode;
+  const modeOf = (label: string): BonusMode => (isUsTerritory('us', label) ? territoryMode : bonusMode); // on the US map DC and the territories can differ
+  const slots: Slot[] = rows.filter((r) => !r.is_bonus || limitedMap || modeOf(r.label) !== 'off').map((r) => ({
+    id: r.id, is_bonus: !!r.is_bonus, is_optional: !!r.is_optional, label: r.label, position: r.position, group_id: r.group_id, art: r.art, color: r.color, is_free: !!r.is_free, bank_prompt_id: r.bank_prompt_id, askNote: r.ask_note === null ? null : !!r.ask_note, note: r.note,
     fill: r.read_id && r.book_id ? { read_id: r.read_id, book_id: r.book_id, title: r.title ?? '', authors: r.authors, status: r.status ?? '' } : null,
   }));
-  const counted = slots.filter((s) => countsTowardTracker(s) && (!s.is_bonus || (!limitedMap && bonusMode === 'required')));
+  const counted = slots.filter((s) => countsTowardTracker(s) && !s.is_optional && (!s.is_bonus || (!limitedMap && modeOf(s.label) === 'required')));
   const placed = (s: Slot) => c.map_limit === null || s.label !== ''; // a box on a limited map counts once it has a place
-  const done = counted.filter((s) => s.fill?.status === 'finished' && placed(s)).length; // a book on a prompt only counts once it has been read
-  const bonusSlots = limitedMap || bonusMode === 'optional' ? slots.filter((s) => s.is_bonus) : [];
+  const rawDone = counted.filter((s) => s.fill?.status === 'finished' && placed(s)).length; // a book on a prompt only counts once it has been read
+  const generic = c.required_count !== null && !limitedMap && !c.word && c.kind !== 'bingo'; // "only N of these prompts are needed"
+  const allowBonus = !!c.allow_bonus;
+  const done = generic ? Math.min(rawDone, c.required_count!) : rawDone;
+  const total = c.word ? Math.max(c.target ?? 0, counted.length) : generic ? c.required_count! : counted.length;
+  const bonusSlots = slots.filter((s) => s.is_optional || (s.is_bonus && (limitedMap || modeOf(s.label) === 'optional')));
+  const extraTotal = generic && allowBonus ? Math.max(counted.length - c.required_count!, 0) : 0;
+  const extraDone = generic && allowBonus ? Math.max(rawDone - c.required_count!, 0) : 0;
+  const bonusTotal = bonusSlots.length + extraTotal;
+  const bonusDone = bonusSlots.filter((s) => s.fill?.status === 'finished' && placed(s)).length + extraDone;
+  const hasOptional = slots.some((s) => s.is_optional);
+  const canReveal = generic && c.kind === 'sticker' && !c.stickers_revealed && !allowBonus && !hasOptional && counted.length > c.required_count! && done >= c.required_count!;
   return {
     id: c.id, name: c.name, kind: c.kind, color: c.color && isHexColor(c.color) ? c.color : accentAt(0), year: c.year, layout: resolveLayout(c.kind, groups.map((g) => g.id), c.layout),
     groups: groups.map((g, i) => ({ id: g.id, name: g.name, color: g.color && isHexColor(g.color) ? g.color : accentAt(i + 1), slots: slots.filter((s) => s.group_id === g.id) })),
     loose: slots.filter((s) => !s.group_id || !groups.some((g) => g.id === s.group_id)),
     bingo: c.kind === 'bingo' ? { published: !!c.published, palette: parsePalette(c.palette), bankId: c.bank_id, bankName: c.bank_name, preferUnused: !!c.prefer_unused } : null,
-    usMap: !!c.usMap, mapRegion: c.usMap ? (isMapId(c.map_region) ? c.map_region : 'us') : null, bonusMode, mapLimit: c.map_limit, australia: !!(c.map_australia & 1), ukSplit: !!(c.map_australia & 2), extras: !!(c.map_australia & 4),
-    bonus: bonusSlots.length ? { done: bonusSlots.filter((s) => s.fill?.status === 'finished').length, total: bonusSlots.length } : null, description: c.description, askNote: !!c.ask_note, noteLabel: c.note_label?.trim() || 'Note', word: !!c.word, theme: c.theme, target: c.target, letters: c.word ? await letterMap(db, id) : {},
-    ...tracker(done, c.word ? Math.max(c.target ?? 0, counted.length) : counted.length),
+    usMap: !!c.usMap, mapRegion: c.usMap ? (isMapId(c.map_region) ? c.map_region : 'us') : null, bonusMode, territoryMode, mapLimit: c.map_limit, australia: !!(c.map_australia & 1), ukSplit: !!(c.map_australia & 2), extras: !!(c.map_australia & 4),
+    required: c.kind === 'bingo' || c.word ? null : c.required_count, allowBonus, bonusLimit: c.bonus_limit, bingoGoal: c.kind === 'bingo' ? c.bingo_goal : null, revealed: !!c.stickers_revealed && generic, canReveal, hasOptional,
+    bonus: bonusTotal > 0 ? { done: bonusDone, total: bonusTotal } : null, description: c.description, askNote: !!c.ask_note, noteLabel: c.note_label?.trim() || 'Note', word: !!c.word, theme: c.theme, target: c.target, letters: c.word ? await letterMap(db, id) : {},
+    ...tracker(done, total),
   };
 }
 
@@ -171,8 +185,46 @@ export async function replaceSticker(db: Db, slotId: string, image: StickerImage
 }
 
 // ---------- editing (any time) ----------
+// Changing the prompts hides any revealed stickers again.
 const syncCount = (db: Db, challengeId: string) => db.execute(
-  `UPDATE challenge SET goal_count = (SELECT count(*) FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL) WHERE id = ?`, [challengeId, challengeId]);
+  `UPDATE challenge SET goal_count = (SELECT count(*) FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL), stickers_revealed = 0 WHERE id = ?`, [challengeId, challengeId]);
+
+// ---------- limited challenges, optional prompts ----------
+async function plainChallenge(db: Db, id: string) {
+  const c = await first<{ kind: string; us_map: number; word_builder: number }>(db, 'SELECT kind, us_map, word_builder FROM challenge WHERE id = ? AND deleted_at IS NULL', [id]);
+  if (!c) throw new Error('That challenge no longer exists.');
+  if (c.kind === 'bingo' || c.us_map || c.word_builder) throw new Error('This kind of challenge sets its limit somewhere else.');
+}
+// "I put in 30 prompts, but only 20 are needed." required = null puts it back to needing every prompt.
+// allowBonus lets prompts past the required number (and optional prompts) keep earning bonus points once the challenge is complete.
+export async function setLimit(db: Db, id: string, input: { required: number | null; allowBonus?: boolean }) {
+  await plainChallenge(db, id);
+  const have = (await first<{ n: number }>(db, 'SELECT count(*) AS n FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL AND is_optional = 0', [id]))?.n ?? 0;
+  const req = input.required;
+  if (req !== null) {
+    if (!Number.isInteger(req) || req < 1) throw new Error('The number of prompts needed must be a whole number above zero.');
+    if (req > have) throw new Error(`This challenge has only ${have} required prompt${have === 1 ? '' : 's'}. Add more prompts, or choose a smaller number.`);
+  }
+  await db.execute('UPDATE challenge SET required_count = ?, allow_bonus = ?, stickers_revealed = 0 WHERE id = ?', [req, req === null ? 0 : input.allowBonus ? 1 : 0, id]);
+}
+// An optional prompt is always a bonus: it never counts toward finishing the challenge.
+export async function setPromptOptional(db: Db, slotId: string, optional: boolean) {
+  const s = await first<{ challenge_id: string; is_optional: number }>(db, 'SELECT challenge_id, is_optional FROM challenge_slot WHERE id = ? AND deleted_at IS NULL', [slotId]);
+  if (!s) throw new Error('That prompt no longer exists.');
+  await plainChallenge(db, s.challenge_id);
+  if (!!s.is_optional === optional) return;
+  await db.execute('UPDATE challenge_slot SET is_optional = ? WHERE id = ?', [optional ? 1 : 0, slotId]);
+  const c = await first<{ req: number | null; have: number }>(db, 'SELECT c.required_count AS req, (SELECT count(*) FROM challenge_slot WHERE challenge_id = c.id AND deleted_at IS NULL AND is_optional = 0) AS have FROM challenge c WHERE c.id = ?', [s.challenge_id]);
+  if (c && c.req !== null && c.req > c.have) await db.execute('UPDATE challenge SET required_count = ? WHERE id = ?', [Math.max(c.have, 1), s.challenge_id]);
+  await db.execute('UPDATE challenge SET stickers_revealed = 0 WHERE id = ?', [s.challenge_id]);
+}
+// Shows the stickers of the prompts that were not needed. They do not count toward anything.
+export async function revealStickers(db: Db, id: string) {
+  const c = await getChallenge(db, id);
+  if (!c) throw new Error('That challenge no longer exists.');
+  if (!c.canReveal) throw new Error('Stickers can be revealed once a limited challenge with no bonus or optional prompts is complete.');
+  await db.execute('UPDATE challenge SET stickers_revealed = 1 WHERE id = ?', [id]);
+}
 // ---------- notes on prompts ----------
 // Not for Bingo or US map challenges, which have no use for one.
 export async function setChallengeNotes(db: Db, id: string, ask: boolean, label: string) {
@@ -246,6 +298,16 @@ export async function renamePrompt(db: Db, slotId: string, label: string) {
   if (!label.trim()) throw new Error('A prompt cannot be empty.');
   await db.execute('UPDATE challenge_slot SET label = ? WHERE id = ?', [label.trim(), slotId]);
 }
+// The first `target` words are the challenge; any words past it are bonus words (when bonus words are allowed).
+export async function refreshBonusWords(db: Db, challengeId: string) {
+  const c = await first<{ target: number | null }>(db, 'SELECT word_target AS target FROM challenge WHERE id = ?', [challengeId]);
+  const slots = await db.select<{ id: string; is_bonus: number }>('SELECT id, is_bonus FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [challengeId]);
+  for (let i = 0; i < slots.length; i++) {
+    const want = c?.target != null && i >= c.target ? 1 : 0;
+    if (slots[i].is_bonus !== want) await db.execute('UPDATE challenge_slot SET is_bonus = ? WHERE id = ?', [want, slots[i].id]);
+  }
+}
+
 export async function deletePrompt(db: Db, slotId: string) {
   const s = await first<{ challenge_id: string }>(db, 'SELECT challenge_id FROM challenge_slot WHERE id = ? AND deleted_at IS NULL', [slotId]);
   if (!s) return;
@@ -253,6 +315,7 @@ export async function deletePrompt(db: Db, slotId: string) {
   await db.execute(`UPDATE image SET deleted_at = ${NOW} WHERE deleted_at IS NULL AND id = (SELECT art_image_id FROM challenge_slot WHERE id = ?)`, [slotId]);
   await db.execute(`UPDATE challenge_slot SET deleted_at = ${NOW} WHERE id = ?`, [slotId]);
   await syncCount(db, s.challenge_id);
+  if ((await first<{ w: number }>(db, 'SELECT word_builder AS w FROM challenge WHERE id = ?', [s.challenge_id]))?.w) await refreshBonusWords(db, s.challenge_id);
 }
 
 // ---------- placing books ----------
@@ -262,7 +325,11 @@ export async function fillSlot(db: Db, slotId: string, readId: string, rng: () =
     'SELECT c.us_map AS us_map, s.color AS color, s.challenge_id AS challenge_id, s.is_free AS is_free, s.label AS label, s.art_image_id AS art, c.published AS published FROM challenge_slot s JOIN challenge c ON c.id = s.challenge_id WHERE s.id = ? AND s.deleted_at IS NULL', [slotId]);
   if (!s) throw new Error('That prompt no longer exists.');
   if (!s.published) throw new Error('Publish the board before placing books on it.');
-  if (!countsTowardTracker({ is_free: !!s.is_free, label: s.label, art: s.art })) throw new Error('The free space is free. Give it a prompt if you want a book on it.');
+  const lim = await first<{ req: number | null; allow: number; done: number; optional: number; here: number }>(db,
+    `SELECT c.required_count AS req, c.allow_bonus AS allow, ${DONE_SQL} AS done, (SELECT is_optional FROM challenge_slot WHERE id = ?) AS optional,
+       (SELECT count(*) FROM challenge_completion WHERE slot_id = ? AND deleted_at IS NULL) AS here
+     FROM challenge c WHERE c.id = ? AND c.map_limit IS NULL AND c.word_builder = 0 AND c.kind <> 'bingo'`, [slotId, slotId, s.challenge_id]);
+  if (lim && lim.req !== null && !lim.allow && !lim.optional && !lim.here && lim.done >= lim.req) throw new Error(`This challenge is complete (${lim.req} of ${lim.req}). Turn on bonus prompts in Edit to keep going.`);
   const r = await first<{ id: string }>(db, 'SELECT id FROM read WHERE id = ? AND deleted_at IS NULL', [readId]);
   if (!r) throw new Error('That read no longer exists.');
   const same = await first<{ note: string | null }>(db, 'SELECT note FROM challenge_completion WHERE deleted_at IS NULL AND challenge_id = ? AND slot_id = ? AND read_id = ?', [s.challenge_id, slotId, readId]); // choosing the same book again keeps its note
@@ -390,20 +457,20 @@ async function listChallengesAnyYear(db: Db) {
 
 export interface ChoiceSlot { id: string; label: string; group: string | null; taken: string | null; bonus?: boolean }
 export interface ChoicePlace { name: string; bonus: boolean }
-export interface ChallengeChoice { places: ChoicePlace[] | null; id: string; name: string; kind: ChallengeKind; color: string | null; year: number; current_slot_id: string | null; slots: ChoiceSlot[]; word: boolean; theme: string | null; letters: Record<string, string>; limit: number | null; used: number }
+export interface ChallengeChoice { places: ChoicePlace[] | null; id: string; name: string; kind: ChallengeKind; color: string | null; year: number; current_slot_id: string | null; slots: ChoiceSlot[]; word: boolean; theme: string | null; letters: Record<string, string>; limit: number | null; used: number; wordBonus: { allow: boolean; used: number; limit: number | null } | null }
 
 // Every published challenge in the given years with its prompts, saying which prompt this read is on and which prompts already hold another book.
 export async function listChallengeChoices(db: Db, readId: string, years: number[]): Promise<ChallengeChoice[]> {
   if (!years.length) return [];
-  const cs = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; word: number; theme: string | null; limit: number | null; limit_map: number | null }>(
-    `SELECT c.map_limit AS limit_map, c.word_builder AS word, c.word_theme AS theme, c.word_target AS "limit", c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, y.year AS year FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
+  const cs = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; word: number; theme: string | null; limit: number | null; limit_map: number | null; req: number | null; allow: number; bonus_limit: number | null; kind2: string }>(
+    `SELECT c.required_count AS req, c.allow_bonus AS allow, c.bonus_limit AS bonus_limit, c.kind AS kind2, c.map_limit AS limit_map, c.word_builder AS word, c.word_theme AS theme, c.word_target AS "limit", c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, y.year AS year FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
      WHERE c.deleted_at IS NULL AND y.deleted_at IS NULL AND c.published = 1 AND y.year IN (${years.map(() => '?').join(',')}) ORDER BY y.year DESC, c.sort_order, c.created_at, c.rowid`, years);
   const out: ChallengeChoice[] = [];
   for (const c of cs) {
     const map = c.limit_map !== null ? await loadMap(db, c.id) : null;
     if (map?.extras) await syncBonusBoxes(db, c.id);
-    const rows = await db.select<{ is_bonus: number; id: string; label: string; position: number; is_free: number; art: string | null; group: string | null; taken: string | null; taken_read: string | null }>(
-      `SELECT s.is_bonus AS is_bonus, s.id AS id, s.label AS label, s.position AS position, s.is_free AS is_free, s.art_image_id AS art,
+    const rows = await db.select<{ is_optional: number; is_bonus: number; id: string; label: string; position: number; is_free: number; art: string | null; group: string | null; taken: string | null; taken_read: string | null }>(
+      `SELECT s.is_optional AS is_optional, s.is_bonus AS is_bonus, s.id AS id, s.label AS label, s.position AS position, s.is_free AS is_free, s.art_image_id AS art,
          (SELECT g.name FROM challenge_group g WHERE g.id = s.group_id AND g.deleted_at IS NULL) AS "group",
          (SELECT b.title FROM challenge_completion k JOIN read r ON r.id = k.read_id AND r.deleted_at IS NULL JOIN book b ON b.id = r.book_id WHERE k.slot_id = s.id AND k.deleted_at IS NULL) AS taken,
          (SELECT k.read_id FROM challenge_completion k WHERE k.slot_id = s.id AND k.deleted_at IS NULL) AS taken_read
@@ -414,13 +481,20 @@ export async function listChallengeChoices(db: Db, readId: string, years: number
     let places: ChoicePlace[] | null = null;
     if (map) {
       const chosen = new Set(rows.map((r) => r.label).filter(Boolean));
-      const avail = mapPlaces(map.region, map.bonus, map.australia, map.ukSplit).filter((p) => !chosen.has(p.name));
+      const avail = mapPlaces(map.region, map.bonus, map.australia, map.ukSplit, map.territories).filter((p) => !chosen.has(p.name));
       const full = rows.filter((r) => !r.is_bonus).every((r) => r.taken_read);
       places = full ? (map.extras ? avail.map((p) => ({ name: p.name, bonus: true })) : []) : avail.map((p) => ({ name: p.name, bonus: !!p.bonus }));
     }
+    // A limited challenge: once the needed prompts have books, the rest are bonuses (when allowed), and optional prompts are always bonuses.
+    const generic = c.req !== null && c.limit_map === null && !c.word && c.kind2 !== 'bingo';
+    const doneRequired = counted.filter((r) => !r.is_optional && !r.is_bonus && r.taken_read).length;
+    const complete = generic && doneRequired >= c.req!;
+    const offered = counted.filter((r) => !generic || !complete || c.allow || r.is_optional || r.taken_read);
+    const wordBonusUsed = counted.filter((r) => r.is_bonus).length;
     out.push({
       places, id: c.id, name: c.name, kind: c.kind, color: c.color, year: c.year, word: !!c.word, theme: c.theme, limit: c.word ? c.limit : null, used: counted.length, letters: c.word ? await letterMap(db, c.id) : {}, current_slot_id: counted.find((r) => r.taken_read === readId)?.id ?? null,
-      slots: counted.map((r) => ({ bonus: !!r.is_bonus, id: r.id, label: r.label || (r.is_bonus ? 'Bonus book' : c.limit_map ? `Book ${r.position}` : `Square ${r.position + 1}`), group: r.group, taken: r.taken_read && r.taken_read !== readId ? r.taken : null })),
+      wordBonus: c.word ? { allow: !!c.allow, used: wordBonusUsed, limit: c.bonus_limit } : null,
+      slots: offered.map((r) => ({ bonus: !!r.is_bonus || !!r.is_optional || (complete && !r.taken_read), id: r.id, label: r.label || (r.is_free ? 'Free space' : r.is_bonus ? 'Bonus book' : c.limit_map ? `Book ${r.position}` : `Square ${r.position + 1}`), group: r.group, taken: r.taken_read && r.taken_read !== readId ? r.taken : null })),
     });
   }
   return out;

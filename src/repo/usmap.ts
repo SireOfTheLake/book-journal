@@ -1,7 +1,7 @@
 import type { Db } from '../db/adapter';
 import { accentAt, isHexColor } from '../domain/challenges';
 import { newId } from '../domain/ids';
-import { AUSTRALIA, canSplitUk, mapDef, mapPlaces, OCEANIA, optionBits, UK, UK_NATIONS, type BonusMode, type MapId } from '../domain/maps';
+import { AUSTRALIA, canSplitUk, isUsTerritory, mapDef, mapPlaces, OCEANIA, optionBits, UK, UK_NATIONS, type BonusMode, type MapId } from '../domain/maps';
 import { pickMapColor } from '../domain/usMap';
 import { ensureJournalYear } from './goals';
 import { fillSlot } from './challenges';
@@ -13,11 +13,11 @@ const first = async <T,>(db: Db, sql: string, params: (string | number | null)[]
 
 // The map challenges: a Grid challenge whose prompts are the places of a map (states, provinces, continents or countries).
 // Either every place is a prompt, or the challenge is limited ("complete after N") and has N boxes, each holding a book and, once you choose it, the place it is for.
-export interface NewMap { year: number; name: string; color?: string; region?: MapId; limit?: number | null; bonus?: BonusMode; australia?: boolean; ukSplit?: boolean; extras?: boolean }
+export interface NewMap { year: number; name: string; color?: string; region?: MapId; limit?: number | null; bonus?: BonusMode; territories?: BonusMode; australia?: boolean; ukSplit?: boolean; extras?: boolean }
 export type NewUsMap = NewMap;
 
-const checkLimit = (region: MapId, bonus: BonusMode, limit: number, australia = false, ukSplit = false) => {
-  const max = mapPlaces(region, bonus, australia, ukSplit).length;
+const checkLimit = (region: MapId, bonus: BonusMode, limit: number, australia = false, ukSplit = false, territories: BonusMode = bonus) => {
+  const max = mapPlaces(region, bonus, australia, ukSplit, territories).length;
   if (!Number.isInteger(limit) || limit < 1 || limit > max) throw new Error(`Pick a number from 1 to ${max}.`);
 };
 
@@ -27,18 +27,19 @@ export async function createMap(db: Db, input: NewMap): Promise<string> {
   const region = input.region ?? 'us';
   const def = mapDef(region);
   const bonus: BonusMode = input.bonus ?? (region === 'us' ? 'off' : 'optional'); // a US map starts with DC and the territories left out
+  const territories: BonusMode = region === 'us' ? input.territories ?? bonus : bonus; // on the US map DC and the territories can be set apart
   const australia = region === 'continents' && !!input.australia;
   const ukSplit = canSplitUk(region) && !!input.ukSplit;
   const limit = input.limit ?? null;
-  if (limit !== null) checkLimit(region, bonus, limit, australia, ukSplit);
-  const places = mapPlaces(region, bonus, australia, ukSplit);
+  if (limit !== null) checkLimit(region, bonus, limit, australia, ukSplit, territories);
+  const places = mapPlaces(region, bonus, australia, ukSplit, territories);
   const base = places.filter((p) => !p.bonus).length;
   const yearId = await ensureJournalYear(db, input.year);
   const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
   const id = newId();
-  const goal = limit ?? (bonus === 'required' ? places.length : base);
-  await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order, us_map, map_region, bonus_mode, map_limit, map_australia) VALUES (?, ?, ?, ?, 'grid', 'grid', ?, ?, 1, ?, ?, ?, ?)`,
-    [id, yearId, name, isHexColor(input.color) ? input.color.toLowerCase() : accentAt(order + 1), goal, order + 1, def.id, bonus, limit, optionBits({ australia, ukSplit, extras: limit !== null && !!input.extras })]);
+  const goal = limit ?? base + places.filter((p) => p.bonus && (isUsTerritory(region, p.name) ? territories : bonus) === 'required').length;
+  await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order, us_map, map_region, bonus_mode, territory_mode, map_limit, map_australia) VALUES (?, ?, ?, ?, 'grid', 'grid', ?, ?, 1, ?, ?, ?, ?, ?)`,
+    [id, yearId, name, isHexColor(input.color) ? input.color.toLowerCase() : accentAt(order + 1), goal, order + 1, def.id, bonus, region === 'us' ? territories : null, limit, optionBits({ australia, ukSplit, extras: limit !== null && !!input.extras })]);
   let pos = 1;
   if (limit !== null) for (let i = 0; i < limit; i++) await db.execute("INSERT INTO challenge_slot (id, challenge_id, label, position) VALUES (?, ?, '', ?)", [newId(), id, pos++]);
   else for (const p of places) await db.execute('INSERT INTO challenge_slot (id, challenge_id, label, position, is_bonus) VALUES (?, ?, ?, ?, ?)', [newId(), id, p.name, pos++, p.bonus ? 1 : 0]);
@@ -50,7 +51,7 @@ export const createUsMap = (db: Db, input: NewUsMap) => createMap(db, { ...input
 async function ensurePlaces(db: Db, m: MapRow) {
   const have = new Set((await liveSlots(db, m.id)).map((s) => s.label));
   let pos = await nextPosition(db, m.id);
-  for (const p of mapPlaces(m.region, m.bonus, m.australia, m.ukSplit)) if (!have.has(p.name)) await db.execute('INSERT INTO challenge_slot (id, challenge_id, label, position, is_bonus) VALUES (?, ?, ?, ?, ?)', [newId(), m.id, p.name, pos++, p.bonus ? 1 : 0]);
+  for (const p of mapPlaces(m.region, m.bonus, m.australia, m.ukSplit, m.territories)) if (!have.has(p.name)) await db.execute('INSERT INTO challenge_slot (id, challenge_id, label, position, is_bonus) VALUES (?, ?, ?, ?, ?)', [newId(), m.id, p.name, pos++, p.bonus ? 1 : 0]);
 }
 
 // Bonus places: optional (extra points that are not part of the goal), required (part of the goal) or left out.
@@ -58,7 +59,15 @@ export async function setBonusMode(db: Db, id: string, mode: BonusMode) {
   if (!isBonusMode(mode)) throw new Error('Bonus places can be optional, required or left out.');
   const m = await loadMap(db, id);
   await db.execute('UPDATE challenge SET bonus_mode = ? WHERE id = ?', [mode, id]);
-  if (m.limit === null && mode !== 'off') await ensurePlaces(db, { ...m, bonus: mode });
+  if (m.limit === null && mode !== 'off') await ensurePlaces(db, { ...m, bonus: mode, territories: m.region === 'us' ? m.territories : mode });
+}
+// On the US map the territories can do something different from DC (DC follows the bonus mode above).
+export async function setTerritoryMode(db: Db, id: string, mode: BonusMode) {
+  if (!isBonusMode(mode)) throw new Error('The territories can be optional, required or left out.');
+  const m = await loadMap(db, id);
+  if (m.region !== 'us') throw new Error('Only the US map has territories apart from DC.');
+  await db.execute('UPDATE challenge SET territory_mode = ? WHERE id = ?', [mode, id]);
+  if (m.limit === null && mode !== 'off') await ensurePlaces(db, { ...m, territories: mode });
 }
 
 // The continent Oceania can be called Australia.
@@ -110,7 +119,7 @@ export async function setMapLimit(db: Db, id: string, limit: number | null): Pro
     if (m.limit === null) return 0;
     for (const s of slots) if (!s.label) { if (s.has_book) lost++; await dropSlot(db, s.id); }
     await db.execute('UPDATE challenge SET map_limit = NULL WHERE id = ?', [id]);
-    const places = new Map(mapPlaces(m.region, m.bonus, m.australia, m.ukSplit).map((p) => [p.name, !!p.bonus]));
+    const places = new Map(mapPlaces(m.region, m.bonus, m.australia, m.ukSplit, m.territories).map((p) => [p.name, !!p.bonus]));
     for (const s of slots) if (s.label && places.has(s.label)) await db.execute('UPDATE challenge_slot SET is_bonus = ? WHERE id = ?', [places.get(s.label) ? 1 : 0, s.id]);
     await ensurePlaces(db, { ...m, limit: null });
     return lost;
@@ -153,7 +162,7 @@ export async function setSlotPlace(db: Db, slotId: string, place: string | null)
   const m = await loadMap(db, s.challenge_id);
   if (m.limit === null) throw new Error('Only a limited map has boxes to choose a place for.');
   if (place === null || place === '') { await db.execute("UPDATE challenge_slot SET label = '' WHERE id = ?", [slotId]); await syncBonusBoxes(db, s.challenge_id); return; }
-  if (!mapPlaces(m.region, m.bonus, m.australia, m.ukSplit).some((p) => p.name === place)) throw new Error(`${place} is not one of the ${mapDef(m.region).plural} on this map.`);
+  if (!mapPlaces(m.region, m.bonus, m.australia, m.ukSplit, m.territories).some((p) => p.name === place)) throw new Error(`${place} is not one of the ${mapDef(m.region).plural} on this map.`);
   const used = await first<{ id: string }>(db, 'SELECT id FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL AND label = ? AND id <> ?', [s.challenge_id, place, slotId]);
   if (used) throw new Error(`${place} is already used on another book.`);
   await db.execute('UPDATE challenge_slot SET label = ? WHERE id = ?', [place, slotId]);

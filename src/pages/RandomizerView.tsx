@@ -62,6 +62,7 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
   const [drawn, setDrawn] = useState<Drawn | null>(null);
   const [added, setAdded] = useState<Set<string>>(new Set());
   const [incompleteOnly, setIncompleteOnly] = useState(true);
+  const [includeBonus, setIncludeBonus] = useState(true);
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState<Pick | null>(null);
@@ -69,7 +70,7 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  const cats = allCategories({ trick: data.trick.map((p) => p.text), treat: data.treat.map((p) => p.text), challenges: data.challenges, random: data.random }, incompleteOnly);
+  const cats = allCategories({ trick: data.trick.map((p) => p.text), treat: data.treat.map((p) => p.text), challenges: data.challenges, random: data.random }, incompleteOnly, includeBonus);
   const wheel = wheelCategories(cats, { off, incompleteOnly });
   const toggle = (key: string) => { setResult(null); setDrawn(null); setOff((s) => { const n = new Set(s); if (n.has(key)) n.delete(key); else n.add(key); if (key === RANDOM_KEY) saveOff(n.has(key)); return n; }); };
   const reduced = typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -132,6 +133,7 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
           {data.challenges.map((c) => row(challengeKey(c.id), c.name, byKey[challengeKey(c.id)].picks.length, incompleteOnly ? 'all done' : 'no prompts'))}
           <Seg label="Which challenge prompts" value={incompleteOnly ? 'incomplete' : 'all'} onChange={(v) => { setResult(null); setIncompleteOnly(v !== 'all'); }}
             options={[{ value: 'incomplete', label: 'Incomplete only' }, { value: 'all', label: 'All prompts' }]} />
+          <label className="inline"><input type="checkbox" role="switch" className="toggle" aria-label="Include bonus prompts" checked={includeBonus} disabled={spinning} onChange={(e) => { setResult(null); setDrawn(null); setIncludeBonus(e.target.checked); }} /><span>Include bonus prompts <span className="muted small">(extras, optional prompts and extra words)</span></span></label>
         </Card>
 
         <Card label="The wheel" className="wheelcard">

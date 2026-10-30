@@ -4,7 +4,7 @@ import { migrateNodeDb } from '../src/db/nodeDb';
 import { createBook } from '../src/repo/books';
 import { createRead, updateRead } from '../src/repo/bookLog';
 import { clearSlot, fillSlot, getChallenge, listChallenges } from '../src/repo/challenges';
-import { createMap, createUsMap, setAustralia, setBonusMode, setExtras, setMapLimit, setSlotPlace, setUkSplit } from '../src/repo/usmap';
+import { createMap, createUsMap, setAustralia, setBonusMode, setTerritoryMode, setExtras, setMapLimit, setSlotPlace, setUkSplit } from '../src/repo/usmap';
 
 let db: Db;
 beforeEach(() => { db = migrateNodeDb(); });
@@ -39,10 +39,30 @@ describe('map challenges', () => {
     const id = await createUsMap(db, { year: Y, name: 'US' });
     expect((await getChallenge(db, id))!.loose).toHaveLength(50);
     await setBonusMode(db, id, 'optional');
+    await setTerritoryMode(db, id, 'optional');
     const c = (await getChallenge(db, id))!;
     expect(c.loose).toHaveLength(56);
     expect(c.total).toBe(50);
     expect(c.bonus?.total).toBe(6);
+  });
+  it('DC and the territories can be set apart', async () => {
+    const id = await createUsMap(db, { year: Y, name: 'US', bonus: 'required', territories: 'off' });
+    let c = (await getChallenge(db, id))!;
+    expect(c.loose).toHaveLength(51); // 50 states + DC
+    expect(c.total).toBe(51);
+    await setBonusMode(db, id, 'off');
+    await setTerritoryMode(db, id, 'optional');
+    c = (await getChallenge(db, id))!;
+    expect(c.loose.map((s) => s.label)).not.toContain('District of Columbia');
+    expect(c.loose.map((s) => s.label)).toContain('Guam');
+    expect(c.total).toBe(50);
+    expect(c.bonus?.total).toBe(5);
+    await setBonusMode(db, id, 'optional');
+    await setTerritoryMode(db, id, 'off');
+    c = (await getChallenge(db, id))!;
+    expect(c.loose.map((s) => s.label)).toContain('District of Columbia');
+    expect(c.loose.map((s) => s.label)).not.toContain('Guam');
+    expect(c.bonus?.total).toBe(1);
   });
   it('continents: 6 count, Antarctica is bonus, Oceania can be called Australia', async () => {
     const id = await createMap(db, { year: Y, name: 'C', region: 'continents' });

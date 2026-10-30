@@ -84,7 +84,7 @@ describe('a draft board', () => {
     await screen.findByText(/This board is a draft/);
     expect(screen.getByText('FREE')).toBeTruthy();
     expect(screen.getByText('Bingos: 0')).toBeTruthy();
-    expect(screen.getByText('0/24')).toBeTruthy();
+    expect(screen.getByText('0/25')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Publish board' })).toBeTruthy();
   });
   it('changes a square\'s words, picture and colour, swaps it, and picks from the bank', async () => {
@@ -124,7 +124,7 @@ describe('a draft board', () => {
     await screen.findByText('0/25');
     fireEvent.change(within(dlg).getByLabelText('Square text'), { target: { value: '' } });
     fireEvent.click(within(dlg).getByRole('button', { name: 'Save words' }));
-    await screen.findByText('0/24');
+    expect(screen.getByText('0/25')).toBeTruthy();
   });
   it('draws a whole new board, trades two squares by dragging, and publishes', async () => {
     const { id } = await board();
@@ -154,21 +154,36 @@ describe('a published board', () => {
     fireEvent.click(await screen.findByRole('button', { name: `Add a book for ${sq.label}` }));
     const dlg = await screen.findByRole('dialog', { name: 'Choose a book' });
     fireEvent.click(await within(dlg).findByText('Pumpkin Patch'));
-    await waitFor(() => expect(screen.getByText('1/24')).toBeTruthy());
-    expect(screen.getByText('23 left')).toBeTruthy();
+    await waitFor(() => expect(screen.getByText('1/25')).toBeTruthy());
+    expect(screen.getByText('24 left')).toBeTruthy();
     expect(screen.getByRole('button', { name: `Change the book for ${sq.label}` })).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: `Take Pumpkin Patch off ${sq.label}` }));
-    await waitFor(() => expect(screen.getByText('0/24')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('0/25')).toBeTruthy());
   });
-  it('cannot add a book to a plain free space, and counts a completed row as a bingo', async () => {
+  it('takes a book on the free space, and counts a completed row as a bingo', async () => {
     const { id } = await board(true);
     ui(`/journal/challenges/${id}`);
     const free = await screen.findByRole('button', { name: 'Add a book for Free space' });
-    expect((free as HTMLButtonElement).disabled).toBe(true);
+    expect((free as HTMLButtonElement).disabled).toBe(false);
     const c = (await ch.getChallenge(db, id))!;
-    for (let i = 0; i < 5; i++) { const b = await createBook(db, { title: `Book ${i}`, authors: ['A'] }); const r = await createRead(db, b, 'finished'); await ch.fillSlot(db, c.loose[5 + i].id, r); }
+    for (let i = 0; i < 5; i++) { const b = await createBook(db, { title: `Book ${i}`, authors: ['A'] }); const r = await createRead(db, b, 'finished'); await ch.fillSlot(db, c.loose[10 + i].id, r); } // the middle row has the free space in it
     cleanup(); ui(`/journal/challenges/${id}`);
     await screen.findByText('Bingos: 1');
+  });
+  it('changes a color from the set or the color wheel, and sets the goal', async () => {
+    const { id } = await board(true);
+    ui(`/journal/challenges/${id}`);
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    const palette = within(screen.getByRole('group', { name: 'Palette' }));
+    expect(screen.getByText('Goal: blackout (0/25)')).toBeTruthy();
+    fireEvent.click(palette.getByRole('button', { name: 'Change color #c0566b' }));
+    fireEvent.click(palette.getByRole('button', { name: 'Use color #6c9a4f' }));
+    await waitFor(async () => expect((await ch.getChallenge(db, id))!.bingo!.palette).toContain('#6c9a4f'));
+    fireEvent.click(palette.getByRole('button', { name: 'Change color #6c9a4f' }));
+    fireEvent.change(palette.getByLabelText('Pick a custom color'), { target: { value: '#112233' } });
+    await waitFor(async () => expect((await ch.getChallenge(db, id))!.bingo!.palette).toContain('#112233'));
+    fireEvent.change(screen.getByLabelText('Bingo goal'), { target: { value: '2' } });
+    await screen.findByText('Goal: 2 bingos (0/2)');
   });
   it('stays editable: squares open the editor in Edit mode, the palette and size can change', async () => {
     const { id } = await board(true);

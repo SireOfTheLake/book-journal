@@ -8,6 +8,7 @@ export interface Category { key: string; label: string; color: string | null; pi
 export interface ChallengeLike {
   id: string; name: string; color: string | null; slots: { id: string; label: string; group: string | null; taken: string | null; bonus?: boolean }[];
   word?: boolean; limit?: number | null; used?: number; // a Word Builder is on the wheel while it has room for another book (it has no fixed prompts)
+  wordBonus?: { allow: boolean; used: number; limit: number | null } | null; // a Word Builder past its limit can still take bonus words when they are allowed
   places?: { name: string; bonus: boolean }[] | null; // a limited challenge: the places still free to choose from
 }
 export interface Selection { off: ReadonlySet<string>; incompleteOnly: boolean } // off = category keys that are unticked
@@ -18,7 +19,7 @@ export const RANDOM_KEY = 'randombook';
 export const challengeKey = (id: string) => `challenge:${id}`;
 
 // Every category you could tick, whether or not it is ticked, so the page can list them. Trick and Treat first, then the challenges.
-export function allCategories(input: { trick: string[]; treat: string[]; challenges: ChallengeLike[]; random?: RandomPool | null }, incompleteOnly: boolean): Category[] {
+export function allCategories(input: { trick: string[]; treat: string[]; challenges: ChallengeLike[]; random?: RandomPool | null }, incompleteOnly: boolean, includeBonus = true): Category[] {
   const cats: Category[] = [
     { key: TRICK_KEY, label: 'Trick', color: null, picks: input.trick.map((t) => ({ kind: 'trick', categoryLabel: 'Trick', prompt: t })) },
     { key: TREAT_KEY, label: 'Treat', color: null, picks: input.treat.map((t) => ({ kind: 'treat', categoryLabel: 'Treat', prompt: t })) },
@@ -29,7 +30,8 @@ export function allCategories(input: { trick: string[]; treat: string[]; challen
     const key = challengeKey(c.id);
     if (c.word) {
       const room = c.limit == null || (c.used ?? 0) < c.limit;
-      cats.push({ key, label: c.name, color: c.color, picks: room ? [{ kind: 'challenge', categoryLabel: c.name, prompt: c.name, challengeId: c.id }] : [] });
+      const bonusRoom = !room && !!c.wordBonus?.allow && (c.wordBonus.limit == null || c.wordBonus.used < c.wordBonus.limit);
+      cats.push({ key, label: c.name, color: c.color, picks: room || bonusRoom ? [{ kind: 'challenge', categoryLabel: c.name, prompt: c.name, challengeId: c.id, bonus: bonusRoom || undefined }] : [] });
     } else if (c.places) {
       cats.push({ key, label: c.name, color: c.color, picks: c.places.map((p) => ({ kind: 'challenge', categoryLabel: c.name, prompt: p.name, challengeId: c.id, place: p.name, bonus: p.bonus || undefined })) });
     } else {
@@ -39,7 +41,8 @@ export function allCategories(input: { trick: string[]; treat: string[]; challen
       })) });
     }
   }
-  return cats;
+  // Bonus prompts (extras of limited challenges, optional prompts, extra Word Builder words) only go on the wheel when asked for.
+  return includeBonus ? cats : cats.map((c) => ({ ...c, picks: c.picks.filter((p) => !p.bonus) }));
 }
 
 // The categories on the wheel: ticked, and with at least one prompt to give.

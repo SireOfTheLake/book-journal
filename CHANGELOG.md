@@ -2,7 +2,27 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 -->
+
+## 0.3.11 — 2026-10-30
+
+### New
+- [Desktop] Bingo goals: a full blackout, or 1 to 11 bingos
+- [Desktop] Limited challenges for grids and stickers: require only some of the prompts, and allow bonus prompts after
+- [Desktop] Optional prompts: always bonus points, never part of the total
+- [Desktop] Reveal all stickers on a finished limited sticker challenge; they hide again if the challenge is edited
+- [Desktop] Word Builder bonus words (with or without a limit) and words decided ahead of time
+- [Desktop] Prompt Randomizer switch to include bonus prompts
+- [Desktop] US map: DC and the territories can each be required, optional or left out
+- [Database] Database updated for limited challenges, optional prompts, bingo goals and US map territories
+
+### Improved
+- [Desktop] Bingo's free space takes a book like any other square, so a board is always worth 25
+- [Desktop] Overview and Goals count every completed prompt, bonus and optional ones too
+
+### Fixed
+- [Database] Bingo boards no longer lose tiles: two devices moving squares around could throw some away when they synced. Lost tiles are brought back
+- [Desktop] The Bingo color list no longer overlaps the hex codes; colors are shown as swatches you click to pick another from the set or the color wheel
 
 ## 0.3.10 — 2026-10-30
 

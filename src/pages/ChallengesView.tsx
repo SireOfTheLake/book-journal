@@ -37,12 +37,13 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   const [groups, setGroups] = useState<{ name: string; text: string }[]>([]);
   const [mapId, setMapId] = useState<MapId>('us');
   const [bonus, setBonus] = useState<BonusMode>('off');
+  const [territories, setTerritories] = useState<BonusMode>('off'); // US map: what the territories do, apart from DC
   const [australia, setAustralia] = useState(false);
   const [ukSplit, setUkSplit] = useState(false);
   const [extras, setExtras] = useState(false);
   const [limited, setLimited] = useState(false);
   const [limit, setLimit] = useState('25');
-  const pickMap = (id: MapId) => { setMapId(id); setBonus(id === 'us' ? 'off' : 'optional'); setLimit(String(MAPS[id].defaultLimit)); if (!name.trim() || MAP_IDS.some((m) => MAPS[m].defaultName === name)) setName(MAPS[id].defaultName); };
+  const pickMap = (id: MapId) => { setMapId(id); setBonus(id === 'us' ? 'off' : 'optional'); setTerritories('off'); setLimit(String(MAPS[id].defaultLimit)); if (!name.trim() || MAP_IDS.some((m) => MAPS[m].defaultName === name)) setName(MAPS[id].defaultName); };
   const [kind, setKind] = useState<'grid' | 'sticker' | 'word' | 'map' | 'bingo'>('grid');
   const [bankId, setBankId] = useState<string>(banks[0]?.id ?? 'new');
   const [bankText, setBankText] = useState('');
@@ -60,7 +61,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
     try {
       const onCreate = (i: CreateInput) => onCreateWith(i, description.trim() || undefined);
       if (kind === 'bingo') { await onCreate({ year, name, bankId: bank ? bank.id : null, newBankPrompts: bank ? [] : splitPrompts(bankText), preferUnused: bank?.lastYear ? prefer : false, freeText }); return; }
-      if (kind === 'map') { await onCreate({ usMap: true, year, name, color, region: mapId, bonus: hasBonusPlaces(mapId) ? bonus : mapId === 'us' ? 'off' : 'optional', australia, ukSplit, extras: limited && extras, limit: limited ? Number(limit) : null }); return; }
+      if (kind === 'map') { await onCreate({ usMap: true, year, name, color, region: mapId, bonus: hasBonusPlaces(mapId) ? bonus : mapId === 'us' ? 'off' : 'optional', territories: mapId === 'us' ? territories : undefined, australia, ukSplit, extras: limited && extras, limit: limited ? Number(limit) : null }); return; }
       if (kind === 'word') { await onCreate({ word: true, year, name, color, theme, target: target.trim() ? Number(target) : null, letters }); return; }
       if (kind === 'sticker') { await onCreate({ year, name, color, groups: stickerGroups.map((g, i) => ({ name: g, color: accentAt(i + 1) })), stickers: staged.map((s) => ({ prompt: s.prompt, image: s.image, group: s.group })) }); return; }
       await onCreate({ year, name, color, prompts: splitPrompts(main), groups: groups.map((g, i) => ({ name: g.name, color: accentAt(i + 1), prompts: splitPrompts(g.text) })) });
@@ -100,8 +101,14 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
             <select className="field" aria-label="Map" value={mapId} onChange={(e) => pickMap(e.target.value as MapId)}>
               {MAP_IDS.map((m) => <option key={m} value={m}>{MAPS[m].title}</option>)}
             </select></label>
-          {hasBonusPlaces(mapId) && <label className="stack"><span className="lbl2">Bonus prompts ({MAPS[mapId].bonusNote})</span>
-            <select className="field" aria-label="Bonus prompts" value={bonus} onChange={(e) => setBonus(e.target.value as BonusMode)}>
+          {hasBonusPlaces(mapId) && <label className="stack"><span className="lbl2">{mapId === 'us' ? 'District of Columbia' : `Bonus prompts (${MAPS[mapId].bonusNote})`}</span>
+            <select className="field" aria-label={mapId === 'us' ? 'District of Columbia' : 'Bonus prompts'} value={bonus} onChange={(e) => setBonus(e.target.value as BonusMode)}>
+              <option value="optional">Optional (extra points, not part of the goal)</option>
+              <option value="required">Required (part of the goal)</option>
+              <option value="off">Not included</option>
+            </select></label>}
+          {mapId === 'us' && <label className="stack"><span className="lbl2">Territories (Puerto Rico, Guam and the others)</span>
+            <select className="field" aria-label="Territories" value={territories} onChange={(e) => setTerritories(e.target.value as BonusMode)}>
               <option value="optional">Optional (extra points, not part of the goal)</option>
               <option value="required">Required (part of the goal)</option>
               <option value="off">Not included</option>
@@ -109,7 +116,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
           {mapId === 'continents' && <label className="check"><input type="checkbox" role="switch" className="toggle" checked={australia} onChange={(e) => setAustralia(e.target.checked)} /> Call Oceania "Australia"</label>}
           {canSplitUk(mapId) && <label className="check"><input type="checkbox" role="switch" className="toggle" checked={ukSplit} onChange={(e) => setUkSplit(e.target.checked)} /> Separate the United Kingdom into England, Northern Ireland, Scotland and Wales</label>}
           <label className="check"><input type="checkbox" role="switch" className="toggle" checked={limited} onChange={(e) => setLimited(e.target.checked)} /> Limited: complete after a number of {MAPS[mapId].plural}</label>
-          {limited && <label className="stack"><span className="lbl2">Complete after (1 to {mapPlaces(mapId, bonus, australia, ukSplit).length})</span><input className="field small" type="number" min={1} aria-label="Complete after" value={limit} onChange={(e) => setLimit(e.target.value)} /></label>}
+          {limited && <label className="stack"><span className="lbl2">Complete after (1 to {mapPlaces(mapId, bonus, australia, ukSplit, mapId === 'us' ? territories : bonus).length})</span><input className="field small" type="number" min={1} aria-label="Complete after" value={limit} onChange={(e) => setLimit(e.target.value)} /></label>}
           {limited && <label className="check"><input type="checkbox" role="switch" className="toggle" checked={extras} onChange={(e) => setExtras(e.target.checked)} /> Allow more than {limit || 'N'}: each extra {MAPS[mapId].noun} counts as a bonus</label>}
           <span className="muted small">{limited ? `You get ${limit || 'N'} boxes. Put a book in a box, then choose which ${MAPS[mapId].noun} it is for. A box counts once it has a place, and each place can be used once.` : `A card for every ${MAPS[mapId].noun}. Put a book on one and it fills in on the map.`}</span>
         </>

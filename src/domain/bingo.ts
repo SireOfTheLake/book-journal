@@ -34,3 +34,14 @@ export function bingoLines(filled: boolean[]): number {
   lines.push(Array.from({ length: SIDE }, (_, i) => i * SIDE + i), Array.from({ length: SIDE }, (_, i) => i * SIDE + (SIDE - 1 - i)));
   return lines.filter((l) => l.every((i) => filled[i])).length;
 }
+
+export const MAX_BINGO_GOAL = 11; // twelve lines make a blackout, so a bingo goal stops one short of that
+export const BINGO_COLOR_CHOICES = ['#c4683d', '#d3a05c', '#5b6e7e', '#b5705e', '#8a9a82', '#747a4c', '#9a5b8c', '#4f8a8b', '#a65e3a', '#7a6bb0', '#c0566b', '#6c9a4f'];
+
+// Where a board stands against its goal: null goal = blackout (all 25 squares), otherwise that many bingos.
+export function bingoGoalState(filled: boolean[], goal: number | null): { reached: boolean; label: string } {
+  const squares = filled.filter(Boolean).length;
+  if (goal === null) return { reached: squares === filled.length && filled.length > 0, label: `Goal: blackout (${squares}/${filled.length})` };
+  const lines = bingoLines(filled);
+  return { reached: lines >= goal, label: `Goal: ${goal} bingo${goal === 1 ? '' : 's'} (${Math.min(lines, goal)}/${goal})` };
+}

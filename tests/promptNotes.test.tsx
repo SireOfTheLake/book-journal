@@ -71,7 +71,7 @@ describe('notes on prompts', () => {
   });
 });
 
-const slot = (over: Partial<ch.Slot>): ch.Slot => ({ id: 's', is_bonus: false, label: 'Prompt', position: 1, group_id: null, art: null, color: null, is_free: false, bank_prompt_id: null, askNote: null, note: null, fill: { read_id: 'r', book_id: 'b', title: 'Some Book', authors: null, status: 'finished' }, ...over });
+const slot = (over: Partial<ch.Slot>): ch.Slot => ({ id: 's', is_bonus: false, is_optional: false, label: 'Prompt', position: 1, group_id: null, art: null, color: null, is_free: false, bank_prompt_id: null, askNote: null, note: null, fill: { read_id: 'r', book_id: 'b', title: 'Some Book', authors: null, status: 'finished' }, ...over });
 const challenge = (loose: ch.Slot[], over: Partial<ch.Challenge> = {}): ch.Challenge => ({
   id: 'c', name: 'Boyfriends', kind: 'grid', color: '#a65e3a', year: 2026, bingo: null, layout: { order: ['main'], cols: {} }, groups: [], loose, usMap: false, description: null, askNote: false, noteLabel: 'Character', word: false, theme: null, target: null, letters: {}, done: 0, total: loose.length, left: 0, percent: 0, ...over,
 } as ch.Challenge);

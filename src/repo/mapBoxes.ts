@@ -7,11 +7,11 @@ const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 const BONUS_MODES: BonusMode[] = ['optional', 'required', 'off'];
 export const isBonusMode = (v: unknown): v is BonusMode => BONUS_MODES.includes(v as BonusMode);
 
-export interface MapRow { id: string; region: MapId; bonus: BonusMode; limit: number | null; australia: boolean; ukSplit: boolean; extras: boolean }
+export interface MapRow { id: string; region: MapId; bonus: BonusMode; territories: BonusMode; limit: number | null; australia: boolean; ukSplit: boolean; extras: boolean }
 export async function loadMap(db: Db, id: string): Promise<MapRow> {
-  const c = await first<{ us_map: number; map_region: string | null; bonus_mode: string; map_limit: number | null; map_australia: number }>(db, 'SELECT us_map, map_region, bonus_mode, map_limit, map_australia FROM challenge WHERE id = ? AND deleted_at IS NULL', [id]);
+  const c = await first<{ us_map: number; map_region: string | null; bonus_mode: string; territory_mode: string | null; map_limit: number | null; map_australia: number }>(db, 'SELECT us_map, map_region, bonus_mode, territory_mode, map_limit, map_australia FROM challenge WHERE id = ? AND deleted_at IS NULL', [id]);
   if (!c?.us_map) throw new Error('That is not a map challenge.');
-  return { id, region: mapDef(c.map_region).id, bonus: isBonusMode(c.bonus_mode) ? c.bonus_mode : 'optional', limit: c.map_limit, ...optionsOf(c.map_australia) };
+  return { id, region: mapDef(c.map_region).id, bonus: isBonusMode(c.bonus_mode) ? c.bonus_mode : 'optional', territories: isBonusMode(c.territory_mode) ? c.territory_mode : isBonusMode(c.bonus_mode) ? c.bonus_mode : 'optional', limit: c.map_limit, ...optionsOf(c.map_australia) };
 }
 export interface LiveSlot { id: string; label: string; is_bonus: number; position: number; has_book: number }
 export const liveSlots = (db: Db, id: string) => db.select<LiveSlot>(
@@ -34,7 +34,7 @@ export async function syncBonusBoxes(db: Db, challengeId: string): Promise<void>
   const extras = slots.filter((s) => s.is_bonus);
   const emptyExtras = extras.filter((s) => !s.has_book);
   const chosen = new Set(slots.map((s) => s.label).filter(Boolean));
-  const open = m.extras && required.length > 0 && required.every((s) => s.has_book) && mapPlaces(m.region, m.bonus, m.australia, m.ukSplit).some((p) => !chosen.has(p.name));
+  const open = m.extras && required.length > 0 && required.every((s) => s.has_book) && mapPlaces(m.region, m.bonus, m.australia, m.ukSplit, m.territories).some((p) => !chosen.has(p.name));
   if (!open) { for (const s of emptyExtras) await dropSlot(db, s.id); return; }
   if (emptyExtras.length === 0) await db.execute("INSERT INTO challenge_slot (id, challenge_id, label, position, is_bonus) VALUES (?, ?, '', ?, 1)", [newId(), challengeId, await nextPosition(db, challengeId)]);
   else for (const s of emptyExtras.slice(1)) await dropSlot(db, s.id);

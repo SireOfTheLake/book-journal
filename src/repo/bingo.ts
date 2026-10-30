@@ -230,6 +230,28 @@ export async function setPalette(db: Db, challengeId: string, colors: string[], 
   void b;
 }
 
+// Changes one color of the set; every square that had it takes the new one.
+export async function replacePaletteColor(db: Db, challengeId: string, from: string, to: string) {
+  await board(db, challengeId);
+  if (!isHexColor(to)) throw new Error('That is not a color.');
+  const b = await board(db, challengeId);
+  const palette = parsePalette(b.palette);
+  const old = from.toLowerCase(), next = to.toLowerCase();
+  const at = palette.findIndex((c) => c.toLowerCase() === old);
+  if (at < 0) throw new Error('That color is not in the set.');
+  if (old === next) return;
+  const merged = palette.map((c, i) => (i === at ? next : c)).filter((c, i, all) => all.findIndex((x) => x.toLowerCase() === c.toLowerCase()) === i);
+  await db.execute('UPDATE challenge SET palette = ?, color = ? WHERE id = ?', [JSON.stringify(merged), merged[0], challengeId]);
+  await db.execute('UPDATE challenge_slot SET color = ? WHERE challenge_id = ? AND deleted_at IS NULL AND lower(color) = ?', [next, challengeId, old]);
+}
+
+// The goal of a board: a full blackout (all 25 squares), or a number of bingos (a row, column or diagonal) from 1 to 11.
+export async function setBingoGoal(db: Db, challengeId: string, goal: number | null) {
+  await board(db, challengeId);
+  if (goal !== null && (!Number.isInteger(goal) || goal < 1 || goal > 11)) throw new Error('A bingo goal is from 1 to 11 bingos. A blackout is the most there is.');
+  await db.execute('UPDATE challenge SET bingo_goal = ? WHERE id = ?', [goal, challengeId]);
+}
+
 // ---------- arranging and publishing ----------
 export async function publishBingo(db: Db, challengeId: string) {
   await board(db, challengeId);

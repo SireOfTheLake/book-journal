@@ -101,3 +101,18 @@ export function usState(state: string | null | undefined, country?: string | nul
 export const nonUsCountry = (country: string | null | undefined): string | null => (country?.trim() && !isUsCountry(country) ? country.trim() : null);
 // A character is counted by the part of the name before the first space.
 export const firstName = (name: string | null | undefined): string => (name ?? '').trim().split(/\s+/)[0] ?? '';
+
+// Which challenges the month's (or year's) filled prompts belong to, as shares of all of them. A challenge with nothing filled has no part.
+export interface ChallengeMix { id: string; name: string; color: string | null; count: number; start: number; share: number }
+export function challengeMix(rows: { id: string; name: string; color: string | null }[]): ChallengeMix[] {
+  const by = new Map<string, { id: string; name: string; color: string | null; count: number }>();
+  for (const r of rows) { const cur = by.get(r.id); if (cur) cur.count++; else by.set(r.id, { ...r, count: 1 }); }
+  const all = rows.length;
+  let start = 0;
+  return [...by.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).map((c) => {
+    const share = all ? (c.count / all) * 100 : 0;
+    const out = { ...c, start, share };
+    start += share;
+    return out;
+  });
+}

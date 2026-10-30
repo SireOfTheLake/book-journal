@@ -101,8 +101,9 @@ describe('challenge screens', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete prompt A king' }));
     fireEvent.click(screen.getByRole('button', { name: 'Delete it' }));
     await waitFor(() => expect(screen.queryByDisplayValue('A king')).toBeNull());
-    fireEvent.click(screen.getByRole('button', { name: 'Color for Main Character #4f8a8b' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Color for Main Character #4f8a8b' }).getAttribute('aria-pressed')).toBe('true'));
+    fireEvent.click(screen.getByRole('button', { name: 'Color for Main Character' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Use color #5b6e7e' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Color for Main Character' }).textContent).toContain('#5b6e7e'));
   });
   it('deletes a whole challenge after a confirm', async () => {
     const id = await grid();

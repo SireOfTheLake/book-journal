@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ACCENTS } from '../../domain/challenges';
+import ColorField from '../../ui/ColorField';
 import { MAX_COLS } from '../../domain/challengeLayout';
 import type { Candidate, Challenge, Slot, StickerImage } from '../../repo/challenges';
 import { readableOn } from '../../theme/themes';
@@ -47,11 +47,7 @@ const COVER_COLORS = ['#5a1f3a', '#2f3a5a', '#3a2f5a', '#4a2f3a', '#2d4a3a', '#5
 const hue = (t: string) => COVER_COLORS[[...t].reduce((n, c) => n + c.charCodeAt(0), 0) % COVER_COLORS.length];
 
 export function Swatches({ value, label, onPick }: { value: string; label: string; onPick(hex: string): void }) {
-  return (
-    <span className="swatches" role="group" aria-label={label}>
-      {ACCENTS.map((c) => <button key={c} type="button" className={`swatch${c.toLowerCase() === value.toLowerCase() ? ' on' : ''}`} style={{ background: c }} aria-label={`${label} ${c}`} aria-pressed={c.toLowerCase() === value.toLowerCase()} onClick={() => onPick(c)} />)}
-    </span>
-  );
+  return <ColorField value={value} label={label} onPick={onPick} />;
 }
 
 // A text box that saves when you leave it or press Enter.
@@ -188,7 +184,6 @@ function NoteSettings({ ask, label, onSave }: { ask: boolean; label: string; onS
         <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={ask} onChange={(e) => onSave(e.target.checked, text)} /><span>Ask for a Label</span></label>
         {ask && <input className="field tiny wide" aria-label="Label" placeholder="Label" value={text} onChange={(e) => setText(e.target.value)} onBlur={() => text.trim() !== (label === 'Note' ? '' : label) && onSave(ask, text)} />}
       </div>
-      {ask && <span className="muted small">Each prompt can also decide for itself; choose that under the prompt.</span>}
     </div>
   );
 }
@@ -340,11 +335,10 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
           {deleting
             ? <span className="movebtns"><button type="button" className="mini danger" onClick={act.remove}>Delete the whole challenge</button><button type="button" className="mini" onClick={() => setDeleting(false)}>Keep</button></span>
             : <button type="button" className="mini" onClick={() => setDeleting(true)}>Delete challenge</button>}
-          <span className="muted small">Drag a card by its grip, or a cover (or sticker) to put it in another place or card. Deleting a challenge or a prompt never deletes your books or reads.</span>
         </div>
       )}
       {sticker && editing && act.addStickers && <AddStickers add={act.addStickers} groups={c.groups.map((g) => ({ id: g.id, name: g.name }))} />}
-      <div className="gcards">{keys.map(renderCard)}</div>
+      <div className={`gcards${split ? ' split' : ''}`}>{keys.map(renderCard)}</div>
       {c.total === 0 && !editing && <p className="muted">This challenge has no prompts yet. Choose Edit to add some.</p>}
       {picking && <ReadPicker prompt={picking.label} search={act.search} noteLabel={(picking.askNote ?? c.askNote) && act.note ? c.noteLabel : undefined} onClose={() => setPicking(null)} onPick={(readId, note) => { act.fill(picking.id, readId, note); setPicking(null); }} />}
     </div>

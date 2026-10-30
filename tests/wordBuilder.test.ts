@@ -46,7 +46,9 @@ describe('a random color for a new challenge', () => {
     expect(randomAccent([], () => 0)).toBe(ACCENTS[0]);
     expect(randomAccent([], () => 0.999)).toBe(ACCENTS[ACCENTS.length - 1]);
     expect(randomAccent([ACCENTS[0].toUpperCase(), ACCENTS[1], null], () => 0)).toBe(ACCENTS[2]);
-    expect(randomAccent(ACCENTS, () => 0)).toBe(ACCENTS[0]);
+    const more = randomAccent(ACCENTS, () => 0.3); // all twelve are used: a new color nobody has
+    expect(ACCENTS).not.toContain(more);
+    expect(more).toMatch(/^#[0-9a-f]{6}$/);
     const seen = new Set(Array.from({ length: 200 }, () => randomAccent([])));
     expect(seen.size).toBeGreaterThan(6);
   });

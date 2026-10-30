@@ -985,7 +985,7 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .dsticker.dloose img { width: 100%; height: 100%; object-fit: contain; border-radius: 0; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, .55)); }
 
 /* covers fill their frame exactly (a little stretching beats a cut-off cover). Only book covers; other pictures keep their proportions. */
-.libimg, .cand img, .covthumb, .altbtn img, .dcover img, .dsticker:not(.dloose) img, .bbox .bcover, .realcover .zoomimg img, .wordcover .libimg { object-fit: fill; }
+.libimg, .cand img, .covthumb, .altbtn img, .dcover img, .dsticker:not(.dloose) img, .realcover .zoomimg img, .wordcover .libimg { object-fit: fill; }
 
 /* US map: a long title stays inside its card */
 .stcard { min-width: 0; }
@@ -1212,3 +1212,25 @@ input.toggle:disabled { opacity: .5; cursor: default; }
 .lbextra a { color: #fff; }
 .sticker .zoomimg img { object-fit: contain; }
 .toggleline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; } .field.tiny { width: 64px; padding: 3px 6px; } .field.tiny.wide { width: 150px; }
+
+/* Color picker */
+.colorfield { position: relative; display: inline-flex; }
+.colorbtn { display: inline-flex; align-items: center; gap: 8px; padding: 3px 10px 3px 4px; border: 1px solid var(--line2); border-radius: 16px; background: var(--panel2); color: var(--text); cursor: pointer; font-family: inherit; font-size: 12px; }
+.colorbtn i { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line2); display: inline-block; }
+.colorpop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 70; background: var(--panel); border: 1px solid var(--line2); border-radius: 8px; padding: 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); }
+.cpicker { display: flex; flex-direction: column; gap: 10px; width: 190px; }
+.cwheel { position: relative; border-radius: 50%; align-self: center; cursor: crosshair; touch-action: none; background: radial-gradient(circle closest-side, #fff, rgba(255, 255, 255, 0)), conic-gradient(from 0deg, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.cmark { position: absolute; width: 14px; height: 14px; margin: -7px 0 0 -7px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1px #000; pointer-events: none; }
+.cbright { display: flex; flex-direction: column; gap: 2px; } .cbright input { width: 100%; }
+.ccode { display: flex; align-items: center; gap: 6px; } .ccode .field { padding: 3px 6px; min-width: 0; } .ccode select.field { width: 64px; } .ccode input.field { flex: 1; } .ccode .bad { border-color: var(--danger, var(--accent)); }
+.cswatch { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line2); flex: none; }
+.cdrawer summary { cursor: pointer; font-size: 12px; color: var(--muted); } .cdrawer .swatches { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Cards of a sticker challenge shrink so a card of stickers and a card of covers can sit side by side */
+.gcards.split { container-type: inline-size; }
+.gcards.split > .gcard { --cell: clamp(64px, calc((50cqw - 9px - 2 * var(--pad) - 2px - (var(--cols, 1) - 1) * var(--gap)) / var(--cols, 1)), 132px); }
+.gcards.split > .gcard.stickercard { --cell: clamp(64px, calc((50cqw - 9px - 2 * var(--pad) - 2px - (var(--cols, 1) - 1) * var(--gap)) / var(--cols, 1)), 132px); }
+
+/* A picture opened full size: its own size, shrunk only when it would not fit the screen */
+.lightbox img.lbimg { width: auto; height: auto; max-width: calc(100vw - 80px); max-height: calc(100vh - 100px); object-fit: contain; }
+.lbbody { display: flex; flex-direction: column; align-items: center; }

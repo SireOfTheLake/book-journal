@@ -34,9 +34,7 @@ describe('creating a challenge', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0);
     wrap('/journal/challenges', <ChallengesPage />, '/journal/challenges');
     fireEvent.click(await screen.findByRole('button', { name: '+ New challenge' }));
-    const on = screen.getAllByRole('button', { name: /^Color #/ }).filter((b) => b.getAttribute('aria-pressed') === 'true');
-    expect(on).toHaveLength(1);
-    expect(on[0].getAttribute('aria-label')).toBe(`Color ${ACCENTS[1]}`);
+    expect(screen.getByRole('button', { name: 'Challenge color' }).textContent).toContain(ACCENTS[1]);
   });
   it('makes a Word builder with a theme and no words, and opens it', async () => {
     wrap('/journal/challenges', <><ChallengesPage /></>, '/journal/challenges');

@@ -2,7 +2,7 @@ import type { Db } from '../db/adapter';
 import { SHOWN_SQL } from '../domain/challenges';
 import { isMapId, type MapId } from '../domain/maps';
 import { BOOK_GENRE_ROLLUP } from './genreRollup';
-import { countMakeups, dayBefore, firstName, nonUsCountry, usState, monthRange, pageDots, sourceMix, splitProgress, starDots, topCounts, uniqueCounts, type Counted, type DotColumn, type Split, type SourceMix } from '../domain/dashboard';
+import { challengeMix, type ChallengeMix, countMakeups, dayBefore, firstName, nonUsCountry, usState, monthRange, pageDots, sourceMix, splitProgress, starDots, topCounts, uniqueCounts, type Counted, type DotColumn, type Split, type SourceMix } from '../domain/dashboard';
 import { metricInfo, type Metric } from '../domain/goals';
 import { getCovers } from './library';
 import { letterMap, listChallenges } from './challenges';
@@ -32,7 +32,7 @@ export interface DashboardCore {
   top: { authors: Counted[]; genres: Counted[]; tropes: Counted[]; states: Counted[]; countries: Counted[]; characters: Counted[]; jobs: Counted[] };
   favorites: MonthBook[];
   shortest: MonthBook | null; longest: MonthBook | null; shortestAudio: MonthBook | null; longestAudio: MonthBook | null;
-  makeups: Counted[]; pageDots: { columns: DotColumn[]; max: number }; starDots: DotColumn[]; sourceMix: SourceMix[];
+  makeups: Counted[]; pageDots: { columns: DotColumn[]; max: number }; starDots: DotColumn[]; sourceMix: SourceMix[]; challengeMix: ChallengeMix[];
   series: { started: { id: string; title: string }[]; continued: { id: string; title: string; books: number }[]; finished: { id: string; title: string }[] };
 }
 
@@ -144,6 +144,7 @@ async function buildDashboard(db: Db, year: number, from: string, to: string, to
   const imgIds = [...new Set(inMonth.flatMap((k) => [k.art_id, k.cover_id]).filter((x): x is string => !!x))];
   const imgs = imgIds.length ? new Map((await db.select<{ id: string; file_path: string }>(`SELECT id, file_path FROM image WHERE deleted_at IS NULL AND id IN (${marks(imgIds)})`, imgIds)).map((i) => [i.id, i.file_path])) : new Map<string, string>();
   const nameOf = new Map(summaries.map((c) => [c.id, c.name]));
+  const colorOf = new Map(summaries.map((c) => [c.id, c.color]));
   const letterSets = new Map<string, Record<string, string>>();
   for (const id of new Set(inMonth.filter((k) => k.word).map((k) => k.challenge_id))) letterSets.set(id, await letterMap(db, id));
   const stickers: Sticker[] = inMonth.map((k) => ({
@@ -173,6 +174,7 @@ async function buildDashboard(db: Db, year: number, from: string, to: string, to
     favorites: books.filter((b) => b.favorite || (b.rating ?? 0) >= 20),
     shortest: byPages[0] ?? null, longest: byPages[byPages.length - 1] ?? null, shortestAudio: audio[0] ?? null, longestAudio: audio[audio.length - 1] ?? null,
     makeups: countMakeups(books.map((b) => b.bucket)), pageDots: pageDots(books.map((b) => b.pages)), starDots: starDots(books.map((b) => b.rating)),
+    challengeMix: challengeMix(inMonth.map((k) => ({ id: k.challenge_id, name: nameOf.get(k.challenge_id) ?? '', color: colorOf.get(k.challenge_id) ?? null }))),
     sourceMix: sourceMix(books.map((b) => ({ format: b.format, source: b.source, color: b.source_color }))),
     series: {
       started: seriesStarted(f, from, to).map((s) => ({ id: s.id, title: s.title })),

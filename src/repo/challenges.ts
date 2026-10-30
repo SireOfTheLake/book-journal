@@ -26,7 +26,7 @@ export interface Challenge extends Tracker {
   bingo: BingoInfo | null; layout: Layout; groups: Group[]; loose: Slot[]; // loose = prompts that belong to the main category only
   usMap: boolean; mapRegion: MapId | null; bonusMode: BonusMode; territoryMode: BonusMode; mapLimit: number | null; australia: boolean; ukSplit: boolean; extras: boolean; bonus: Bonus | null; // usMap = any map challenge; mapLimit: "complete after N" with N boxes
   description: string | null; askNote: boolean; noteLabel: string; // askNote: every prompt asks for a short note; noteLabel: what it is called
-  trackerUnit: string | null; squares: number; required: number | null; allowBonus: boolean; bonusLimit: number | null; bingoGoal: number | null; revealed: boolean; canReveal: boolean; hasOptional: boolean; // limited challenge: how many prompts it needs, whether bonuses are allowed (a Word Builder: how many, empty = no limit), the Bingo goal (empty = blackout), and whether the unused stickers have been revealed
+  trackerUnit: string | null; squares: number; bingos: number; required: number | null; allowBonus: boolean; bonusLimit: number | null; bingoGoal: number | null; revealed: boolean; canReveal: boolean; hasOptional: boolean; // limited challenge: how many prompts it needs, whether bonuses are allowed (a Word Builder: how many, empty = no limit), the Bingo goal (empty = blackout), and whether the unused stickers have been revealed
   word: boolean; theme: string | null; target: number | null; letters: Record<string, string>; // Word Builder: the theme of the words, how many words to aim for, and the sticker picture for each letter
 }
 
@@ -94,7 +94,7 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
     required: c.kind === 'bingo' || c.word ? null : c.required_count, allowBonus, bonusLimit: c.bonus_limit, bingoGoal: c.kind === 'bingo' ? c.bingo_goal : null, revealed: !!c.stickers_revealed && generic, canReveal, hasOptional,
     bonus: bonusTotal > 0 ? { done: bonusDone, total: bonusTotal } : null, description: c.description, askNote: !!c.ask_note, noteLabel: c.note_label?.trim() || 'Note', word: !!c.word, theme: c.theme, target: c.target, letters: c.word ? await letterMap(db, id) : {},
     // A Bingo board's bar follows its goal (a number of bingos, or all 25 squares); every square still counts toward Overview and Goals.
-    trackerUnit: bingoGoalSet ? 'bingos' : null, squares: rawDone,
+    trackerUnit: bingoGoalSet ? 'bingos' : null, squares: rawDone, bingos: c.kind === 'bingo' ? bingoLines(slots.map((s) => s.fill?.status === 'finished')) : 0,
     ...(bingoGoalSet ? tracker(Math.min(bingoLines(slots.map((s) => s.fill?.status === 'finished')), c.bingo_goal!), c.bingo_goal!) : tracker(done, total)),
   };
 }

@@ -2,7 +2,25 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 -->
+
+## 0.3.13 — 2026-10-30
+
+### New
+- [Desktop] A color picker for challenge colors: a color wheel with a brightness slider, the code as HEX (first), RGB or HSL, and a drawer with the month colors.
+- [Desktop] New challenges start with a random color that no other challenge that year has; existing challenges were given new random colors.
+- [Desktop] The Dashboard (month and year) has a Challenge Breakdown bar showing each challenge's share of the prompts completed; challenges with none are left out.
+
+### Improved
+- [Desktop] A full blackout Bingo board still shows how many bingos it has beside the big bar.
+- [Desktop] Sticker challenges without sub-categories fit the sticker card and the book card side by side by shrinking the cells to fit.
+- [Desktop] Pictures opened full size show at their own size, shrunk only when bigger than the screen, so stickers are no longer blurred.
+- [Desktop] Dashboard Sources, Page and Star distribution use the current month colors.
+- [Desktop] Removed the extra helper texts under Ask for a Label and in the challenge cards.
+- [Database] Challenge colors were reassigned (database version 35).
+
+### Fixed
+- [Desktop] Book covers in the Bracket are cropped from the center instead of squished.
 
 ## 0.3.12 — 2026-10-30
 

@@ -6,7 +6,7 @@ import { monthName } from '../domain/dashboard';
 import type { DashboardCore, GoalSplit, MonthBook, MonthlyDashboard, Sticker, YearlyDashboard } from '../repo/dashboard';
 import { monthColor } from '../domain/months';
 import { Card, Lightbox, StarRow } from './bookLog/parts';
-import { MakeupTiles, PageDots, SourcesChart, StarDots } from './DashboardCharts';
+import { ChallengeBreakdown, MakeupTiles, PageDots, SourcesChart, StarDots } from './DashboardCharts';
 import BingoTile from './challenges/BingoTile';
 import { WordTilesRow } from '../ui/WordTiles';
 
@@ -167,6 +167,7 @@ export function SharedCards({ d, period }: { d: DashboardCore; period: string })
         <Card label="Relationship makeup" className="span2"><MakeupTiles counts={d.makeups} /></Card>
 
         <Card label="Sources" className="span4"><SourcesChart mix={d.sourceMix} /></Card>
+        <Card label="Challenge Breakdown" className="span4"><ChallengeBreakdown mix={d.challengeMix} /></Card>
 
         <Card label="Page distribution" className="span4"><PageDots columns={d.pageDots.columns} max={d.pageDots.max} /></Card>
 

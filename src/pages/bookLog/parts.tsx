@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { chipStyle } from '../../domain/colors';
 import { starFills, starQuarters } from '../../domain/rating';
 import type { Item } from '../../repo/bookLog';
@@ -334,13 +335,15 @@ export function Combo({ options, placeholder, label, onPick, onCreate, createLab
 // A picture shown full screen. Click outside it, or the X, to close.
 export function Lightbox({ src, alt, onClose, children }: { src: string; alt: string; onClose: () => void; children?: ReactNode }) {
   useEffect(() => { const h = (e: KeyboardEvent) => e.key === 'Escape' && onClose(); window.addEventListener('keydown', h); return () => window.removeEventListener('keydown', h); }, [onClose]);
-  return (
+  // Drawn on the page itself so no card, clip or tilt around the picture can change where it opens.
+  return createPortal(
     <div className="lightbox" role="dialog" aria-modal="true" aria-label={alt} onClick={onClose}>
       <button type="button" className="lbclose" aria-label="Close" onClick={onClose}>&times;</button>
-      <img src={src} alt={alt} onClick={(e) => e.stopPropagation()} />
-      {children && <div className="lbextra" onClick={(e) => e.stopPropagation()}>{children}</div>}
-    </div>
-  );
+      <div className="lbbody">
+        <img className="lbimg" src={src} alt={alt} onClick={(e) => e.stopPropagation()} />
+        {children && <div className="lbextra" onClick={(e) => e.stopPropagation()}>{children}</div>}
+      </div>
+    </div>, document.body);
 }
 
 // A picture that opens full screen when clicked.

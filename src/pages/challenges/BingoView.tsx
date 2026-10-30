@@ -67,7 +67,7 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
           <span className="muted small">Bingo · Journal {c.year}{info.bankName ? ` · ${info.bankName}` : ''}{draft ? ' · Draft' : ''}</span>
         </div>
         <TrackerBar t={c} color={c.color} unit={c.trackerUnit} />
-        {c.bingoGoal !== null && <span className="chip" aria-label="Squares">Squares: {c.squares}/25</span>}
+        {c.bingoGoal !== null ? <span className="chip" aria-label="Squares">Squares: {c.squares}/25</span> : <span className="chip" aria-label="Bingos">Bingos: {c.bingos}</span>}
         {draft
           ? <button type="button" className="btn on" onClick={act.publish}>Publish board</button>
           : <button type="button" className={`btn${toggled ? ' on' : ''}`} aria-pressed={toggled} onClick={() => setToggled((e) => !e)}>{toggled ? 'Done editing' : 'Edit'}</button>}

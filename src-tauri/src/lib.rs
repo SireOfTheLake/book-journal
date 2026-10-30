@@ -197,6 +197,12 @@ pub fn run() {
         description: "limited challenges, optional and bonus prompts, bingo goals",
         sql: include_str!("../migrations/0034_limited_challenges.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 35,
+        description: "new random colors for challenges",
+        sql: include_str!("../migrations/0035_random_challenge_colors.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

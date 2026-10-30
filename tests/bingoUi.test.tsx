@@ -177,7 +177,7 @@ describe('a published board', () => {
     const palette = within(screen.getByRole('group', { name: 'Palette' }));
     expect(screen.getByText('0/25')).toBeTruthy();
     expect(screen.queryByText(/^Goal:/)).toBeNull();
-    expect(screen.queryByText(/^Bingos:/)).toBeNull();
+    expect(screen.getByText('Bingos: 0')).toBeTruthy(); // a full blackout still counts the bingos
     fireEvent.click(palette.getByRole('button', { name: 'Change color #c0566b' }));
     fireEvent.click(palette.getByRole('button', { name: 'Use color #6c9a4f' }));
     await waitFor(async () => expect((await ch.getChallenge(db, id))!.bingo!.palette).toContain('#6c9a4f'));

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ACCENTS, accentAt, splitPrompts } from '../domain/challenges';
+import { hslToRgb, rgbToHex } from '../domain/colorConv';
+import ColorField from '../ui/ColorField';
 import type { BankSummary } from '../repo/bingo';
 import type { ChallengeSummary, NewGrid, NewSticker, StickerImage } from '../repo/challenges';
 import type { NewWordBuilder } from '../repo/words';
@@ -19,8 +21,12 @@ const DEFAULT_NAME = { grid: 'Reading Challenge', sticker: 'Sticker Challenge', 
 export function randomAccent(used: (string | null)[], rng: () => number = Math.random): string {
   const taken = new Set(used.filter((c): c is string => !!c).map((c) => c.toLowerCase()));
   const free = ACCENTS.filter((c) => !taken.has(c.toLowerCase()));
-  const pool = free.length ? free : ACCENTS;
-  return pool[Math.min(pool.length - 1, Math.floor(rng() * pool.length))];
+  if (free.length) return free[Math.min(free.length - 1, Math.floor(rng() * free.length))];
+  // Every ready-made color is in use: make a new one that nobody has.
+  for (;;) {
+    const hex = rgbToHex(hslToRgb({ h: Math.floor(rng() * 360), s: 0.4 + rng() * 0.25, l: 0.42 + rng() * 0.12 }));
+    if (!taken.has(hex)) return hex;
+  }
 }
 // What the form hands over for a Bingo board: an existing bank, or the prompts for a new one.
 export interface NewBingoForm { year: number; name: string; bankId: string | null; newBankPrompts: string[]; preferUnused: boolean; freeText: string; goal?: number | null }
@@ -90,7 +96,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
       <label className="stack"><span className="lbl2">Name</span><input className="field big" value={name} placeholder="100 Prompts" onChange={(e) => setName(e.target.value)} /></label>
       <label className="stack"><span className="lbl2">Description (optional)</span><textarea className="field" rows={2} aria-label="Description" placeholder="What this challenge is about" value={description} onChange={(e) => setDescription(e.target.value)} /></label>
       {kind !== 'bingo' && <div className="stack"><span className="lbl2">Color</span>
-        <span className="swatches" role="group" aria-label="Challenge color">{ACCENTS.map((c) => <button key={c} type="button" className={`swatch${c === color ? ' on' : ''}`} style={{ background: c }} aria-label={`Color ${c}`} aria-pressed={c === color} onClick={() => setColor(c)} />)}</span></div>}
+        <ColorField value={color} label="Challenge color" onPick={setColor} /></div>}
       {kind === 'bingo' ? (
         <>
           <label className="stack"><span className="lbl2">Prompt bank</span>

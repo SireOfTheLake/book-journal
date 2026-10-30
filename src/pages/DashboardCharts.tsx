@@ -1,9 +1,11 @@
-import { FORMAT_LABEL, MAKEUPS, PAGE_GROUPS, STAR_GROUPS, type DotColumn, type SourceMix } from '../domain/dashboard';
+import { FORMAT_LABEL, MAKEUPS, PAGE_GROUPS, STAR_GROUPS, type ChallengeMix, type DotColumn, type SourceMix } from '../domain/dashboard';
 
-export const PAGE_COLORS = ['#5b8fb9', '#d3a05c', '#b5705e'];
-export const STAR_COLORS = ['#8b8b8b', '#d4574a', '#d98a4a', '#d9b94a', '#8aa86a', '#5fae6a'];
-const FORMAT_COLORS: Record<string, string> = { ebook: '#5b8fb9', audio: '#8a7bb5', physical: '#d3a05c', none: '#8b8b8b' };
-const SOURCE_COLORS = ['#5b8fb9', '#d3a05c', '#8a9a82', '#b5705e', '#8a7bb5', '#c4707f', '#6aa5a0', '#a8a05c'];
+// The charts take their colors from the month colors in use (--month-1 to --month-12), so they follow the theme and any changes made to the months.
+const mc = (n: number) => `var(--month-${n})`;
+export const PAGE_COLORS = [mc(1), mc(2), mc(3)];
+export const STAR_COLORS = ['var(--muted)', mc(1), mc(2), mc(3), mc(4), mc(5)];
+const FORMAT_COLORS: Record<string, string> = { ebook: mc(3), audio: mc(5), physical: mc(2), none: 'var(--muted)' };
+const SOURCE_COLORS = [mc(3), mc(2), mc(5), mc(4), mc(6), mc(1), mc(9), mc(8)];
 const LETTER_COLORS: Record<string, string> = { M: '#5b8fb9', F: '#c4707f', X: '#8a7bb5' };
 
 function Legend({ items }: { items: { label: string; color: string; note?: string }[] }) {
@@ -46,7 +48,7 @@ export function DotPlot({ columns, step, from, to, colW, major, minor, minorRota
         {columns.map((c) => (
           <g key={c.x}>
             <title>{`${unit(c.x)}: ${c.count} ${c.count === 1 ? 'book' : 'books'}`}</title>
-            {Array.from({ length: c.count }, (_, i) => <circle key={i} cx={cx(c.x)} cy={base - r - 2 - i * pitch} r={r} fill={colors[c.group]} stroke="var(--panel)" strokeWidth="1.5" />)}
+            {Array.from({ length: c.count }, (_, i) => <circle key={i} cx={cx(c.x)} cy={base - r - 2 - i * pitch} r={r} style={{ fill: colors[c.group] }} stroke="var(--panel)" strokeWidth="1.5" />)}
           </g>
         ))}
       </svg>
@@ -121,6 +123,26 @@ export function SourcesChart({ mix }: { mix: SourceMix[] }) {
             {f.sources.map((s) => <div key={s.name} className="dlgsrc"><i className="sw" style={{ background: sourceColor.get(s.name) }} />{s.name}<span className="dlgpct">{pct(s.share)}</span></div>)}
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+// The share of the filled prompts that belong to each challenge. Challenges with nothing filled are left out.
+export function ChallengeBreakdown({ mix }: { mix: ChallengeMix[] }) {
+  if (!mix.length) return <span className="muted small">No challenge prompts were filled in this period.</span>;
+  const colorOf = (c: ChallengeMix, i: number) => (c.color && /^#[0-9a-f]{6}$/i.test(c.color) ? c.color : SOURCE_COLORS[i % SOURCE_COLORS.length]);
+  return (
+    <div className="srcchart">
+      <div className="lane"><span className="lanelabel">Challenges</span>
+        <div className="laneBar" role="img" aria-label="Filled prompts by challenge">
+          {mix.map((c, i) => <span key={c.id} className="seg2" style={{ left: `${c.start}%`, width: `${c.share}%`, background: colorOf(c, i) }} title={`${c.name}: ${c.count} (${pct(c.share)})`}>{c.share >= 5 ? <b>{pct(c.share)}</b> : null}</span>)}
+        </div>
+      </div>
+      <div className="srclegend" aria-label="Legend">
+        <div className="dlgroup">
+          {mix.map((c, i) => <div key={c.id} className="dlgsrc"><i className="sw" style={{ background: colorOf(c, i) }} />{c.name}<span className="dlgpct">{pct(c.share)}</span></div>)}
+        </div>
       </div>
     </div>
   );

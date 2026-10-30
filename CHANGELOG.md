@@ -2,7 +2,15 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 -->
+
+## 0.3.10 — 2026-10-30
+
+### Improved
+- [Desktop] Calendar: the day hover card now floats over the page instead of stretching the calendar box, even on the bottom row
+- [Desktop] Every logged place now shows a whole-number percent, plus the page and (for audiobooks only) the time, worked out from whatever you typed
+- [Mobile] The reading log on the phone shows the same worked-out percent, page and time
+- [Desktop] Pages read per day now follow the steps between your logs: unlogged days are skipped once a book has a log, the start day gets at least 1%, and the finish day gets whatever is left, so the totals match the book's pages and audio length
 
 ## 0.3.9 — 2026-10-29
 

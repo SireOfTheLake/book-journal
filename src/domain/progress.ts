@@ -17,3 +17,16 @@ export function progressOf(entry: Entry | null, read: ReadInfo): number | null {
 export function daysBetween(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
 }
+
+export interface EntryParts { percent: number | null; page: number | null; seconds: number | null }
+
+// Everything an entry says about where you are: what you typed, plus the rest worked out from it.
+// The percent is always a whole number; the time is only worked out for audiobooks.
+export function entryParts(entry: Entry, read: ReadInfo): EntryParts {
+  const f = progressOf(entry, read);
+  return {
+    percent: f !== null ? Math.round(f * 100) : entry.percent !== null ? Math.round(entry.percent) : null,
+    page: entry.page ?? (f !== null && read.pageCount ? Math.round(f * read.pageCount) : null),
+    seconds: read.format === 'audio' ? (entry.seconds ?? (f !== null && read.audioSeconds ? Math.round(f * read.audioSeconds) : null)) : null,
+  };
+}

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { entryLabel } from '../../domain/entryLabel';
 import { ageText, formatDuration, HEAT, parseDuration } from '../../domain/format';
 import { storedToStars, starsToStored } from '../../domain/rating';
 import { displayMakeup } from '../../domain/makeup';
@@ -289,7 +290,7 @@ function DayLog({ log, act }: { log: BookLog; act: Actions }) {
       {log.entries.map((e: DayEntry) => (
         <div className="entry" key={e.id}>
           <b>{e.entry_date}</b>
-          <span>{[e.position_page !== null ? `page ${e.position_page}` : null, e.position_percent !== null ? `${e.position_percent}%` : null, e.position_seconds !== null ? formatDuration(e.position_seconds) : null].filter(Boolean).join(' · ') || 'Read today'}</span>
+          <span>{entryLabel({ page: e.position_page, percent: e.position_percent, seconds: e.position_seconds }, { format: log.read?.format ?? null, pageCount: log.book.page_count, audioSeconds: log.read ? log.read.audio_length_seconds : log.book.audio_length_seconds ?? null }, 'Read today')}</span>
           <span className="muted grow">{e.text}</span>
           <button type="button" className="mini" onClick={() => act.deleteEntry(e.id)}>Remove</button>
         </div>

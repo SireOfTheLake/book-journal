@@ -20,7 +20,7 @@ it('renders October 2026 with covers, a reading line, a day flag, and the pages 
   const data = await getCalendarMonth(db, 2026, 10, '2026-10-09');
   const noop = () => undefined;
   const html = renderToString(<StaticRouter location="/"><CalendarView data={data} today="2026-10-09" canPrev canNext onPrev={noop} onNext={noop} onToday={noop} /></StaticRouter>);
-  for (const text of ['OCTOBER 2026', 'Books finished', 'Days with a finish', 'Pages read per day', 'Sun', 'Sat', 'BRO DOLL', 'MATEHUB: LEGEND', 'KILLER LOVE', 'CORNER OFFICE', '62%', 'Finished', 'class="line"']) {
+  for (const text of ['OCTOBER 2026', 'Books finished', 'Days with a finish', 'Pages read per day', 'Sun', 'Sat', 'BRO DOLL', 'MATEHUB: LEGEND', 'KILLER LOVE', 'CORNER OFFICE', '62%', 'class="line"']) {
     expect(html, text).toContain(text);
   }
   expect((html.match(/class="cday/g) ?? []).length).toBe(35); // five weeks

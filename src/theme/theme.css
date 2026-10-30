@@ -180,8 +180,7 @@ a.btn { text-decoration: none; color: var(--on-accent); }
 .dot { position: absolute; z-index: 1; width: 11px; height: 11px; border-radius: 50%; }
 .flag { position: absolute; z-index: 3; bottom: 6px; right: 6px; display: flex; align-items: center; gap: 3px; font-size: 11px; background: var(--panel2); border: 1px solid var(--muted); border-radius: 3px; padding: 1px 5px; }
 .flag svg { width: 12px; height: 12px; }
-.tip { display: none; position: absolute; top: calc(100% + 6px); z-index: 30; width: 270px; background: var(--panel2); border: 1px solid var(--muted); border-radius: 6px; padding: 12px 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); flex-direction: column; gap: 8px; font-size: 14px; }
-.cday:hover .tip { display: flex; }
+.tip { display: flex; position: fixed; z-index: 60; width: 270px; background: var(--panel2); border: 1px solid var(--muted); border-radius: 6px; padding: 12px 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); flex-direction: column; gap: 8px; font-size: 14px; }
 .tipbook { display: flex; flex-direction: column; gap: 2px; border-left: 4px solid var(--line2); padding-left: 8px; }
 .tipentry { border-top: 1px solid var(--line); padding-top: 8px; }
 .callegend { display: flex; gap: 22px; flex-wrap: wrap; font-size: 13px; }

@@ -5,6 +5,7 @@ import { useFeatures } from '../../features/FeaturesContext';
 import * as repo from '../../repo/bookLog';
 import type { Item, Status, TagTable } from '../../repo/bookLog';
 import { addCharacterToBook, createCharacter, giveCharacterPage, linkCharacterToPage, listCharacterPicks, rankForLink, removeCharacterFromBook } from '../../repo/characters';
+import { entryLabel } from '../../domain/entryLabel';
 import { HEAT, formatDuration, parseDuration } from '../../domain/format';
 import { starFills, starsToStored, storedToStars } from '../../domain/rating';
 import { fileToDataUrl } from '../../ui/imageFile';
@@ -246,7 +247,7 @@ export default function BookLog() {
             <ul className="ph-list" style={{ marginBottom: 10 }}>
               {[...log.entries].reverse().map((e) => (
                 <li key={e.id} className="ph-item" style={{ minHeight: 48 }}>
-                  <div className="grow"><div className="t" style={{ fontSize: 14 }}>{e.entry_date}{e.position_page ? ` · page ${e.position_page}` : ''}{e.position_percent ? ` · ${e.position_percent}%` : ''}{e.position_seconds ? ` · ${formatDuration(e.position_seconds)}` : ''}</div>{e.text && <div className="s" style={{ whiteSpace: 'normal' }}>{e.text}</div>}</div>
+                  <div className="grow"><div className="t" style={{ fontSize: 14 }}>{e.entry_date} · {entryLabel({ page: e.position_page, percent: e.position_percent, seconds: e.position_seconds }, { format: read.format, pageCount: log.book.page_count, audioSeconds: read.audio_length_seconds }, 'read')}</div>{e.text && <div className="s" style={{ whiteSpace: 'normal' }}>{e.text}</div>}</div>
                   <button type="button" className="ph-btn" style={{ minHeight: 40, padding: '0 10px' }} aria-label="Delete entry" onClick={() => void run(() => repo.deleteDayEntry(db, e.id))}>&times;</button>
                 </li>
               ))}

@@ -132,7 +132,7 @@ interface ReadRow {
 
 export interface Facts {
   reads: ReadRow[];
-  entries: Map<string, { date: string; page: number | null; percent: number | null }[]>;
+  entries: Map<string, { date: string; page: number | null; percent: number | null; seconds: number | null }[]>;
   genres: Map<string, Set<string>>;
   tropes: Map<string, Set<string>>;
   series: Map<string, SeriesTimeline>;
@@ -144,10 +144,10 @@ export async function loadFacts(db: Db): Promise<Facts> {
   const reads = await db.select<ReadRow>(
     `SELECT r.id, r.book_id, r.status, r.start_date, r.finish_date, r.format, r.audio_length_seconds, r.rating, b.page_count, b.series_id, b.series_position
      FROM read r JOIN book b ON b.id = r.book_id WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL ORDER BY r.created_at, r.rowid`);
-  const entryRows = await db.select<{ read_id: string; date: string; page: number | null; percent: number | null }>(
-    'SELECT read_id, entry_date AS date, position_page AS page, position_percent AS percent FROM day_entry WHERE deleted_at IS NULL');
-  const entries = new Map<string, { date: string; page: number | null; percent: number | null }[]>();
-  for (const e of entryRows) (entries.get(e.read_id) ?? entries.set(e.read_id, []).get(e.read_id)!).push({ date: e.date, page: e.page, percent: e.percent });
+  const entryRows = await db.select<{ read_id: string; date: string; page: number | null; percent: number | null; seconds: number | null }>(
+    'SELECT read_id, entry_date AS date, position_page AS page, position_percent AS percent, position_seconds AS seconds FROM day_entry WHERE deleted_at IS NULL');
+  const entries = new Map<string, { date: string; page: number | null; percent: number | null; seconds: number | null }[]>();
+  for (const e of entryRows) (entries.get(e.read_id) ?? entries.set(e.read_id, []).get(e.read_id)!).push({ date: e.date, page: e.page, percent: e.percent, seconds: e.seconds });
 
   const sets = async (sql: string) => {
     const map = new Map<string, Set<string>>();
@@ -221,7 +221,7 @@ export function measure(f: Facts, metric: Metric, filters: GoalFilter[], from: s
     case 'audio_hours': return f.reads.filter((r) => finished(r) && r.format === 'audio' && inRange(r.finish_date, from, to) && matches(f, r, filters)).reduce((n, r) => n + (r.audio_length_seconds ?? 0), 0) / 3600;
     case 'pages': {
       const mine = f.reads.filter((r) => matches(f, r, filters));
-      const perDay = pagesPerDay(mine.map((r): PageRead => ({ start: r.start_date, finish: r.status === 'finished' ? r.finish_date : null, pages: r.page_count, entries: f.entries.get(r.id) ?? [] })));
+      const perDay = pagesPerDay(mine.map((r): PageRead => ({ start: r.start_date, finish: r.status === 'finished' ? r.finish_date : null, pages: r.page_count, format: r.format, audioSeconds: r.audio_length_seconds, entries: f.entries.get(r.id) ?? [] })));
       let n = 0;
       for (const [d, p] of perDay) if (d >= from && d <= to) n += p;
       return Math.round(n);

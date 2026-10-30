@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { bookColor } from '../domain/colors';
 import { formatDuration } from '../domain/format';
@@ -14,10 +15,18 @@ const rowTop = (k: number) => TOP + Math.floor(k / PER_ROW) * (COVER_H + COVER_G
 
 interface Lane extends CalLine { s: number; e: number; startsHere: boolean; endsHere: boolean; lane: number }
 
+// The percent always leads; page (and time, for audiobooks) were worked out from what was typed.
 function entryText(e: CalEntry) {
-  return [e.page !== null ? `page ${e.page}` : null, e.percent !== null ? `${e.percent}%` : null, e.seconds !== null ? formatDuration(e.seconds) : null].filter(Boolean).join(' · ') || 'read';
+  return [e.percent !== null ? `${e.percent}%` : null, e.page !== null ? `page ${e.page}` : null, e.seconds !== null ? formatDuration(e.seconds) : null].filter(Boolean).join(' · ') || 'read';
 }
 
+function gainText(g: NonNullable<CalEntry['gain']>) {
+  return ['+' + g.percent + '%', g.pages ? `${g.pages} pages` : null, g.seconds ? formatDuration(g.seconds) : null].filter(Boolean).join(' · ');
+}
+
+// The hover card is drawn at a fixed spot on the screen, so it floats over the page instead of stretching the calendar box.
+const TIP_W = 270, TIP_H = 260;
+interface TipSpot { date: string; left: number; top?: number; bottom?: number }
 export interface CalendarProps {
   data: CalendarMonth;
   today: string;
@@ -30,6 +39,7 @@ export interface CalendarProps {
 
 export default function CalendarView({ data, today, canPrev, canNext, onPrev, onNext, onToday }: CalendarProps) {
   const { year, month } = data;
+  const [spot, setSpot] = useState<TipSpot | null>(null);
   const n = new Date(year, month, 0).getDate();
   const offset = new Date(year, month - 1, 1).getDay();
   const day = (iso: string) => Number(iso.slice(8));
@@ -63,7 +73,13 @@ export default function CalendarView({ data, today, canPrev, canNext, onPrev, on
     const entries = data.entries.filter((e) => e.date === date);
     const here = lines.filter((l) => l.s <= d && d <= l.e);
     return (
-      <div key={date} className={`cday${date === today ? ' today' : ''}`}>
+      <div key={date} className={`cday${date === today ? ' today' : ''}`}
+        onMouseEnter={(ev) => {
+          const r = ev.currentTarget.getBoundingClientRect();
+          const left = Math.max(8, Math.min(col >= 4 ? r.right - TIP_W : r.left, window.innerWidth - TIP_W - 8));
+          setSpot(r.bottom + 6 + TIP_H > window.innerHeight && r.top > TIP_H ? { date, left, bottom: window.innerHeight - r.top + 6 } : { date, left, top: r.bottom + 6 });
+        }}
+        onMouseLeave={() => setSpot(null)}>
         <span className="dn">{String(d).padStart(2, '0')}</span>
         {covers.length > 0 && (
           <div className="covers">
@@ -108,8 +124,8 @@ export default function CalendarView({ data, today, canPrev, canNext, onPrev, on
           );
         })}
         {entries.length > 0 && <span className="flag" title={entries.map((e) => `${e.title}: ${entryText(e)}`).join('\n')}><Icon name="ebook" />{entryText(entries[0])}{entries.length > 1 ? ` +${entries.length - 1}` : ''}</span>}
-        {(covers.length > 0 || entries.length > 0) && (
-          <div className="tip" style={col >= 4 ? { right: 0 } : { left: 0 }}>
+        {(covers.length > 0 || entries.length > 0) && spot?.date === date && (
+          <div className="tip" style={{ left: spot.left, top: spot.top, bottom: spot.bottom }}>
             <span className="lbl2">{new Date(year, month - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
             {covers.length > 0 && <span className="muted">Finished</span>}
             {covers.map((f) => (
@@ -119,7 +135,7 @@ export default function CalendarView({ data, today, canPrev, canNext, onPrev, on
               </div>
             ))}
             {entries.map((e) => (
-              <div key={e.read_id + e.date} className="tipentry"><span className="muted">Day entry</span><br /><Link className="l" to={`/book/${e.book_id}/${e.read_id}`}>{e.title}</Link> · {entryText(e)}{e.text ? <span className="muted"> — {e.text}</span> : null}</div>
+              <div key={e.read_id + e.date} className="tipentry"><span className="muted">Day entry</span><br /><Link className="l" to={`/book/${e.book_id}/${e.read_id}`}>{e.title}</Link> · {entryText(e)}{e.gain ? <span className="muted"> ({gainText(e.gain)} that day)</span> : null}{e.text ? <span className="muted"> — {e.text}</span> : null}</div>
             ))}
           </div>
         )}

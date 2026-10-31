@@ -213,3 +213,15 @@ describe('books, art, and voices', () => {
     expect(await db.select('SELECT id FROM image WHERE id = ? AND deleted_at IS NULL', [second])).toHaveLength(1); // still on John-Henry's page
   });
 });
+
+describe('character tag colors', () => {
+  it('gives a new character tag a color', async () => {
+    const { migrateNodeDb } = await import('../src/db/nodeDb');
+    const { createCharacter, addCharacterTag } = await import('../src/repo/characters');
+    const db = migrateNodeDb();
+    const c = await createCharacter(db, 'Jo');
+    await addCharacterTag(db, c, 'Lead of Book One');
+    const [t] = await db.select<{ color: string | null }>("SELECT color FROM character_tag WHERE name = 'Lead of Book One'");
+    expect(t.color).toMatch(/^#[0-9a-f]{6}$/i);
+  });
+});

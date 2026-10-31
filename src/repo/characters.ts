@@ -1,3 +1,4 @@
+import { randomTagColor } from '../domain/colors';
 import { byTitle } from '../domain/sortKey';
 import { voicingCandidates, voicingsOf, type Voicing } from './voicing';
 import type { Db, SqlValue } from '../db/adapter';
@@ -110,7 +111,9 @@ export async function findOrCreateNamed(db: Db, table: Named, name: string): Pro
   const found = await first(db, `SELECT id FROM ${table} WHERE lower(name) = lower(?) AND deleted_at IS NULL LIMIT 1`, [n]);
   if (found) return found;
   const id = newId();
-  await db.execute(`INSERT INTO ${table} (id, name) VALUES (?, ?)`, [id, n]);
+  // A new character tag gets a random color, like the other tags.
+  if (table === 'character_tag') await db.execute('INSERT INTO character_tag (id, name, color) VALUES (?, ?, ?)', [id, n, randomTagColor()]);
+  else await db.execute(`INSERT INTO ${table} (id, name) VALUES (?, ?)`, [id, n]);
   return id;
 }
 

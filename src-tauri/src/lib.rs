@@ -203,6 +203,12 @@ pub fn run() {
         description: "new random colors for challenges",
         sql: include_str!("../migrations/0035_random_challenge_colors.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 36,
+        description: "random colors for tags without one",
+        sql: include_str!("../migrations/0036_tag_colors.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

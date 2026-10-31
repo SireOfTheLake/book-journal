@@ -175,6 +175,16 @@ export async function saveClip(db: Db, input: ClipSave): Promise<ClipSaved> {
   if (input.narrators.length) added.push('narrators');
   if (!fill) await setStatus(db, bookId, null, input.shelf);
 
+  // A read (Up Next, in progress or finished) shows its own narrators and audio length, so the page's are put on the reads that have none yet.
+  const reads = await db.select<{ id: string; audio_length_seconds: number | null }>('SELECT id, audio_length_seconds FROM read WHERE book_id = ? AND deleted_at IS NULL', [bookId]);
+  const usual = await db.select<{ narrator_id: string; sort_order: number }>('SELECT narrator_id, sort_order FROM book_narrator WHERE book_id = ? AND deleted_at IS NULL ORDER BY sort_order', [bookId]);
+  const [bookNow] = await db.select<{ audio_length_seconds: number | null }>('SELECT audio_length_seconds FROM book WHERE id = ?', [bookId]);
+  for (const r of reads) {
+    if (!r.audio_length_seconds && bookNow?.audio_length_seconds) await db.execute('UPDATE read SET audio_length_seconds = ? WHERE id = ?', [bookNow.audio_length_seconds, r.id]);
+    const [{ n }] = await db.select<{ n: number }>('SELECT count(*) AS n FROM read_narrator WHERE read_id = ? AND deleted_at IS NULL', [r.id]);
+    if (Number(n) === 0) for (const d of usual) await db.execute('INSERT INTO read_narrator (id, read_id, narrator_id, sort_order) VALUES (?, ?, ?, ?)', [newId(), r.id, d.narrator_id, d.sort_order]);
+  }
+
   if (input.plannedFormat && (!fill || !row?.planned_format)) { await db.execute('UPDATE book SET planned_format = ? WHERE id = ?', [input.plannedFormat, bookId]); if (fill) added.push('planned format'); }
 
   // The ISBN, ASIN and the pages it came from, kept so the same book is recognised next time.

@@ -161,3 +161,18 @@ describe('adding a book from a web page', () => {
     expect(await setAuthorAudibleLink(db, 'a2', 'https://www.audible.ca/author/Y/B0CCCCCCCC')).toBe(true);
   });
 });
+
+describe('a book that already has a read', () => {
+  for (const status of ['up_next', 'reading', 'finished'] as const) {
+    it(`puts the page's narrators and audio length on the ${status} read`, async () => {
+      const clip = clipOf('audible');
+      const made = await saveClip(db, saveFrom(clip, { narrators: [], audioSeconds: null, shelf: 'tbr' }));
+      const { setStatus } = await import('../src/repo/bookLog');
+      await setStatus(db, made.bookId, null, status);
+      await saveClip(db, saveFrom(clip, { mode: { kind: 'fill', bookId: made.bookId }, narrators: ['Ann Voice', 'Bo Reader'], audioSeconds: 36000 }));
+      const [r] = await db.select<{ audio_length_seconds: number; names: string }>("SELECT r.audio_length_seconds AS audio_length_seconds, (SELECT group_concat(n.name, ',') FROM read_narrator rn JOIN narrator n ON n.id = rn.narrator_id WHERE rn.read_id = r.id AND rn.deleted_at IS NULL) AS names FROM read r WHERE r.book_id = ? AND r.deleted_at IS NULL", [made.bookId]);
+      expect(r.audio_length_seconds).toBe(36000);
+      expect(r.names?.split(',').sort()).toEqual(['Ann Voice', 'Bo Reader']);
+    });
+  }
+});

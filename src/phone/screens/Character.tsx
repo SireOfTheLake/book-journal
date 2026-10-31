@@ -129,7 +129,9 @@ export default function Character() {
           options={d.picks.filter((p) => p.id !== characterId).map((p) => ({ id: p.id, name: p.name, note: p.featured ? undefined : 'no page yet' }))}
           taken={relationships.map((r) => r.other_id)}
           onPick={(o) => void run(() => c.addRelationship(db, characterId, { id: o.id }, typeOf(adding), currentOf(adding), null))}
-          onCreate={(name) => void run(() => c.addPerson(db, characterId, name, typeOf(adding), currentOf(adding), null))} createLabel="Add a new character (no page yet):"
+          allowSameName
+          onCreate={(name) => void run(() => c.addPerson(db, characterId, name, typeOf(adding), currentOf(adding), null))} createLabel="Add an unlinked character (no page):"
+          alsoCreate={{ label: 'Create a new character page for', onCreate: (name) => void run(async () => { const id = await c.createCharacter(db, name); await c.addRelationship(db, characterId, { id }, typeOf(adding), currentOf(adding), null); }) }}
           onClose={() => setAdding(null)} />
       )}
 

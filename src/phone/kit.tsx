@@ -109,16 +109,18 @@ export function Sheet({ title, onClose, children }: { title: string; onClose(): 
 export interface Opt { id: string; name: string; note?: string }
 
 /** Pick one from a list as you type, or create a new one. Used for tags, characters, series and so on. */
-export function PickerSheet({ title, options, taken = [], onPick, onCreate, createLabel, onClose, placeholder = 'Search', keepOpen, extra, alsoCreate }: {
+export function PickerSheet({ title, options, taken = [], onPick, onCreate, createLabel, onClose, placeholder = 'Search', keepOpen, extra, alsoCreate, allowSameName }: {
   title: string; options: Opt[]; taken?: string[]; onPick(o: Opt): void; onCreate?(name: string): void; createLabel?: string; onClose(): void; placeholder?: string; keepOpen?: boolean; extra?: { label: string; onChoose(): void };
   /** A second way to create what was typed (for example a name with no page). */
   alsoCreate?: { label: string; onCreate(name: string): void };
+  /** Offer to create what was typed even when something with that name already exists (people can share a name). */
+  allowSameName?: boolean;
 }) {
   const [q, setQ] = useState('');
   const fold = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const t = fold(q.trim());
   const shown = options.filter((o) => !taken.includes(o.id) && (!t || fold(o.name).includes(t))).slice(0, 30);
-  const exact = options.some((o) => fold(o.name) === t);
+  const exact = !allowSameName && options.some((o) => fold(o.name) === t);
   const done = () => { if (!keepOpen) onClose(); };
   return (
     <Sheet title={title} onClose={onClose}>

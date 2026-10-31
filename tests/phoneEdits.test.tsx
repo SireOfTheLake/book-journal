@@ -252,4 +252,27 @@ describe('phone: relationships on a character', () => {
       expect(d.people.map((p) => [p.name, p.rel_type, p.label, p.status])).toEqual([['Aileen', 'family', 'mother', 'deceased']]);
     });
   });
+
+  it('can add an unlinked character or a new character page even when the name already exists', async () => {
+    const db = await freshDb();
+    const ewan = await createCharacter(db, 'Ewan'); await createCharacter(db, 'Sam');
+    at(db, `/character/${ewan}`);
+    await screen.findByText('Relationships');
+    const open = () => fireEvent.click(within(screen.getByRole('group', { name: 'Friends' })).getByRole('button', { name: /Add relationship under/ }));
+    open();
+    fireEvent.change(screen.getByLabelText('Search characters or type a new name'), { target: { value: 'Sam' } });
+    expect(screen.getByText('Sam', { selector: 'span' })).toBeTruthy(); // the existing Sam can still be linked
+    fireEvent.click(await screen.findByText(/Add an unlinked character/));
+    await waitFor(async () => expect((await getCharacter(db, ewan))!.people.map((p) => p.name)).toEqual(['Sam']));
+    open();
+    fireEvent.change(screen.getByLabelText('Search characters or type a new name'), { target: { value: 'Sam' } });
+    fireEvent.click(await screen.findByText(/Create a new character page for/));
+    await waitFor(async () => {
+      const d = (await getCharacter(db, ewan))!;
+      expect(d.relationships.map((r) => r.other_name)).toEqual(['Sam']);
+      const sams = await db.select<{ id: string }>("SELECT id FROM character WHERE name = 'Sam' AND deleted_at IS NULL");
+      expect(sams).toHaveLength(2);
+      expect(sams.map((x) => x.id)).toContain(d.relationships[0].other_id);
+    });
+  });
 });

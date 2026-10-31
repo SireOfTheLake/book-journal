@@ -12,6 +12,9 @@ import { PhoneDbProvider } from './PhoneDb';
 const SKIP_PULL = ['image'];
 const afterSync = (client: Parameters<typeof supabaseCoverSource>[0]) => topUpCovers(supabaseCoverSource(client));
 
+// Stay upright where the phone allows it (Android does; iPhone ignores this, so phone.css covers the screen when turned sideways).
+try { void (screen.orientation as unknown as { lock?(o: string): Promise<void> }).lock?.('portrait')?.catch(() => undefined); } catch { /* not supported */ }
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <HashRouter>

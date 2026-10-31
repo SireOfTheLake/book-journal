@@ -2,7 +2,19 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 -->
+
+## 0.3.16 — 2026-10-31
+
+### New
+- [Desktop] Type @ in any long text (book notes, series notes, character description and others) to mention a book, series, character, narrator or author. Matches are grouped by kind, characters show their tags, and the mention shows as a link.
+- [Mobile] The same @ mentions in the book notes and the character description; books and characters open when tapped.
+
+### Improved
+- [Mobile] A relationship's label sits on the same line as the character's name as "add label"; tap it to type, tap away to save.
+- [Mobile] Searching for a character to add (relationships, and a book's characters) shows their tag beside the name.
+- [Mobile] The Notes box on a character is gone; the Description box stays.
+- [Mobile] The app stays upright where the phone allows it; on an iPhone, turning it sideways shows a reminder to turn it back.
 
 ## 0.3.15 — 2026-10-31
 

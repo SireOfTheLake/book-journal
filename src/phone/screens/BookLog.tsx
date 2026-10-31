@@ -324,7 +324,7 @@ export default function BookLog() {
       )}
 
       {editHead && <EditHead log={log} run={run} onClose={() => setEditHead(false)} />}
-      {pickChar && <PickerSheet title="Add character" placeholder="Search characters" options={d.chars.map((c) => ({ id: c.id, name: c.name, note: c.featured ? undefined : 'No page' }))} taken={log.characters.map((c) => c.id)}
+      {pickChar && <PickerSheet title="Add character" placeholder="Search characters" options={d.chars.map((c) => ({ id: c.id, name: c.name, note: [c.tags, c.featured ? null : 'No page'].filter(Boolean).join(' · ') || undefined }))} taken={log.characters.map((c) => c.id)}
         onPick={(o) => void run(() => addCharacterToBook(db, o.id, bookId, 'side'))}
         onCreate={(n) => void run(async () => addCharacterToBook(db, await createCharacter(db, n, true), bookId, 'side'))} createLabel="Create character page for"
         alsoCreate={{ label: 'Add just the name', onCreate: (n) => void run(async () => addCharacterToBook(db, await createCharacter(db, n, false), bookId, 'side')) }}

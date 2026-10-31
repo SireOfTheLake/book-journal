@@ -114,3 +114,22 @@ button { cursor: pointer; }
 .ph-chip.place .name { background: none; border: 0; color: inherit; min-height: 36px; padding: 0; }
 .ph-plainchar { background: none; border: 0; padding: 0; text-align: left; color: inherit; font: inherit; }
 .ph-plainchar .s { font-style: italic; }
+
+/* Held sideways on a phone: ask for it to be turned back upright */
+.ph-turn { display: none; }
+@media (orientation: landscape) and (max-height: 520px) and (pointer: coarse) {
+  .ph-turn { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; text-align: center; padding: 24px; background: var(--bg); color: var(--text); font-size: 16px; }
+}
+
+.ph-inlinelabel-btn { background: none; border: 0; padding: 4px 8px; font-size: 13px; color: var(--accent-text); max-width: 45%; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ph-inlinelabel-btn.empty { color: var(--muted); font-style: italic; }
+.ph-inlinelabel { width: 45%; min-height: 36px; font-size: 14px; }
+.ph-mentionview { white-space: pre-wrap; min-height: 48px; }
+.mentionwrap { position: relative; }
+.mentionpop { position: absolute; left: 0; right: 0; top: 100%; z-index: 40; max-height: 260px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line2); border-radius: 6px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); padding: 4px; }
+.mentionhead { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 6px 8px 2px; }
+.mentionopt { width: 100%; display: flex; gap: 10px; align-items: baseline; text-align: left; padding: 8px; background: none; border: 0; border-radius: 4px; color: var(--text); font: inherit; cursor: pointer; }
+.mentionopt .n { margin-left: auto; font-size: 12px; color: var(--muted); }
+.mentionopt.on, .mentionopt:hover { background: var(--panel2, var(--field)); }
+.mentionnone { padding: 8px; color: var(--muted); font-size: 13px; }
+a.mention, .mention { color: var(--accent-text); font-weight: 600; text-decoration: none; }

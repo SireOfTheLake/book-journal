@@ -1234,3 +1234,14 @@ input.toggle:disabled { opacity: .5; cursor: default; }
 /* A picture opened full size: its own size, shrunk only when it would not fit the screen */
 .lightbox img.lbimg { width: auto; height: auto; max-width: calc(100vw - 80px); max-height: calc(100vh - 100px); object-fit: contain; }
 .lbbody { display: flex; flex-direction: column; align-items: center; }
+
+/* @ mentions */
+.mentionwrap { position: relative; }
+.mentionpop { position: absolute; left: 0; right: 0; top: 100%; z-index: 60; max-height: 280px; overflow-y: auto; background: var(--panel); border: 1px solid var(--line2); border-radius: 8px; box-shadow: 0 8px 24px rgba(0, 0, 0, .5); padding: 4px; }
+.mentionhead { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 6px 8px 2px; }
+.mentionopt { width: 100%; display: flex; gap: 10px; align-items: baseline; text-align: left; padding: 6px 8px; background: none; border: 0; border-radius: 4px; color: var(--text); font: inherit; cursor: pointer; }
+.mentionopt .n { margin-left: auto; font-size: 12px; color: var(--muted); }
+.mentionopt.on, .mentionopt:hover { background: var(--panel2); }
+.mentionnone { padding: 8px; color: var(--muted); font-size: 13px; }
+a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.mention:hover { text-decoration: underline; }
+.notes-view { white-space: pre-wrap; }

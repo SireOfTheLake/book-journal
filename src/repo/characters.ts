@@ -127,8 +127,10 @@ export const listCharacterOptions = (db: Db) => db.select<Item & { tags: string 
      (SELECT group_concat(t.name, ', ') FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = c.id AND l.deleted_at IS NULL) AS tags
    FROM character c WHERE c.deleted_at IS NULL ORDER BY CASE WHEN lower(c.name) LIKE \'the %\' THEN lower(substr(c.name, 5)) ELSE lower(c.name) END`);
 // Everyone you can add to a book, and whether they have a page of their own.
-export const listCharacterPicks = (db: Db) => db.select<Item & { featured: number }>(
-  `SELECT id, name, is_featured AS featured FROM character WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
+export const listCharacterPicks = (db: Db) => db.select<Item & { featured: number; tags: string | null }>(
+  `SELECT c.id, c.name, c.is_featured AS featured,
+     (SELECT group_concat(t.name, ', ') FROM character_tag_link l JOIN character_tag t ON t.id = l.character_tag_id WHERE l.character_id = c.id AND l.deleted_at IS NULL) AS tags
+   FROM character c WHERE c.deleted_at IS NULL ORDER BY CASE WHEN lower(c.name) LIKE 'the %' THEN lower(substr(c.name, 5)) ELSE lower(c.name) END`);
 
 /** Gives a name-only character a page of their own. */
 export const giveCharacterPage = (db: Db, id: string) => updateCharacter(db, id, { is_featured: 1 });

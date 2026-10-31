@@ -1,3 +1,5 @@
+import MentionTextarea, { MentionText } from '../ui/MentionTextarea';
+import { hasMentions, phonePath } from '../domain/mentions';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSync } from '../sync/SyncContext';
 import { coverData } from './covers';
@@ -54,7 +56,8 @@ export function TextField({ label, value, onCommit, type = 'text', multiline, pl
   const [draft, setDraft] = useState(shown);
   const focused = useRef(false);
   useEffect(() => { if (!focused.current) setDraft(shown); }, [shown]);
-  const commit = () => { focused.current = false; if (draft !== shown) onCommit(draft); };
+  const [editing, setEditing] = useState(false);
+  const commit = () => { focused.current = false; setEditing(false); if (draft !== shown) onCommit(draft); };
   const common = {
     value: draft, placeholder, 'aria-label': label,
     onFocus: () => { focused.current = true; }, onBlur: commit,
@@ -64,10 +67,23 @@ export function TextField({ label, value, onCommit, type = 'text', multiline, pl
     <label className="ph-field" style={{ display: 'block', marginTop: hideLabel ? 0 : 14 }}>
       {!hideLabel && <span className="ph-label">{label}</span>}
       {multiline
-        ? <textarea className="ph-textarea" {...common} />
+        ? (!editing && hasMentions(draft)
+          // Mentions show as links until you tap the text to edit it
+          ? <div className="ph-textarea ph-mentionview" role="button" tabIndex={0} aria-label={label} onClick={() => setEditing(true)} onKeyDown={(e) => { if (e.key === 'Enter') setEditing(true); }}><MentionText text={draft} to={phonePath} /></div>
+          : <MentionTextarea className="ph-textarea" autoFocus={editing} placeholder={placeholder ?? 'Type @ to mention a book or character'} aria-label={label} value={draft} onChange={setDraft} onFocus={common.onFocus} onBlur={commit} />)
         : <input className="ph-input" type={type} inputMode={inputMode} {...common} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />}
     </label>
   );
+}
+
+/** A label that shows on the same line as a name: "add label" until you tap it, then a small text box that closes when you tap away. */
+export function InlineLabel({ name, value, onCommit, placeholder = 'add label' }: { name: string; value: string | null; onCommit(v: string): void; placeholder?: string }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value ?? '');
+  useEffect(() => { if (!editing) setDraft(value ?? ''); }, [value, editing]);
+  const done = () => { setEditing(false); if (draft.trim() !== (value ?? '')) onCommit(draft.trim()); };
+  if (editing) return <input className="ph-input ph-inlinelabel" autoFocus aria-label={`Label for ${name}`} placeholder={placeholder} value={draft} onChange={(e) => setDraft(e.target.value)} onBlur={done} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} />;
+  return <button type="button" className={`ph-inlinelabel-btn${value ? '' : ' empty'}`} aria-label={`Label for ${name}`} onClick={() => setEditing(true)}>{value || placeholder}</button>;
 }
 
 /** The visible part of the screen. When the keyboard is up, `inset` is how far up from the bottom of the screen it reaches, so sheets can sit on top of it. */

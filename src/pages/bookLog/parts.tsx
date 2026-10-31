@@ -1,5 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
+import MentionTextarea, { MentionText } from '../../ui/MentionTextarea';
+import { desktopPath } from '../../domain/mentions';
 import { chipStyle } from '../../domain/colors';
 import { starFills, starQuarters } from '../../domain/rating';
 import type { Item } from '../../repo/bookLog';
@@ -120,8 +122,12 @@ export function EditNotes({ value, onCommit, label, addLabel }: { value: string 
   useEffect(() => { if (editing) { done.current = false; ref.current?.focus(); } }, [editing]);
   useEffect(() => { const t = ref.current; if (t) { t.style.height = 'auto'; t.style.height = `${t.scrollHeight}px`; } }, [v, editing]);
   const finish = () => { if (done.current) return; done.current = true; setEditing(false); if (v !== (value ?? '')) onCommit(v); };
-  if (!editing) return <button type="button" className={`ed notes-view ${value ? '' : 'add'}`} aria-label={value ? `Edit ${label.toLowerCase()}` : addLabel} onClick={() => setEditing(true)}>{value || addLabel}</button>;
-  return <textarea ref={ref} className="notes" rows={2} aria-label={label} value={v} onChange={(e) => setV(e.target.value)}
+  if (!editing) return (
+    <div role="button" tabIndex={0} className={`ed notes-view ${value ? '' : 'add'}`} aria-label={value ? `Edit ${label.toLowerCase()}` : addLabel} onClick={() => setEditing(true)} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setEditing(true); } }}>
+      {value ? <MentionText text={value} to={desktopPath} /> : addLabel}
+    </div>
+  );
+  return <MentionTextarea textareaRef={ref} className="notes" rows={2} aria-label={label} placeholder="Type @ to mention a book, series, character, narrator or author" value={v} onChange={setV}
     onBlur={finish} onKeyDown={(e) => { if (e.key === 'Escape') finish(); }} />;
 }
 

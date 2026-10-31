@@ -1,6 +1,6 @@
 [package]
 name = "book-journal"
-version = "0.3.15"
+version = "0.3.16"
 description = "A personal book journal"
 edition = "2021"
 

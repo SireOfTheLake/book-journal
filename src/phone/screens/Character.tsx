@@ -6,7 +6,7 @@ import { ageText } from '../../domain/format';
 import { listItems } from '../../repo/bookLog';
 import { savePlace } from '../../repo/places';
 import { PlaceSet } from '../places';
-import { Card, ChipSet, ConfirmRemove, PickerSheet, Seg, SyncDot, TextField, useLoad } from '../kit';
+import { Card, ChipSet, ConfirmRemove, InlineLabel, PickerSheet, Seg, SyncDot, TextField, useLoad } from '../kit';
 
 type Kind = 'partner_current' | 'partner_previous' | 'family' | 'friend' | 'other';
 const KINDS: { kind: Kind; title: string }[] = [
@@ -102,9 +102,9 @@ export default function Character() {
                   <li key={r.id} className="ph-item" style={{ display: 'block' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <Link to={`/character/${r.other_id}`} className="grow" style={{ display: 'block' }}><span className={`t ${r.other_featured ? 'page' : ''}`} style={{ display: 'inline' }}>{r.other_name}</span></Link>
+                      <InlineLabel name={r.other_name} value={r.label} onCommit={(v) => void run(() => c.setRelationshipLabel(db, r.id, characterId, v || null))} />
                       <ConfirmRemove label={`Remove the link to ${r.other_name}`} onConfirm={() => void run(() => c.removeRelationship(db, r.id))} />
                     </div>
-                    <TextField label={`Label for ${r.other_name}`} placeholder="mother, ex, best friend..." value={r.label} onCommit={(v) => void run(() => c.setRelationshipLabel(db, r.id, characterId, v.trim() || null))} />
                     {kind !== 'partner_current' && <Seg label={`Status of ${r.other_name}`} allowClear value={r.status} options={STATUSES} onChange={(v) => void run(() => c.setRelationshipStatus(db, r.id, characterId, v))} />}
                   </li>
                 ))}
@@ -112,9 +112,9 @@ export default function Character() {
                   <li key={p.id} className="ph-item" style={{ display: 'block' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <div className="grow"><b>{p.name}</b> <span className="ph-muted ph-small">no page yet</span></div>
+                      <InlineLabel name={p.name} value={p.label} onCommit={(v) => void run(() => c.setPersonLabel(db, p.id, v || null))} />
                       <ConfirmRemove label={`Remove ${p.name}`} onConfirm={() => void run(() => c.removePerson(db, p.id))} />
                     </div>
-                    <TextField label={`Label for ${p.name}`} placeholder="mother, ex, best friend..." value={p.label} onCommit={(v) => void run(() => c.setPersonLabel(db, p.id, v.trim() || null))} />
                     {kind !== 'partner_current' && <Seg label={`Status of ${p.name}`} allowClear value={p.status} options={STATUSES} onChange={(v) => void run(() => c.setPersonStatus(db, p.id, v))} />}
                   </li>
                 ))}
@@ -126,7 +126,7 @@ export default function Character() {
       </Card>
       {adding && (
         <PickerSheet title={`Add to ${KINDS.find((k) => k.kind === adding)!.title}`} placeholder="Search characters or type a new name"
-          options={d.picks.filter((p) => p.id !== characterId).map((p) => ({ id: p.id, name: p.name, note: p.featured ? undefined : 'no page yet' }))}
+          options={d.picks.filter((p) => p.id !== characterId).map((p) => ({ id: p.id, name: p.name, note: [p.tags, p.featured ? null : 'no page yet'].filter(Boolean).join(' · ') || undefined }))}
           taken={relationships.map((r) => r.other_id)}
           onPick={(o) => void run(() => c.addRelationship(db, characterId, { id: o.id }, typeOf(adding), currentOf(adding), null))}
           allowSameName
@@ -136,7 +136,6 @@ export default function Character() {
       )}
 
       <TextField label="Description" multiline value={core.description} onCommit={(v) => void upd({ description: v.trim() || null })} />
-      <TextField label="Notes" multiline value={core.notes} onCommit={(v) => void upd({ notes: v.trim() || null })} />
     </>
   );
 }

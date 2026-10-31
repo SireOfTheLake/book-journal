@@ -243,6 +243,7 @@ describe('phone: relationships on a character', () => {
     fireEvent.click(screen.getAllByRole('button').filter((b) => b.classList.contains('ph-opt'))[0]);
     await waitFor(() => within(screen.getByRole('group', { name: 'Family' })).getByText('Aileen'));
 
+    fireEvent.click(screen.getByRole('button', { name: 'Label for Aileen' }));
     const label = screen.getByLabelText('Label for Aileen');
     fireEvent.change(label, { target: { value: 'mother' } }); fireEvent.blur(label);
     fireEvent.click(within(screen.getByRole('group', { name: 'Family' })).getByRole('button', { name: 'Deceased' }));
@@ -274,5 +275,29 @@ describe('phone: relationships on a character', () => {
       expect(sams).toHaveLength(2);
       expect(sams.map((x) => x.id)).toContain(d.relationships[0].other_id);
     });
+  });
+
+  it('has no Notes box on a character, an inline label, and tags beside names in the search', async () => {
+    const db = await freshDb();
+    const ewan = await createCharacter(db, 'Ewan'); const sam = await createCharacter(db, 'Sam'); const lead = await createCharacter(db, 'Jo');
+    const { addCharacterTag } = await import('../src/repo/characters');
+    await addCharacterTag(db, lead, 'Finest Kind of Fate');
+    await addRelationship(db, ewan, { id: sam }, 'friend', null, null);
+    at(db, `/character/${ewan}`);
+    await screen.findByText('Relationships');
+    expect(screen.queryByLabelText('Notes')).toBeNull();
+    expect(screen.getByLabelText('Description')).toBeTruthy();
+    // The label is a placeholder on the name's line until tapped
+    const lbl = screen.getByRole('button', { name: 'Label for Sam' });
+    expect(lbl.textContent).toBe('add label');
+    fireEvent.click(lbl);
+    const input = screen.getByLabelText('Label for Sam');
+    fireEvent.change(input, { target: { value: 'best friend' } });
+    fireEvent.blur(input);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Label for Sam' }).textContent).toBe('best friend'));
+    await waitFor(async () => expect((await getCharacter(db, ewan))!.relationships[0].label).toBe('best friend'));
+    // The search shows the tag beside the name
+    fireEvent.click(within(screen.getByRole('group', { name: 'Family' })).getByRole('button', { name: /Add relationship under/ }));
+    expect(await screen.findByText('Finest Kind of Fate')).toBeTruthy();
   });
 });

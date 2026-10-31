@@ -34,6 +34,7 @@ function useFullHeight() {
 function Shell() {
   return (
     <div className="ph-app">
+      <div className="ph-turn" role="status">Please turn your phone upright to use Book Journal.</div>
       <main className="ph-main">
         <Routes>
           <Route path="/" element={<Home />} />

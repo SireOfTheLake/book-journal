@@ -2,7 +2,17 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 -->
+
+## 0.4.0 — 2026-10-31
+
+### New
+- [Desktop] The Book Log layout is customizable: every card can be moved, resized (1 to 4 columns wide, half a square or more tall), removed or added back. Edit it under Settings > Book Log layout, with placeholder content, a ghost "Add card" at the bottom and a reset button.
+
+### Improved
+- [Desktop] Cards are in the same place whatever the book's status (a card that does not apply yet says so). Rows are only as tall as their tallest card, and when a card needs more room, the bottom card in its rows grows.
+- [Desktop] Cards can be moved into the cover column, where they are as tall as their content. The cover, Find cover, Synopsis and Start reading stay fixed in the top left.
+- [Desktop] Mark as favorite moved to the header beside the menu.
 
 ## 0.3.18 — 2026-10-31
 

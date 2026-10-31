@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useContext, useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { entryLabel } from '../../domain/entryLabel';
 import { ageText, formatDuration, HEAT, parseDuration } from '../../domain/format';
@@ -21,6 +21,11 @@ import type { Reason } from '../../repo/reason';
 import type { ChallengeChoice, ReadChallenge } from '../../repo/challenges';
 import { useFeatures } from '../../features/FeaturesContext';
 import SynopsisButton from './SynopsisButton';
+import LayoutGrid from './LayoutGrid';
+import { DbContext } from '../../db/DbContext';
+import { useSync } from '../../sync/SyncContext';
+import { getLayout } from '../../repo/bookLayout';
+import { layoutKeyFor, normalizeLayout, type BookLayout, type CardId } from '../../domain/bookLayout';
 import QuotesCard, { type QuoteActions } from './QuotesCard';
 import type { Quote } from '../../repo/quotes';
 import { Card, Combo, EditNotes, EditSelect, EditText, FilePicker, Icon, LinkImageForm, Seg, Stars, TagEditor, Thumbs, ZoomImage } from './parts';
@@ -312,15 +317,197 @@ const opts = (items: Item[]) => items.map((i) => ({ value: i.id, label: i.name }
 
 export interface ChallengeInfo { items: ReadChallenge[]; choices: ChallengeChoice[]; act: ChallengeActions; reason?: Reason; reasonAct?: ReasonActions }
 
+
+// The saved layout for this book (today one layout for every book), or the default one until it has loaded.
+function useBookLayout(book: { id: string; shelf: string | null }): BookLayout {
+  const db = useContext(DbContext);
+  const { flags } = useFeatures();
+  const { dataVersion } = useSync();
+  const key = layoutKeyFor(book);
+  const flagKey = JSON.stringify(flags);
+  const [layout, setLayout] = useState<BookLayout>(() => normalizeLayout(null, flags));
+  useEffect(() => {
+    let live = true;
+    if (!db) { setLayout(normalizeLayout(null, flags)); return; }
+    void getLayout(db, key, flags).then((l) => { if (live) setLayout(l); }).catch(() => undefined);
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db, key, flagKey, dataVersion]);
+  return layout;
+}
+
 export default function BookLogView({ log, lists, act, neighbors, challenges, quotes }: { log: BookLog; lists: Lists; act: Actions; neighbors?: Neighbors; challenges?: ChallengeInfo; quotes?: { items: Quote[]; act: QuoteActions } }) {
   const { book, read } = log;
-  const { flags } = useFeatures();
   // An Up Next book has a placeholder read (paused, no dates) so it can have a format, source and reason before it is started.
   const planned = !!read && !!book.shelf && read.status === 'on_hold' && !read.start_date && !read.finish_date;
   const inProgress = !!read && (read.status === 'reading' || read.status === 'on_hold') && !book.shelf;
   const heat = book.heat_level !== null ? HEAT[book.heat_level] : null;
   const tag = (label: string, table: TagTable, items: Item[], options: Item[]) => (
     <TagEditor label={label} items={items} options={options} onAdd={(n) => act.addTag(table, n)} onRemove={(id) => act.removeTag(table, id)} onRename={(id, n) => act.renameTag(table, id, n)} />
+  );
+
+  // What each card shows. A card that does not apply right now (for example Dates before a book is started) stays where it is and says so.
+  const hint = (label: string, text: string) => <Card label={label}><span className="muted">{text}</span></Card>;
+  const body = (id: CardId): ReactNode => {
+    switch (id) {
+      case 'status': return (
+        <Card label="Status">
+          <EditSelect label="Status" className="statuspill" value={currentStatus(log)} options={STATUSES} onChange={(v) => v && act.setStatus(v as Status)} />
+          {read && !planned && <DeleteRead key={read.id} act={act} />}
+        </Card>
+      );
+      case 'rating': return (
+        <Card label="Rating">
+          {read && !planned ? <Stars value={storedToStars(read.rating)} onChange={(v) => act.updateRead({ rating: starsToStored(v) })} /> : <span className="muted">Start the book to rate it.</span>}
+        </Card>
+      );
+      case 'title': return <Card label="Title"><EditText label="Title" className="bigtext" value={book.title} onCommit={(v) => v.trim() && act.updateBook({ title: v.trim() })} /></Card>;
+      case 'authors': return <Authors log={log} lists={lists} act={act} />;
+      case 'owned': return (
+        <Card label="Copies I own">
+          <div className="seg ownseg" role="group" aria-label="Copies I own">
+            {([['own_physical', 'physical', 'Physical'], ['own_audio', 'audio', 'Audio'], ['own_ebook', 'ebook', 'Ebook']] as const).map(([col, icon, label]) => (
+              <button type="button" key={col} aria-pressed={book[col] === 1} className={`own-${icon}${book[col] === 1 ? ' on' : ''}`} onClick={() => act.updateBook({ [col]: book[col] === 1 ? 0 : 1 })}><Icon name={icon} />{label}</button>
+            ))}
+          </div>
+          <span className="muted small">{book.own_physical || book.own_ebook || book.own_audio ? 'You have a copy.' : 'Not owned yet.'}</span>
+        </Card>
+      );
+      case 'series': return (
+        <Card label="Series">
+          {log.series ? (
+            <>
+              <span className="serieshead">
+                {log.seriesNav.prev ? <Link className="serarrow" to={`/book/${log.seriesNav.prev.id}`} aria-label={`Previous book: ${log.seriesNav.prev.title}`} title={log.seriesNav.prev.title}>&#8249;</Link> : <span className="serarrow gone" aria-hidden="true" />}
+                <Link className="big l grow" to={`/series/${log.series.id}`}>{log.series.title}</Link>
+                {log.seriesNav.next ? <Link className="serarrow" to={`/book/${log.seriesNav.next.id}`} aria-label={`Next book: ${log.seriesNav.next.title}`} title={log.seriesNav.next.title}>&#8250;</Link> : <span className="serarrow gone" aria-hidden="true" />}
+              </span>
+              <span className="seriespos">
+                {book.series_position === null || Number.isInteger(book.series_position)
+                  ? <>Book <EditText label="Series position" addLabel="?" type="number" step="0.5" className="bignum" value={book.series_position} onCommit={(v) => act.updateBook({ series_position: v === '' ? null : Number(v) })} /> of <b className="bignum">{log.series.main_total}</b></>
+                  : <>Novella <EditText label="Series position" addLabel="?" type="number" step="0.5" className="bignum" value={book.series_position} onCommit={(v) => act.updateBook({ series_position: v === '' ? null : Number(v) })} /><span className="muted small"> (extra to the {log.series.main_total} numbered books)</span></>}
+              </span>
+              <button type="button" className="mini" onClick={() => act.setSeries(null)}>Remove from series</button>
+            </>
+          ) : <AddSeries lists={lists} act={act} />}
+          <UniverseLine log={log} lists={lists} act={act} />
+        </Card>
+      );
+      case 'dates': return (
+        read && !planned ? (
+          <Card label="Dates">
+            <div className="stack"><span className="muted">Started</span><EditText label="Start date" type="date" max={read.finish_date} initial={read.finish_date} value={read.start_date} onCommit={(v) => act.updateRead({ start_date: v || null })} /></div>
+            <div className="stack"><span className="muted">Finished</span><EditText label="Finish date" type="date" min={read.start_date} value={read.finish_date} onCommit={(v) => act.updateRead({ finish_date: v || null })} />
+              {read.status === 'reading' && !read.finish_date && <button type="button" className="mini" onClick={() => act.setStatus('finished')}>Finish reading</button>}</div>
+          </Card>
+        ) : <Card label="Dates"><span className="muted">Dates appear once the book is started.</span></Card>
+      );
+      case 'pov': return (
+        <Card label="Point of view">
+          <Seg label="POV" value={book.pov} onChange={(v) => act.updateBook({ pov: v })} options={[{ value: 'single', label: 'Single' }, { value: 'dual', label: 'Dual' }, { value: 'multi', label: 'Multi' }]} />
+          <span className="lbl2">Perspective</span>
+          <Seg label="Perspective" value={book.perspective} onChange={(v) => act.updateBook({ perspective: v })} options={[{ value: '1st', label: '1st' }, { value: '2nd', label: '2nd' }, { value: '3rd', label: '3rd' }]} />
+        </Card>
+      );
+      case 'genres': return tag('Genres', 'genre', log.genres, lists.genres);
+      case 'length': return (
+        <Card label="Length">
+          <div className="stack"><span className="muted">Pages</span><EditText label="Pages" addLabel="Add pages" type="number" value={book.page_count} onCommit={(v) => act.updateBook({ page_count: v === '' ? null : Number(v) })} /></div>
+          <div className="stack"><span className="muted">Audio length</span><EditText label="Audio length" addLabel="Add audio length" value={formatDuration(read ? read.audio_length_seconds : book.audio_length_seconds ?? null) || null} validate={(v) => (v.trim() && parseDuration(v) === null ? 'Type it as 1:23 or 1h 23m.' : null)}
+            onCommit={(v) => { const secs = v.trim() ? parseDuration(v) : null; if (read) act.updateRead({ audio_length_seconds: secs }); else act.updateBook({ audio_length_seconds: secs }); }} placeholder="1:23" />
+            {!read && <span className="muted small">New reads of this book start with this length.</span>}</div>
+        </Card>
+      );
+      case 'heat': return (
+        <Card label="Heat level">
+          <Seg className="heatseg" label="Heat level" value={book.heat_level} onChange={(v) => act.updateBook({ heat_level: v })} options={HEAT.map((h) => ({ value: h.level, label: String(h.level) }))} />
+          <span className="muted small">{heat ? <><b>{heat.level} · {heat.name}</b>{heat.text ? `: ${heat.text}` : ''}</> : 'Not set.'}</span>
+        </Card>
+      );
+      case 'tropes': return tag('Tropes', 'trope', log.tropes, lists.tropes);
+      case 'themes': return tag('Themes', 'theme', log.themes, lists.themes);
+      case 'mood': return tag('Mood', 'mood', log.moods, lists.moods ?? []);
+      case 'pace': return tag('Pace', 'pace', log.paces, lists.paces ?? []);
+      case 'warnings': return tag('Content warnings', 'content_warning', log.warnings, lists.warnings ?? []);
+      case 'format': return read ? (
+        <Card label="Format">
+          <Seg label="Format" value={read.format} onChange={(v) => act.updateRead({ format: v })}
+            options={[{ value: 'physical', label: <><Icon name="physical" />Physical</> }, { value: 'audio', label: <><Icon name="audio" />Audio</> }, { value: 'ebook', label: <><Icon name="ebook" />Ebook</> }]} />
+        </Card>
+      ) : hint('Format', 'Start the book to choose a format.');
+      case 'source': return read ? (
+        <Card label="Source"><EditSelect label="Source" value={read.source_id} options={opts(lists.sources)} onChange={(id) => act.updateRead({ source_id: id })} onCreate={(n) => act.createItem('source', n)} />
+          <ManageList items={lists.sources} noun="Source" onRename={(id, n) => act.renameItem('source', id, n)} onRemove={act.removeSource} consequence="Removing a source clears it from the reads that used it." /></Card>
+      ) : hint('Source', 'Start the book to say where you got it.');
+      case 'setting': return <LocationEditor places={log.places} options={lists.places} onPick={(n) => act.addTag('place', n)} onRemove={(id) => act.removeTag('place', id)} onSave={act.saveLocation} />;
+      case 'timeperiod': return (
+          <TimePeriodCard periodId={book.time_period_id} detail={book.time_period_detail} options={lists.timePeriods} onPick={(id) => act.updateBook({ time_period_id: id, time_period_detail: null })}
+            onDetail={(v) => act.updateBook({ time_period_detail: v })} onCreate={(n) => act.createItem('time_period', n)} onRemove={act.removeTimePeriod} onRename={(id, n) => act.renameItem('time_period', id, n)} />
+      );
+      case 'published': return (
+        <Card label="Originally published">
+          <EditText label="Originally published" addLabel="Add publication date" type="date" value={book.original_publication_date} onCommit={(v) => act.updateBook({ original_publication_date: v || null })} />
+        </Card>
+      );
+      case 'recommended': return book.shelf ? (
+        <Card label="Recommended by">
+          <EditText label="Recommended by" addLabel="Add who recommended it" value={book.recommended_by ?? null} onCommit={(v) => act.updateBook({ recommended_by: v.trim() || null })} placeholder="A friend, a podcast, a list..." />
+        </Card>
+      ) : hint('Recommended by', 'Only for books on your TBR or Up Next.');
+      case 'whystopped': return read?.status === 'dnf' ? (
+        <Card label="Why I stopped">
+          <EditText label="Why I stopped" addLabel="Add why you stopped" value={read.stopped_reason ?? null} onCommit={(v) => act.updateRead({ stopped_reason: v.trim() || null })} placeholder="Slow start, not my mood..." />
+          <span className="muted">Where I got to</span>
+          <EditText label="Where I stopped" addLabel="Add where you stopped" value={read.stopped_where ?? null} onCommit={(v) => act.updateRead({ stopped_where: v.trim() || null })} placeholder="Page 120, 40%, chapter 9..." />
+        </Card>
+      ) : hint('Why I stopped', 'Only for a book you did not finish.');
+      case 'reason': return challenges && read ? <ReasonCard reason={challenges.reason ?? { kind: null, sub: null, prompt: null }} items={challenges.items} choices={challenges.choices} challengeAct={challenges.act} act={challenges.reasonAct ?? { set: () => undefined, setPrompt: () => undefined }} /> : hint('Reason for reading', 'Start the book to say why you picked it.');
+      case 'narrators': return read ? (
+        <Card label="Narration">
+          <Seg label="Narration style" value={read.narration_style} onChange={(v) => act.updateRead({ narration_style: v })}
+            options={[{ value: 'solo', label: 'Solo' }, { value: 'dual', label: 'Dual' }, { value: 'duet', label: 'Duet' }, { value: 'full_cast', label: 'Full cast' }, { value: 'immersive', label: 'Immersive' }]} />
+          {log.narrators.length === 0 && <span className="muted">No narrators on this read.</span>}
+          {log.narrators.map((n) => (
+            <div className="narr" key={n.id}>
+              <Link className="big l narrname" to={`/narrators/${n.narrator_id}`}>{n.name}</Link>
+              <div className="narrvoice">
+              <VoiceChips max={3} narrator={n.name} chars={n.chars ?? []} options={log.characters.filter((c) => !(n.chars ?? []).some((x) => x.id === c.id)).map((c) => ({ id: c.id, name: c.name }))}
+                onAdd={(cid) => act.voiceAdd(n.id, cid)} onRemove={(cid) => act.voiceRemove(n.id, cid)} />
+              </div>
+              <div className="narrside">
+                <div className="narraccents"><TagEditor bare label="Accents" items={n.accents} options={lists.accents} onAdd={(name) => act.addNarratorAccent(n.id, name)} onRemove={(id) => act.removeNarratorAccent(n.id, id)} onRename={(id, name) => act.renameAccent(id, name)} /></div>
+                <div className="narrtop"><Thumbs value={n.rating} onChange={(r) => act.narratorRating(n.id, r)} /></div>
+              </div>
+              <button type="button" className="narrx" title="Remove this narrator" aria-label={`Remove ${n.name} from this read`} onClick={() => act.removeNarrator(n.id)}>&times;</button>
+            </div>
+          ))}
+          <AddNarrator log={log} lists={lists} act={act} />
+        </Card>
+      ) : <DefaultNarrators log={log} lists={lists} act={act} />;
+      case 'challenges': return challenges && read ? <ChallengesCard items={challenges.items} choices={challenges.choices} act={challenges.act} /> : hint('Challenges', 'Start the book to count it for a challenge.');
+      case 'notes': return read ? (
+        <Card label="Notes">
+          <EditNotes label="Notes" addLabel="Add notes" value={read.notes} onCommit={(v) => act.updateRead({ notes: v.trim() || null })} />
+        </Card>
+      ) : hint('Notes', 'Start the book to take notes.');
+      case 'characters': return <Characters log={log} lists={lists} act={act} />;
+      case 'quotes': return quotes ? <QuotesCard quotes={quotes.items} act={quotes.act} /> : hint('Quotes', 'Quotes appear here.');
+      case 'daylog': return (
+        read && !planned ? <DayLog log={log} act={act} /> : (
+          <Card className="span4"><span className="muted">{book.shelf ? <>This book is on your {book.shelf === 'up_next' ? 'Up Next' : 'TBR'} shelf.</> : 'This book has no reads yet.'} Choose <b>In Progress</b> in the Status box to start it.</span></Card>
+        )
+      );
+    }
+  };
+
+  const layout = useBookLayout(book);
+  const cover = (
+    <>
+      <Cover log={log} act={act} />
+      <SynopsisButton title={book.title} value={book.synopsis} onSave={(t) => act.updateBook({ synopsis: t })} />
+          {!inProgress && <button type="button" className="btn" onClick={act.startReading}>Start reading</button>}
+          {!inProgress && book.shelf !== 'up_next' && <button type="button" className="btn" onClick={() => act.setStatus('up_next')}>Move to Up Next</button>}
+    </>
   );
 
   return (
@@ -333,6 +520,7 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
           ))}
           <button type="button" className="rd add" onClick={act.newRead}>+ Add another read</button>
         </div>
+        <button type="button" className="btn favbtn" aria-pressed={book.is_favorite === 1} onClick={() => act.updateBook({ is_favorite: book.is_favorite ? 0 : 1 })}>{book.is_favorite ? 'Favorite' : 'Mark as favorite'}</button>
         <BookMenu title={book.title} act={act} />
       </div>
 
@@ -343,150 +531,7 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
         </nav>
       )}
 
-      <div className="bl-cols">
-        <div className="bl-left">
-          <Cover log={log} act={act} />
-          <SynopsisButton title={book.title} value={book.synopsis} onSave={(t) => act.updateBook({ synopsis: t })} />
-          <Card label="Status">
-            <EditSelect label="Status" className="statuspill" value={currentStatus(log)} options={STATUSES} onChange={(v) => v && act.setStatus(v as Status)} />
-            {read && !planned && <DeleteRead key={read.id} act={act} />}
-          </Card>
-          <Card label="Rating">
-            {read && !planned ? <Stars value={storedToStars(read.rating)} onChange={(v) => act.updateRead({ rating: starsToStored(v) })} /> : <span className="muted">Start the book to rate it.</span>}
-          </Card>
-          <Card label="Title"><EditText label="Title" className="bigtext" value={book.title} onCommit={(v) => v.trim() && act.updateBook({ title: v.trim() })} /></Card>
-          <Authors log={log} lists={lists} act={act} />
-          {flags.owned && (
-            <Card label="Copies I own">
-              <div className="seg ownseg" role="group" aria-label="Copies I own">
-                {([['own_physical', 'physical', 'Physical'], ['own_audio', 'audio', 'Audio'], ['own_ebook', 'ebook', 'Ebook']] as const).map(([col, icon, label]) => (
-                  <button type="button" key={col} aria-pressed={book[col] === 1} className={`own-${icon}${book[col] === 1 ? ' on' : ''}`} onClick={() => act.updateBook({ [col]: book[col] === 1 ? 0 : 1 })}><Icon name={icon} />{label}</button>
-                ))}
-              </div>
-              <span className="muted small">{book.own_physical || book.own_ebook || book.own_audio ? 'You have a copy.' : 'Not owned yet.'}</span>
-            </Card>
-          )}
-          <button type="button" className="btn" aria-pressed={book.is_favorite === 1} onClick={() => act.updateBook({ is_favorite: book.is_favorite ? 0 : 1 })}>{book.is_favorite ? 'Favorite' : 'Mark as favorite'}</button>
-          {!inProgress && <button type="button" className="btn" onClick={act.startReading}>Start reading</button>}
-          {!inProgress && book.shelf !== 'up_next' && <button type="button" className="btn" onClick={() => act.setStatus('up_next')}>Move to Up Next</button>}
-        </div>
-
-        <div className="bl-grid">
-          <Card label="Series">
-            {log.series ? (
-              <>
-                <span className="serieshead">
-                  {log.seriesNav.prev ? <Link className="serarrow" to={`/book/${log.seriesNav.prev.id}`} aria-label={`Previous book: ${log.seriesNav.prev.title}`} title={log.seriesNav.prev.title}>&#8249;</Link> : <span className="serarrow gone" aria-hidden="true" />}
-                  <Link className="big l grow" to={`/series/${log.series.id}`}>{log.series.title}</Link>
-                  {log.seriesNav.next ? <Link className="serarrow" to={`/book/${log.seriesNav.next.id}`} aria-label={`Next book: ${log.seriesNav.next.title}`} title={log.seriesNav.next.title}>&#8250;</Link> : <span className="serarrow gone" aria-hidden="true" />}
-                </span>
-                <span className="seriespos">
-                  {book.series_position === null || Number.isInteger(book.series_position)
-                    ? <>Book <EditText label="Series position" addLabel="?" type="number" step="0.5" className="bignum" value={book.series_position} onCommit={(v) => act.updateBook({ series_position: v === '' ? null : Number(v) })} /> of <b className="bignum">{log.series.main_total}</b></>
-                    : <>Novella <EditText label="Series position" addLabel="?" type="number" step="0.5" className="bignum" value={book.series_position} onCommit={(v) => act.updateBook({ series_position: v === '' ? null : Number(v) })} /><span className="muted small"> (extra to the {log.series.main_total} numbered books)</span></>}
-                </span>
-                <button type="button" className="mini" onClick={() => act.setSeries(null)}>Remove from series</button>
-              </>
-            ) : <AddSeries lists={lists} act={act} />}
-            <UniverseLine log={log} lists={lists} act={act} />
-          </Card>
-          {read && !planned ? (
-            <Card label="Dates">
-              <div className="stack"><span className="muted">Started</span><EditText label="Start date" type="date" max={read.finish_date} initial={read.finish_date} value={read.start_date} onCommit={(v) => act.updateRead({ start_date: v || null })} /></div>
-              <div className="stack"><span className="muted">Finished</span><EditText label="Finish date" type="date" min={read.start_date} value={read.finish_date} onCommit={(v) => act.updateRead({ finish_date: v || null })} />
-                {read.status === 'reading' && !read.finish_date && <button type="button" className="mini" onClick={() => act.setStatus('finished')}>Finish reading</button>}</div>
-            </Card>
-          ) : <Card label="Dates"><span className="muted">Dates appear once the book is started.</span></Card>}
-          <Card label="Point of view">
-            <Seg label="POV" value={book.pov} onChange={(v) => act.updateBook({ pov: v })} options={[{ value: 'single', label: 'Single' }, { value: 'dual', label: 'Dual' }, { value: 'multi', label: 'Multi' }]} />
-            <span className="lbl2">Perspective</span>
-            <Seg label="Perspective" value={book.perspective} onChange={(v) => act.updateBook({ perspective: v })} options={[{ value: '1st', label: '1st' }, { value: '2nd', label: '2nd' }, { value: '3rd', label: '3rd' }]} />
-          </Card>
-          {tag('Genres', 'genre', log.genres, lists.genres)}
-
-          <Card label="Length">
-            <div className="stack"><span className="muted">Pages</span><EditText label="Pages" addLabel="Add pages" type="number" value={book.page_count} onCommit={(v) => act.updateBook({ page_count: v === '' ? null : Number(v) })} /></div>
-            <div className="stack"><span className="muted">Audio length</span><EditText label="Audio length" addLabel="Add audio length" value={formatDuration(read ? read.audio_length_seconds : book.audio_length_seconds ?? null) || null} validate={(v) => (v.trim() && parseDuration(v) === null ? 'Type it as 1:23 or 1h 23m.' : null)}
-              onCommit={(v) => { const secs = v.trim() ? parseDuration(v) : null; if (read) act.updateRead({ audio_length_seconds: secs }); else act.updateBook({ audio_length_seconds: secs }); }} placeholder="1:23" />
-              {!read && <span className="muted small">New reads of this book start with this length.</span>}</div>
-          </Card>
-          <Card label="Heat level">
-            <Seg className="heatseg" label="Heat level" value={book.heat_level} onChange={(v) => act.updateBook({ heat_level: v })} options={HEAT.map((h) => ({ value: h.level, label: String(h.level) }))} />
-            <span className="muted small">{heat ? <><b>{heat.level} · {heat.name}</b>{heat.text ? `: ${heat.text}` : ''}</> : 'Not set.'}</span>
-          </Card>
-          {tag('Tropes', 'trope', log.tropes, lists.tropes)}
-          {tag('Themes', 'theme', log.themes, lists.themes)}
-          {flags.moodpace && tag('Mood', 'mood', log.moods, lists.moods ?? [])}
-          {flags.moodpace && tag('Pace', 'pace', log.paces, lists.paces ?? [])}
-          {flags.warnings && tag('Content warnings', 'content_warning', log.warnings, lists.warnings ?? [])}
-
-          {read ? (
-            <>
-              <Card label="Format">
-                <Seg label="Format" value={read.format} onChange={(v) => act.updateRead({ format: v })}
-                  options={[{ value: 'physical', label: <><Icon name="physical" />Physical</> }, { value: 'audio', label: <><Icon name="audio" />Audio</> }, { value: 'ebook', label: <><Icon name="ebook" />Ebook</> }]} />
-              </Card>
-              <Card label="Source"><EditSelect label="Source" value={read.source_id} options={opts(lists.sources)} onChange={(id) => act.updateRead({ source_id: id })} onCreate={(n) => act.createItem('source', n)} />
-                <ManageList items={lists.sources} noun="Source" onRename={(id, n) => act.renameItem('source', id, n)} onRemove={act.removeSource} consequence="Removing a source clears it from the reads that used it." /></Card>
-            </>
-          ) : <><DefaultNarrators log={log} lists={lists} act={act} /><div /></>}
-          <div className="stackcol">
-            <LocationEditor places={log.places} options={lists.places} onPick={(n) => act.addTag('place', n)} onRemove={(id) => act.removeTag('place', id)} onSave={act.saveLocation} />
-            <TimePeriodCard periodId={book.time_period_id} detail={book.time_period_detail} options={lists.timePeriods} onPick={(id) => act.updateBook({ time_period_id: id, time_period_detail: null })}
-              onDetail={(v) => act.updateBook({ time_period_detail: v })} onCreate={(n) => act.createItem('time_period', n)} onRemove={act.removeTimePeriod} onRename={(id, n) => act.renameItem('time_period', id, n)} />
-          </div>
-          <Card label="Originally published">
-            <EditText label="Originally published" addLabel="Add publication date" type="date" value={book.original_publication_date} onCommit={(v) => act.updateBook({ original_publication_date: v || null })} />
-          </Card>
-
-          {flags.recommender && book.shelf && (
-            <Card label="Recommended by">
-              <EditText label="Recommended by" addLabel="Add who recommended it" value={book.recommended_by ?? null} onCommit={(v) => act.updateBook({ recommended_by: v.trim() || null })} placeholder="A friend, a podcast, a list..." />
-            </Card>
-          )}
-          {flags.whystopped && read?.status === 'dnf' && (
-            <Card label="Why I stopped">
-              <EditText label="Why I stopped" addLabel="Add why you stopped" value={read.stopped_reason ?? null} onCommit={(v) => act.updateRead({ stopped_reason: v.trim() || null })} placeholder="Slow start, not my mood..." />
-              <span className="muted">Where I got to</span>
-              <EditText label="Where I stopped" addLabel="Add where you stopped" value={read.stopped_where ?? null} onCommit={(v) => act.updateRead({ stopped_where: v.trim() || null })} placeholder="Page 120, 40%, chapter 9..." />
-            </Card>
-          )}
-          {read && (
-            <>
-              {challenges && <ReasonCard reason={challenges.reason ?? { kind: null, sub: null, prompt: null }} items={challenges.items} choices={challenges.choices} challengeAct={challenges.act} act={challenges.reasonAct ?? { set: () => undefined, setPrompt: () => undefined }} />}
-              <Card label="Narration" className="span3">
-                <Seg label="Narration style" value={read.narration_style} onChange={(v) => act.updateRead({ narration_style: v })}
-                  options={[{ value: 'solo', label: 'Solo' }, { value: 'dual', label: 'Dual' }, { value: 'duet', label: 'Duet' }, { value: 'full_cast', label: 'Full cast' }, { value: 'immersive', label: 'Immersive' }]} />
-                {log.narrators.length === 0 && <span className="muted">No narrators on this read.</span>}
-                {log.narrators.map((n) => (
-                  <div className="narr" key={n.id}>
-                    <Link className="big l narrname" to={`/narrators/${n.narrator_id}`}>{n.name}</Link>
-                    <div className="narrvoice">
-                    <VoiceChips max={3} narrator={n.name} chars={n.chars ?? []} options={log.characters.filter((c) => !(n.chars ?? []).some((x) => x.id === c.id)).map((c) => ({ id: c.id, name: c.name }))}
-                      onAdd={(cid) => act.voiceAdd(n.id, cid)} onRemove={(cid) => act.voiceRemove(n.id, cid)} />
-                    </div>
-                    <div className="narrside">
-                      <div className="narraccents"><TagEditor bare label="Accents" items={n.accents} options={lists.accents} onAdd={(name) => act.addNarratorAccent(n.id, name)} onRemove={(id) => act.removeNarratorAccent(n.id, id)} onRename={(id, name) => act.renameAccent(id, name)} /></div>
-                      <div className="narrtop"><Thumbs value={n.rating} onChange={(r) => act.narratorRating(n.id, r)} /></div>
-                    </div>
-                    <button type="button" className="narrx" title="Remove this narrator" aria-label={`Remove ${n.name} from this read`} onClick={() => act.removeNarrator(n.id)}>&times;</button>
-                  </div>
-                ))}
-                <AddNarrator log={log} lists={lists} act={act} />
-              </Card>
-              {challenges && <ChallengesCard items={challenges.items} choices={challenges.choices} act={challenges.act} />}
-              <Card label="Notes" className="span3">
-                <EditNotes label="Notes" addLabel="Add notes" value={read.notes} onCommit={(v) => act.updateRead({ notes: v.trim() || null })} />
-              </Card>
-            </>
-          )}
-          <Characters log={log} lists={lists} act={act} />
-          {flags.quotes && quotes && <QuotesCard quotes={quotes.items} act={quotes.act} />}
-          {read && !planned ? <DayLog log={log} act={act} /> : (
-            <Card className="span4"><span className="muted">{book.shelf ? <>This book is on your {book.shelf === 'up_next' ? 'Up Next' : 'TBR'} shelf.</> : 'This book has no reads yet.'} Choose <b>In Progress</b> in the Status box to start it.</span></Card>
-          )}
-        </div>
-      </div>
+      <LayoutGrid cards={layout.cards} render={body} cover={cover} />
     </div>
   );
 }

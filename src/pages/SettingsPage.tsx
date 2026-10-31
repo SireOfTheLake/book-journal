@@ -7,6 +7,7 @@ import TagColorsCard from './settings/TagColorsCard';
 import UpdatesCard from './settings/UpdatesCard';
 import ListsCard from './settings/ListsCard';
 import FeaturesCard from './settings/FeaturesCard';
+import LayoutCard from './settings/LayoutCard';
 import SyncCard from './settings/SyncCard';
 import { dataSize, megabytes, type DataSize } from '../sync/size';
 
@@ -24,7 +25,7 @@ export default function SettingsPage() {
   const [pictures, setPictures] = useState(false);
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const [size, setSize] = useState<DataSize | null>(null);
-  const [tab, setTab] = useState<'backup' | 'appearance' | 'lists' | 'features' | 'sync' | 'updates'>('backup');
+  const [tab, setTab] = useState<'backup' | 'appearance' | 'lists' | 'features' | 'layout' | 'sync' | 'updates'>('backup');
 
   const load = useCallback(async () => {
     setLast(await lastBackupAt(db));
@@ -50,11 +51,13 @@ export default function SettingsPage() {
         <button type="button" role="tab" id="tab-appearance" aria-selected={tab === 'appearance'} aria-controls="panel-appearance" onClick={() => setTab('appearance')}>Appearance and Themes</button>
         <button type="button" role="tab" id="tab-lists" aria-selected={tab === 'lists'} aria-controls="panel-lists" onClick={() => setTab('lists')}>Lists</button>
         <button type="button" role="tab" id="tab-features" aria-selected={tab === 'features'} aria-controls="panel-features" onClick={() => setTab('features')}>Features</button>
+        <button type="button" role="tab" id="tab-layout" aria-selected={tab === 'layout'} aria-controls="panel-layout" onClick={() => setTab('layout')}>Book Log layout</button>
         <button type="button" role="tab" id="tab-sync" aria-selected={tab === 'sync'} aria-controls="panel-sync" onClick={() => setTab('sync')}>Sync</button>
         <button type="button" role="tab" id="tab-updates" aria-selected={tab === 'updates'} aria-controls="panel-updates" onClick={() => setTab('updates')}>App updates</button>
       </div>
       {tab === 'lists' && <div role="tabpanel" id="panel-lists" aria-labelledby="tab-lists" className="tabpanel"><ListsCard /></div>}
       {tab === 'features' && <div role="tabpanel" id="panel-features" aria-labelledby="tab-features" className="tabpanel"><FeaturesCard /></div>}
+      {tab === 'layout' && <div role="tabpanel" id="panel-layout" aria-labelledby="tab-layout" className="tabpanel"><LayoutCard /></div>}
       {tab === 'sync' && <div role="tabpanel" id="panel-sync" aria-labelledby="tab-sync" className="tabpanel"><SyncCard /></div>}
       {tab === 'updates' && <div role="tabpanel" id="panel-updates" aria-labelledby="tab-updates" className="tabpanel"><UpdatesCard /></div>}
 

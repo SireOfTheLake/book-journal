@@ -44,9 +44,10 @@ describe('Book Log screen', () => {
     expect(out).toContain('clip-path'); // a 4.5 rating shades part of a star
     for (const text of ['Add pages', 'Add publication date', '+ add', 'Add time period', 'Add source', 'Add notes', 'Add genre', 'Add trope', 'Add theme']) expect(out, text).toContain(text);
     expect(out).toContain('style="border-color:');
-    // Setting and Time period are stacked in one column; publication is its own card.
+    // Setting and Time period are half-height cards one above the other; publication is its own card.
     expect(out.indexOf('Setting')).toBeLessThan(out.indexOf('Time period'));
-    expect(out).toContain('stackcol');
+    expect(out).toContain('data-card="setting"');
+    expect(out).toContain('grid-row:5 / span 1');
   });
   it('shows a book on the Up Next shelf without read details', async () => {
     const out = await html('Hooks In');

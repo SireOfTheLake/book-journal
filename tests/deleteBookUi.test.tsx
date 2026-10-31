@@ -36,8 +36,10 @@ describe('deleting a whole book from the Book Log', () => {
   });
   it('puts Why I am reading this beside Narration, and Challenges beside Notes, each starting a row', async () => {
     show();
-    const cards = [...(await screen.findByText("Why I'm reading this")).closest('.cards, .bgrid, div:has(> .bcard)')!.querySelectorAll(':scope > .bcard')].map((c) => c.querySelector('.lbl2')?.textContent);
-    const i = cards.indexOf("Why I'm reading this");
-    expect(cards.slice(i, i + 4)).toEqual(["Why I'm reading this", 'Narration', 'Challenges', 'Notes']);
+    await screen.findByText("Why I'm reading this");
+    const row = (id: string) => (document.querySelector(`[data-card="${id}"]`) as HTMLElement).style.gridRow;
+    expect(row('reason')).toBe(row('narrators'));
+    expect(row('challenges')).toBe(row('notes'));
+    expect(row('notes')).not.toBe(row('narrators'));
   });
 });

@@ -63,3 +63,10 @@ describe('typing @ in notes', () => {
     expect(link.getAttribute('href')).toBe(`/characters/${sam}`);
   });
 });
+
+describe('how notes with mentions are laid out', () => {
+  it('lets the text and the mention flow together on one line of text', () => {
+    const css = require('node:fs').readFileSync('src/theme/theme.css', 'utf8');
+    expect(css).toMatch(/\.ed\.notes-view \{ display: block;/);
+  });
+});

@@ -151,7 +151,7 @@ a.btn { text-decoration: none; color: var(--on-accent); }
 .ed.add:hover { text-decoration: underline; border-bottom-color: transparent; }
 .ed.bigtext { font-size: 18px; font-weight: 700; }
 .ed.statuspill { background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 16px; padding: 8px 12px; border-radius: 4px; border: 0; width: 100%; cursor: pointer; }
-.ed.notes-view { display: flex; align-items: flex-start; justify-content: flex-start; text-align: left; width: 100%; white-space: pre-wrap; line-height: 1.55; font-size: 15px; padding: 4px 0; }
+.ed.notes-view { display: block; text-align: left; width: 100%; white-space: pre-wrap; line-height: 1.55; font-size: 15px; padding: 4px 0; }
 .ed.notes-view.add { min-height: 0; }
 .chip { display: inline-flex; align-items: center; border: 1px solid; border-radius: 4px; padding: 2px 4px 2px 9px; font-size: 13px; color: var(--text); }
 .chipname { background: none; border: 0; color: inherit; font: inherit; cursor: text; padding: 1px 0; }

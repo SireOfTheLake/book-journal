@@ -69,13 +69,13 @@ export type Flags = Partial<Record<FeatureKey, boolean>>;
 const c = (id: CardId, col: number, row: number, w?: number, h?: number): LayoutCard => ({ id, col, row, w: w ?? DEF.get(id)!.w, h: h ?? DEF.get(id)!.h });
 // The layout the Book Log has always had (the cover column, then four columns across).
 export const DEFAULT_CARDS: LayoutCard[] = [
-  c('status', 0, 0, 1, 2), c('rating', 0, 1, 1, 2), c('title', 0, 2, 1, 2), c('authors', 0, 3, 1, 2), c('owned', 0, 4, 1, 2),
+  c('status', 0, 0, 1, 2), c('rating', 0, 1, 1, 2), c('title', 0, 2, 1, 2), c('authors', 0, 3, 1, 2), c('owned', 0, 4, 1, 2), c('recommended', 0, 5, 1, 2),
   c('series', 1, 0), c('dates', 2, 0), c('pov', 3, 0), c('genres', 4, 0),
   c('length', 1, 2), c('heat', 2, 2), c('tropes', 3, 2), c('themes', 4, 2),
   c('format', 1, 4), c('source', 2, 4), c('setting', 3, 4), c('timeperiod', 3, 5), c('published', 4, 4),
-  c('narrators', 1, 6), c('reason', 4, 6),
-  c('notes', 1, 8), c('challenges', 4, 8),
-  c('characters', 1, 10), c('quotes', 1, 12), c('daylog', 1, 14),
+  c('reason', 1, 6), c('narrators', 2, 6),
+  c('challenges', 1, 8), c('notes', 2, 8),
+  c('characters', 1, 10), c('daylog', 1, 12), c('quotes', 1, 14),
 ];
 export const defaultLayout = (): BookLayout => ({ v: 1, cards: DEFAULT_CARDS.map((x) => ({ ...x })) });
 

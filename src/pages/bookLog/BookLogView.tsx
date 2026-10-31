@@ -520,8 +520,10 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
           ))}
           <button type="button" className="rd add" onClick={act.newRead}>+ Add another read</button>
         </div>
-        <button type="button" className="btn favbtn" aria-pressed={book.is_favorite === 1} onClick={() => act.updateBook({ is_favorite: book.is_favorite ? 0 : 1 })}>{book.is_favorite ? 'Favorite' : 'Mark as favorite'}</button>
-        <BookMenu title={book.title} act={act} />
+        <div className="bl-actions">
+          <button type="button" className="btn favbtn" aria-pressed={book.is_favorite === 1} onClick={() => act.updateBook({ is_favorite: book.is_favorite ? 0 : 1 })}>{book.is_favorite ? 'Favorite' : 'Mark as favorite'}</button>
+          <BookMenu title={book.title} act={act} />
+        </div>
       </div>
 
       {(neighbors?.prev || neighbors?.next) && (

@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { DbContext } from '../../db/DbContext';
 import { useFeatures } from '../../features/FeaturesContext';
 import { addCard, DEF, layoutKeyFor, missingCards, moveCard, removeCard, resizeCard, GRID_COLS, type BookLayout, type CardId, type LayoutCard } from '../../domain/bookLayout';
-import { getLayout, resetLayout, saveLayout } from '../../repo/bookLayout';
+import { clearDefaultLayout, getLayout, hasDefaultLayout, resetLayout, saveDefaultLayout, saveLayout } from '../../repo/bookLayout';
 import { normalizeLayout } from '../../domain/bookLayout';
 
 const UNIT = 44, GAP = 12; // a half-square is 44px tall in the editor
@@ -15,13 +15,16 @@ export default function LayoutCard() {
   const key = layoutKeyFor();
   const [layout, setLayout] = useState<BookLayout | null>(null);
   const [menu, setMenu] = useState(false);
-  const [confirmReset, setConfirmReset] = useState(false);
+  const [confirm, setConfirm] = useState<'set' | 'reset' | 'original' | null>(null);
+  const [mine, setMine] = useState(false); // you have set your own default
+  const [note, setNote] = useState<string | null>(null);
   const drag = useRef<Drag | null>(null);
   const grid = useRef<HTMLDivElement>(null);
   const cover = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loaded = useRef(false);
 
+  useEffect(() => { if (db) void hasDefaultLayout(db).then(setMine); }, [db]);
   useEffect(() => { if (db) void getLayout(db, key, flags).then((l) => { setLayout(l); loaded.current = true; }); }, [db, key]); // eslint-disable-line react-hooks/exhaustive-deps
   const change = (next: BookLayout) => {
     setLayout(next);
@@ -85,7 +88,18 @@ export default function LayoutCard() {
   const add = (id: CardId) => { const f = DEF.get(id)!.feature; change(addCard(layout, id)); if (f) void set(f, true); setMenu(false); };
   const reset = async () => {
     if (db) await resetLayout(db, key);
-    setLayout(normalizeLayout(null, flags)); setConfirmReset(false);
+    setLayout(db ? await getLayout(db, key, flags) : normalizeLayout(null, flags)); setConfirm(null); setNote('The layout was reset.');
+  };
+  const setDefault = async () => {
+    if (!db) return;
+    if (timer.current) clearTimeout(timer.current);
+    await saveLayout(db, key, layout); await saveDefaultLayout(db, layout);
+    setMine(true); setConfirm(null); setNote('This layout is now your default.');
+  };
+  const original = async () => {
+    if (!db) return;
+    await clearDefaultLayout(db); await resetLayout(db, key);
+    setMine(false); setLayout(normalizeLayout(null, flags)); setConfirm(null); setNote('The original default layout is back.');
   };
 
   const tile = (x: LayoutCard, inGrid: boolean) => {
@@ -139,10 +153,18 @@ export default function LayoutCard() {
         </div>
       </div>
       <div className="pictools">
-        {confirmReset
-          ? <><button type="button" className="btn" onClick={() => void reset()}>Yes, reset the layout</button><button type="button" className="btn" onClick={() => setConfirmReset(false)}>Keep it</button></>
-          : <button type="button" className="btn" onClick={() => setConfirmReset(true)}>Reset to the default layout</button>}
+        {confirm === 'set' && <><span className="muted small">Make the layout you see now the default? Resetting will go back to it.</span><button type="button" className="btn" onClick={() => void setDefault()}>Yes, set as default</button><button type="button" className="btn" onClick={() => setConfirm(null)}>Cancel</button></>}
+        {confirm === 'reset' && <><span className="muted small">Replace the layout with {mine ? 'your default' : 'the original default'}?</span><button type="button" className="btn" onClick={() => void reset()}>Yes, reset the layout</button><button type="button" className="btn" onClick={() => setConfirm(null)}>Keep it</button></>}
+        {confirm === 'original' && <><span className="muted small">Forget your default and go back to the original one?</span><button type="button" className="btn" onClick={() => void original()}>Yes, use the original</button><button type="button" className="btn" onClick={() => setConfirm(null)}>Cancel</button></>}
+        {!confirm && (
+          <>
+            <button type="button" className="btn" onClick={() => { setNote(null); setConfirm('set'); }}>Set as default</button>
+            <button type="button" className="btn" onClick={() => { setNote(null); setConfirm('reset'); }}>Reset to the default layout</button>
+            {mine && <button type="button" className="btn" onClick={() => { setNote(null); setConfirm('original'); }}>Use the original default again</button>}
+          </>
+        )}
       </div>
+      {note && <span className="muted small" role="status">{note}</span>}
     </div>
   );
 }

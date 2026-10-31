@@ -75,7 +75,7 @@ a.btn { text-decoration: none; color: var(--on-accent); }
 
 /* Book Log */
 .booklog { display: flex; flex-direction: column; gap: 16px; }
-.bl-head { display: flex; align-items: flex-end; gap: 20px; border-bottom: 1px solid var(--line); padding-bottom: 10px; flex-wrap: wrap; }
+.bl-head { display: flex; align-items: center; gap: 20px; border-bottom: 1px solid var(--line); padding-bottom: 10px; flex-wrap: wrap; }
 .bl-head .pagetitle { margin: 0; white-space: nowrap; }
 .accent { color: var(--accent); }
 .reads { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -855,7 +855,7 @@ button.lbtn { cursor: pointer; }
 .chalwrap { display: flex; flex-direction: column; gap: 6px; align-items: stretch; } .chalwrap > .mini, .chalwrap > .movebtns { align-self: flex-start; }
 
 /* ---- book menu and merge review ---- */
-.bl-head .bookmenu { margin-left: auto; align-self: flex-start; }
+.bl-head .bl-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
 .mrg { display: flex; flex-direction: column; gap: 14px; }
 .mrg-sides { display: grid; grid-template-columns: 150px 1fr 1fr; gap: 12px; align-items: start; }
 .mrg-side { display: flex; flex-direction: column; gap: 2px; }
@@ -1281,4 +1281,4 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .le-menu { margin-top: 8px; border: 1px solid var(--line2); border-radius: 6px; background: var(--panel); padding: 4px; display: flex; flex-direction: column; max-height: 320px; overflow-y: auto; }
 .le-item { text-align: left; background: none; border: 0; border-radius: 4px; padding: 8px; color: var(--text); font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
 .le-item:hover { background: var(--panel2); }
-.favbtn { align-self: flex-end; }
+.favbtn { white-space: nowrap; }

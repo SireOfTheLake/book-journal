@@ -7,7 +7,7 @@ import { migrateNodeDb } from '../src/db/nodeDb';
 import { FeaturesProvider } from '../src/features/FeaturesContext';
 import LayoutCard from '../src/pages/settings/LayoutCard';
 import { addCard, CARD_DEFS, defaultLayout, missingCards, moveCard, normalizeLayout, removeCard, resizeCard, settle, solveRows, type BookLayout } from '../src/domain/bookLayout';
-import { getLayout, resetLayout, saveLayout } from '../src/repo/bookLayout';
+import { clearDefaultLayout, getLayout, resetLayout, saveDefaultLayout, saveLayout } from '../src/repo/bookLayout';
 import { getFeatures } from '../src/repo/features';
 
 afterEach(cleanup);
@@ -25,7 +25,10 @@ describe('layout rules', () => {
     expect(at(l, 'series')).toMatchObject({ col: 1, row: 0, w: 1, h: 2 });
     expect(at(l, 'setting')).toMatchObject({ col: 3, row: 4, h: 1 });
     expect(at(l, 'timeperiod')).toMatchObject({ col: 3, row: 5, h: 1 });
-    expect(at(l, 'narrators')).toMatchObject({ col: 1, w: 3 });
+    expect(at(l, 'narrators')).toMatchObject({ col: 2, w: 3 });
+    expect(at(l, 'reason')).toMatchObject({ col: 1, row: at(l, 'narrators').row });
+    expect(at(l, 'challenges')).toMatchObject({ col: 1, row: at(l, 'notes').row });
+    expect(at(l, 'daylog').row).toBeLessThan(at(l, 'quotes').row);
   });
   it('makes room when a card is moved onto others, and never leaves a card half a column wide', () => {
     const l = moveCard(normalizeLayout(null, ON), 'heat', 1, 0);
@@ -130,5 +133,39 @@ describe('the layout editor in Settings', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reset to the default layout' }));
     fireEvent.click(screen.getByRole('button', { name: 'Yes, reset the layout' }));
     await screen.findByRole('group', { name: 'Series card' });
+  });
+});
+
+describe('your own default layout', () => {
+  it('is what a reset (and a book with no saved layout) goes back to, until you use the original again', async () => {
+    const mine = removeCard(normalizeLayout(null, ON), 'heat');
+    await saveDefaultLayout(db, mine);
+    expect((await getLayout(db, 'default', ON)).cards.some((x) => x.id === 'heat')).toBe(false);
+    await saveLayout(db, 'default', normalizeLayout(null, ON));
+    expect((await getLayout(db, 'default', ON)).cards.some((x) => x.id === 'heat')).toBe(true); // a saved layout wins
+    await resetLayout(db, 'default');
+    expect((await getLayout(db, 'default', ON)).cards.some((x) => x.id === 'heat')).toBe(false);
+    await clearDefaultLayout(db);
+    expect((await getLayout(db, 'default', ON)).cards.some((x) => x.id === 'heat')).toBe(true);
+  });
+  it('is set from the editor after a confirm, and Reset then returns to it', async () => {
+    render(<DbContext.Provider value={db}><FeaturesProvider><LayoutCard /></FeaturesProvider></DbContext.Provider>);
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove the Heat level card' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Set as default' }));
+    expect(screen.getByText(/Make the layout you see now the default/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(screen.queryByRole('button', { name: 'Use the original default again' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Set as default' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, set as default' }));
+    await screen.findByText('This layout is now your default.');
+    fireEvent.click(screen.getByRole('button', { name: '+ Add card' }));
+    fireEvent.click(await screen.findByRole('menuitem', { name: /Heat level/ }));
+    await screen.findByRole('group', { name: 'Heat level card' });
+    fireEvent.click(screen.getByRole('button', { name: 'Reset to the default layout' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, reset the layout' }));
+    await waitFor(() => expect(screen.queryByRole('group', { name: 'Heat level card' })).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'Use the original default again' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Yes, use the original' }));
+    await screen.findByRole('group', { name: 'Heat level card' });
   });
 });

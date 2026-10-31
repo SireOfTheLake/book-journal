@@ -2,7 +2,16 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 -->
+
+## 0.4.1 — 2026-10-31
+
+### New
+- [Desktop] A Set as default button (with a confirmation) in the Book Log layout settings makes the current layout the one Reset goes back to; you can return to the original default.
+
+### Improved
+- [Desktop] The default Book Log layout is now the arrangement you chose: Reason for reading beside Narrators, Challenges beside Notes, and Day log above Quotes.
+- [Desktop] Mark as favorite sits right beside the menu, and the Book Log header items are aligned vertically.
 
 ## 0.4.0 — 2026-10-31
 

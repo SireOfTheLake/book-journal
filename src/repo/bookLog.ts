@@ -22,6 +22,7 @@ export interface BookRow {
   series_id: string | null; series_position: number | null; universe_id: string | null; cover_image_id: string | null;
   own_physical?: number; own_ebook?: number; recommended_by?: string | null;
   own_audio?: number; // 1 = you own that format
+  makeup_override?: string | null; // letters you typed (for example MM) instead of the main characters' genders
   audio_length_seconds?: number | null; // the book's usual audiobook length; each new read starts with it
   placeholder_permanent?: number; // 1 = the placeholder cover is meant to stay, so the book is not counted as missing a cover
   is_draft?: number; // 1 = a blank page made by the Prompt Randomizer, waiting for a book
@@ -130,7 +131,7 @@ export const listItems = (db: Db, table: 'source' | 'time_period' | 'accent' | '
   db.select<Item>(`SELECT id, name${table === 'accent' ? ', color' : table === 'place' ? ', city, state_region AS area, country' : ''} FROM ${table} WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END`);
 
 // ---------- editing ----------
-const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position', 'own_physical', 'own_ebook', 'own_audio', 'recommended_by', 'placeholder_permanent', 'audio_length_seconds']);
+const BOOK_COLS = new Set(['title', 'synopsis', 'page_count', 'pov', 'perspective', 'heat_level', 'time_period_id', 'time_period_detail', 'setting_text', 'original_publication_date', 'is_favorite', 'series_position', 'own_physical', 'own_ebook', 'own_audio', 'recommended_by', 'placeholder_permanent', 'audio_length_seconds', 'makeup_override']);
 const READ_COLS = new Set(['status', 'start_date', 'finish_date', 'finish_time', 'rating', 'format', 'source_id', 'audio_length_seconds', 'narration_style', 'notes', 'stopped_reason', 'stopped_where']);
 
 async function patch(db: Db, table: 'book' | 'read', allowed: Set<string>, id: string, fields: Record<string, SqlValue>) {

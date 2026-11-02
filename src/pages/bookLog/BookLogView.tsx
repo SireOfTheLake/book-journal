@@ -158,6 +158,38 @@ function Authors({ log, lists, act }: { log: BookLog; lists: Lists; act: Actions
   );
 }
 
+// The couple makeup (for example M/M/F). It follows the main characters' genders unless you click it and type your own letters
+// (M, F and X, in any order); clearing it goes back to following the characters.
+export function MakeupEditor({ makeup, overridden, onSave }: { makeup: string | null; overridden: boolean; onSave(v: string | null): void }) {
+  const [editing, setEditing] = useState(false);
+  const [v, setV] = useState('');
+  const finish = (save: boolean) => {
+    setEditing(false);
+    if (!save) return;
+    const letters = v.toUpperCase().replace(/[^MFX]/g, '');
+    if (letters !== (overridden ? makeup ?? '' : '')) onSave(letters || null);
+  };
+  if (editing) {
+    return (
+      <div className="makeup">
+        <input className="field makeupinput" autoFocus aria-label="Makeup letters" placeholder="MM" value={v} maxLength={8}
+          onChange={(e) => setV(e.target.value.toUpperCase().replace(/[^MFX]/g, ''))} onBlur={() => finish(true)}
+          onKeyDown={(e) => { if (e.key === 'Enter') finish(true); if (e.key === 'Escape') finish(false); }} />
+        <span className="muted small">M, F or X for each person. Leave it empty to follow the main characters' genders.</span>
+      </div>
+    );
+  }
+  const unknown = !!makeup && makeup.includes('?');
+  return (
+    <div className="makeup">
+      <button type="button" className={`ed makeupbtn ${makeup ? '' : 'add'}`} aria-label={makeup ? 'Edit makeup' : 'Set makeup'} title="Click to set it yourself" onClick={() => { setV(overridden ? makeup ?? '' : ''); setEditing(true); }}>
+        {makeup ? <span className={unknown ? 'big muted' : 'big accent'}>{displayMakeup(makeup)}</span> : 'Set couple makeup'}
+      </button>
+      {unknown && <span className="muted">Set each main character's gender, or click to type it yourself.</span>}
+    </div>
+  );
+}
+
 function Characters({ log, lists, act }: { log: BookLog; lists: Lists; act: Actions }) {
   const [adding, setAdding] = useState(false);
   const person = (c: LogCharacter) => <Link className="l" to={`/characters/${c.id}`}>{c.name}</Link>;
@@ -165,12 +197,7 @@ function Characters({ log, lists, act }: { log: BookLog; lists: Lists; act: Acti
   const side = log.characters.filter((c) => c.role === 'side');
   return (
     <Card label="Characters in this book" className="span4">
-      {log.makeup && (
-        <div className="makeup">
-          <span className={log.makeup.includes('?') ? 'big muted' : 'big accent'}>{displayMakeup(log.makeup)}</span>
-          <span className="muted">{log.makeup.includes('?') ? "Set each main character's gender to fill this in." : "from the main characters' gender"}</span>
-        </div>
-      )}
+      <MakeupEditor makeup={log.makeup} overridden={!!log.book.makeup_override} onSave={(v) => act.updateBook({ makeup_override: v })} />
       {main.map((c) => {
         const bits = [c.gender ? GENDER[c.gender] : null, ageText(c.age_min, c.age_max) || null, c.occupations].filter(Boolean).join(', ');
         return (

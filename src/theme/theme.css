@@ -1282,3 +1282,5 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .le-item { text-align: left; background: none; border: 0; border-radius: 4px; padding: 8px; color: var(--text); font: inherit; cursor: pointer; display: flex; flex-direction: column; gap: 2px; }
 .le-item:hover { background: var(--panel2); }
 .favbtn { white-space: nowrap; }
+
+.makeupbtn { padding: 0; } .makeupinput { width: 110px; text-transform: uppercase; letter-spacing: .2em; font-size: 20px; }

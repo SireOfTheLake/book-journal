@@ -17,6 +17,7 @@ import BankPage from './pages/BankPage';
 import ChallengePage from './pages/ChallengePage';
 import ReleasesPage from './pages/ReleasesPage';
 import ShelfPage from './pages/ShelfPage';
+import TrackerPage from './pages/TrackerPage';
 import DashboardPage from './pages/DashboardPage';
 import MonthChartPage from './pages/MonthChartPage';
 import { AuthorPage, AuthorsPage, NarratorPage, NarratorsPage } from './pages/people/PeoplePages';
@@ -69,6 +70,7 @@ export default function App() {
         <Route path="journal/month-chart" element={<MonthChartPage />} />
         <Route path="journal/bracket" element={<BracketPage />} />
         <Route path="journal/dashboard" element={<DashboardPage />} />
+        <Route path="journal/tracker" element={<TrackerPage />} />
         <Route path="journal/challenges" element={<ChallengesPage />} />
         <Route path="journal/randomizer" element={<RandomizerPage />} />
         <Route path="journal/challenges/banks/:id" element={<BankPage />} />

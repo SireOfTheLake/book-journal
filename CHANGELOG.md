@@ -2,7 +2,16 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 -->
+
+## 0.4.3 — 2026-11-05
+
+### New
+- [Desktop] Trackers page under Journal: a bullet-journal style year grid (months across, days down) showing the days you read, colored by pages read, with a legend and a diagonal slash on days you finished a book.
+- [Desktop] A second tracker for books finished, colored by how many you finished that day.
+
+### Improved
+- [Desktop] The page-count ranges are chosen from your own reading and can be changed with Edit ranges on the Trackers page.
 
 ## 0.4.2 — 2026-11-02
 

@@ -1284,3 +1284,21 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .favbtn { white-space: nowrap; }
 
 .makeupbtn { padding: 0; } .makeupinput { width: 110px; text-transform: uppercase; letter-spacing: .2em; font-size: 20px; }
+
+/* Bullet-journal trackers */
+.trk { display: flex; gap: 28px; align-items: flex-start; }
+.trk-legend { display: flex; flex-direction: column; gap: 8px; width: 230px; flex: none; border: 2px solid var(--text); border-radius: 4px; padding: 14px 16px; background: var(--panel); }
+.trk-legend b { letter-spacing: .12em; }
+.trk-key { display: flex; align-items: center; gap: 10px; }
+.trk-sw { width: 24px; height: 18px; border: 1.5px solid var(--text); display: inline-block; flex: none; background: transparent; }
+.trk-slash { background: linear-gradient(to top right, transparent calc(50% - 1px), var(--text) calc(50% - 1px), var(--text) calc(50% + 1px), transparent calc(50% + 1px)); }
+.trk-note { font-size: 12px; color: var(--muted); } .trk-sum { font-size: 13px; margin-top: 4px; }
+.trk-grid { display: grid; grid-template-columns: 28px repeat(12, 1fr); width: min(100%, 640px); border-top: 0; }
+.trk-grid > .trk-row { display: contents; }
+.trk-head { text-align: center; font-weight: 700; font-size: 13px; padding-bottom: 2px; }
+.trk-day { text-align: right; padding-right: 6px; font-size: 12px; line-height: 22px; font-weight: 700; }
+.trk-cell { height: 22px; border: 1px solid var(--text); margin: 0 -1px -1px 0; background: transparent; position: relative; }
+.trk-cell.off { background: repeating-linear-gradient(135deg, transparent 0 4px, var(--line) 4px 5px); border-color: var(--line2); }
+.trk-cell.fin::after { content: ''; position: absolute; inset: 0; background: linear-gradient(to top right, transparent calc(50% - 1px), var(--text) calc(50% - 1px), var(--text) calc(50% + 1px), transparent calc(50% + 1px)); }
+.trk-tabs { margin-bottom: 16px; display: inline-flex; }
+.trk-edit { display: flex; flex-direction: column; gap: 6px; } .trk-edit-row { display: flex; flex-wrap: wrap; gap: 6px; } .trk-edit .num { width: 64px; }

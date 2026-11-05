@@ -16,9 +16,10 @@ const ABOUT = [
   'period: the dates covered. books: every read finished (or stopped) in the period, with all the details written about it.',
   'inProgress: reads started but not finished by the end of the period. history: every other finished read, kept small, to show taste over time.',
   'daily: pages read each day (worked out from logged positions; audio shows seconds listened). series, challenges and quotes follow.',
-  'Ratings are 1 to 5 stars (half stars allowed). Heat level is 0 to 5. Dates are YYYY-MM-DD. Cover pictures, when included, are in covers/ and named in each book\'s "cover".',
+  'Ratings are stars from 0 to 5 in quarter steps (4.5 means four and a half). Heat level is 0 to 5. Dates are YYYY-MM-DD. Cover pictures, when included, are in covers/ and named in each book\'s "cover".',
 ];
 
+const stars = (r: number | null) => (r === null ? null : r / 4); // ratings are saved as 0 to 20 (quarter stars)
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 40) || 'book';
 const names = (xs: { name: string }[]) => xs.map((x) => x.name);
 
@@ -52,7 +53,7 @@ export async function buildWrapup(db: Db, period: WrapupPeriod, opts: { includeC
       title: log.book.title, authors: names(log.authors), status: rd.status, favorite: log.book.is_favorite === 1,
       series: log.series ? { title: log.series.title, position: log.book.series_position, mainBooks: log.series.main_total } : null,
       universe: (log.universe ?? log.seriesUniverse)?.name ?? null,
-      started: rd.start_date, finished: rd.finish_date, daysToFinish: days, rating: rd.rating, format: rd.format,
+      started: rd.start_date, finished: rd.finish_date, daysToFinish: days, rating: stars(rd.rating), format: rd.format,
       pages: log.book.page_count, audioHours: rd.audio_length_seconds ? Math.round(rd.audio_length_seconds / 360) / 10 : null,
       narrators: log.narrators.map((x) => ({ name: x.name, rating: x.rating, accent: x.accent ?? (names(x.accents).join(', ') || null) })), narrationStyle: rd.narration_style,
       genres: names(log.genres), themes: names(log.themes), tropes: names(log.tropes), moods: names(log.moods), pace: names(log.paces), contentWarnings: names(log.warnings),
@@ -79,6 +80,7 @@ export async function buildWrapup(db: Db, period: WrapupPeriod, opts: { includeC
        (SELECT group_concat(g.name, ', ') FROM book_genre j JOIN genre g ON g.id = j.genre_id WHERE j.book_id = b.id AND j.deleted_at IS NULL) AS genres
      FROM read r JOIN book b ON b.id = r.book_id
      WHERE r.deleted_at IS NULL AND b.deleted_at IS NULL AND r.status = 'finished' AND r.finish_date IS NOT NULL AND NOT (r.finish_date BETWEEN ? AND ?) ORDER BY r.finish_date`, [from, to]);
+  for (const h of history) h.rating = stars(h.rating);
   const tracker = await getTracker(db, year);
   const daily = [...tracker.days.entries()].filter(([d, v]) => v.read && d >= from && d <= to).sort(([a], [b]) => (a < b ? -1 : 1)).map(([date, v]) => ({ date, pages: v.pages, finishedBooks: v.finished }));
   const series = await db.select<{ title: string; total_books: number | null; read_in_period: number; read_ever: number }>(

@@ -2,7 +2,20 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 -->
+
+## 0.5.0 — 2026-11-05
+
+### New
+- [Desktop] Book board game: a dice-rolling path of 25, 40 or 60 spaces, freshly generated every time with its own zones, name and prompts. Land on a prompt, pick a book you read for it, then roll again; reach the final space to win.
+- [Desktop] Board spaces include wild spaces (pick 1 of 3 prompts), bonus and penalty spaces, items, side quests, zone bosses that earn titles, next-in-series and TBR spaces with real picks from your library.
+- [Desktop] Rerolls, shields and extra dice are tokens you earn and spend. Prompts lean MM romance, with a gentle, balanced or adventurous stretch into YA fantasy, sci-fi, mystery and other genres, and draw on your unfinished challenge prompts and tags.
+
+### Improved
+- [Desktop] Print and PDF now live in Settings instead of the sidebar.
+
+### Fixed
+- [Desktop] The wrap-up export reports ratings in stars instead of the stored 0 to 20 scale.
 
 ## 0.4.4 — 2026-11-05
 

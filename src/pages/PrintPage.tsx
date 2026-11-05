@@ -50,7 +50,7 @@ export default function PrintPage() {
 
   return (
     <section className="printpage">
-      <h1 className="pagetitle noprint">PRINT AND PDF <span className="muted small">Journal {year}</span></h1>
+      <h2 className="gname-sm noprint">Print and PDF <span className="muted small">Journal {year}</span></h2>
       {error && <div className="bcard warn noprint" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}
       <div className="printlayout">
         <aside className="printui noprint" aria-label="What to print">

@@ -28,7 +28,7 @@ async function read(title: string, finish: string, extra: { pages?: number; form
   const { bookId, readId } = await quickAdd(db, { title, authors: ['Ann'], status: 'reading' });
   await updateBook(db, bookId, { page_count: extra.pages ?? 200 });
   await updateRead(db, readId!, { start_date: finish.slice(0, 8) + '01', format: extra.format ?? 'ebook', ...(extra.audio ? { audio_length_seconds: extra.audio } : {}) });
-  await updateRead(db, readId!, { status: 'finished', finish_date: finish, rating: 4 } as never);
+  await updateRead(db, readId!, { status: 'finished', finish_date: finish, rating: 16 } as never);
   return { bookId, readId: readId! };
 }
 

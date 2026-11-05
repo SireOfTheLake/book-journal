@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useBackupEnv } from '../backup/context';
+import PrintPage from './PrintPage';
 import { exportWrapup } from '../backup/wrapup';
 import { MONTHS } from '../domain/printPlan';
 import { exportJson, lastBackupAt, listBackups, makeBackup, saveCopy, type BackupFile, type BackupKind } from '../backup/backup';
@@ -27,7 +28,7 @@ export default function SettingsPage() {
   const [pictures, setPictures] = useState(false);
   const [unavailable, setUnavailable] = useState<string | null>(null);
   const [size, setSize] = useState<DataSize | null>(null);
-  const [tab, setTab] = useState<'backup' | 'appearance' | 'lists' | 'features' | 'layout' | 'sync' | 'updates'>('backup');
+  const [tab, setTab] = useState<'backup' | 'print' | 'appearance' | 'lists' | 'features' | 'layout' | 'sync' | 'updates'>('backup');
 
   const load = useCallback(async () => {
     setLast(await lastBackupAt(db));
@@ -51,10 +52,11 @@ export default function SettingsPage() {
   }
 
   return (
-    <section className="settings">
-      <h1 className="pagetitle">SETTINGS</h1>
-      <div className="tabs" role="tablist" aria-label="Settings">
+    <section className={`settings${tab === 'print' ? ' wide' : ''}`}>
+      <h1 className="pagetitle noprint">SETTINGS</h1>
+      <div className="tabs noprint" role="tablist" aria-label="Settings">
         <button type="button" role="tab" id="tab-backup" aria-selected={tab === 'backup'} aria-controls="panel-backup" onClick={() => setTab('backup')}>Backup and Export</button>
+        <button type="button" role="tab" id="tab-print" aria-selected={tab === 'print'} aria-controls="panel-print" onClick={() => setTab('print')}>Print and PDF</button>
         <button type="button" role="tab" id="tab-appearance" aria-selected={tab === 'appearance'} aria-controls="panel-appearance" onClick={() => setTab('appearance')}>Appearance and Themes</button>
         <button type="button" role="tab" id="tab-lists" aria-selected={tab === 'lists'} aria-controls="panel-lists" onClick={() => setTab('lists')}>Lists</button>
         <button type="button" role="tab" id="tab-features" aria-selected={tab === 'features'} aria-controls="panel-features" onClick={() => setTab('features')}>Features</button>
@@ -62,6 +64,7 @@ export default function SettingsPage() {
         <button type="button" role="tab" id="tab-sync" aria-selected={tab === 'sync'} aria-controls="panel-sync" onClick={() => setTab('sync')}>Sync</button>
         <button type="button" role="tab" id="tab-updates" aria-selected={tab === 'updates'} aria-controls="panel-updates" onClick={() => setTab('updates')}>App updates</button>
       </div>
+      {tab === 'print' && <div role="tabpanel" id="panel-print" aria-labelledby="tab-print" className="tabpanel"><PrintPage /></div>}
       {tab === 'lists' && <div role="tabpanel" id="panel-lists" aria-labelledby="tab-lists" className="tabpanel"><ListsCard /></div>}
       {tab === 'features' && <div role="tabpanel" id="panel-features" aria-labelledby="tab-features" className="tabpanel"><FeaturesCard /></div>}
       {tab === 'layout' && <div role="tabpanel" id="panel-layout" aria-labelledby="tab-layout" className="tabpanel"><LayoutCard /></div>}

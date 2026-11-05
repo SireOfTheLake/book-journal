@@ -102,11 +102,11 @@ export default function Shell() {
         <NavLink to="/journal/month-chart" className={link}><Icon name="grid" />Month chart</NavLink>
         <NavLink to="/journal/bracket" className={link}><Icon name="bracket" />Book bracket</NavLink>
         <NavLink to="/journal/tracker" className={link}><Icon name="grid" />Trackers</NavLink>
-        <NavLink to="/journal/print" className={link}><Icon name="printer" />Print and PDF</NavLink>
         <NavLink to="/journal/overview" className={link}><Icon name="overview" />Overview and goals</NavLink>
         <NavLink to="/journal/dashboard" className={link}><Icon name="dashboard" />Dashboard</NavLink>
         <NavLink to="/journal/challenges" className={link}><Icon name="challenges" />Challenges</NavLink>
         <NavLink to="/journal/randomizer" className={link}><Icon name="dice" />Prompt randomizer</NavLink>
+        <NavLink to="/journal/board-game" className={link}><Icon name="dice" />Board game</NavLink>
         <span className="spacer" />
         <button type="button" className="nav navbtn" onClick={clog.show}><Icon name="sparkle" />What's new{clog.unseen && <span className="newdot" role="img" aria-label="new" />}</button>
         <NavLink to="/import" className={link}><Icon name="import" />Import</NavLink>

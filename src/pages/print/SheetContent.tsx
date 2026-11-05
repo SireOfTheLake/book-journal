@@ -1,4 +1,4 @@
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useResolvedPath } from 'react-router-dom';
 import type { SheetView } from '../../domain/printPlan';
 import BookLogPage from '../BookLogPage';
 import BracketPage from '../BracketPage';
@@ -11,10 +11,10 @@ import SeriesPageContainer from '../series/SeriesPageContainer';
 import TrackerPage from '../TrackerPage';
 import ChallengeTrackerSheet from './ChallengeTrackerSheet';
 
-const BASE = '/journal/print';
 
 /** One printed page: the same page you see in the app, shown for one month, book, challenge or series. */
 export default function SheetContent({ view }: { view: SheetView }) {
+  const BASE = useResolvedPath('').pathname.replace(/\/$/, ''); // the address of the page this is shown on
   switch (view.kind) {
     case 'tracker': return <TrackerPage kind={view.tracker} />;
     case 'calendar': return <CalendarPage fixedMonth={view.month} />;

@@ -4,7 +4,7 @@ export type SettingScope = 'shared' | 'device';
 
 /** Settings that sync: which optional features are switched on. */
 export const DEVICE_SETTING_PREFIXES = ['sync_'];
-export const SHARED_SETTING_PREFIXES = ['feature_'];
+export const SHARED_SETTING_PREFIXES = ['feature_', 'boardgame_']; // boardgame_: the board game's boards
 /** Settings that never leave the device. */
 export const DEVICE_SETTINGS = [
   'theme',          // the look can differ between a desktop and a phone

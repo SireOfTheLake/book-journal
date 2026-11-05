@@ -2,7 +2,26 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 -->
+
+## 0.5.1 — 2026-11-05
+
+### New
+- [Desktop] Print and PDF now starts with a title page: choose your title (Book Journal by default) and add your name if you like. The period reads "Oct. 2026", or just the year.
+- [Desktop] Printed Quotes pages: your favorite passages from the books you finished, with the book, page and character.
+- [Desktop] Quotes can name the character who said them (optional).
+- [Database] Quotes have an optional character name.
+
+### Improved
+- [Desktop] Print and PDF pages are paired for double-sided printing: every calendar sits on a left-hand page with its dashboard facing it on the right, and a blank page is added where needed to line them up.
+- [Desktop] Printed dashboards are laid out on their own: landscape, one page for a month, a two-page spread for the year, no covers or stickers, and bar graphs in place of the dot charts.
+- [Desktop] Printed pages always fill the width of the paper, and the contents page lists page ranges instead of every book.
+- [Desktop] Printed book logs have no quotes card, stack the format choices, keep relationships on their own line, and lay narrators out cleanly.
+- [Desktop] Challenges with many prompts, like 100 Prompts, now fit on one printed page with smaller covers, and the US map is smaller.
+- [Desktop] The printed series ledger is split into as many pages as it needs, with larger text, and printed series logs spread covers across the page without tropes.
+
+### Fixed
+- [Desktop] The series average rating ("4.13 · 2 rated") stays on one line.
 
 ## 0.5.0 — 2026-11-05
 

@@ -313,7 +313,7 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
   };
 
   return (
-    <div className="gridpage" style={{ ['--cc' as string]: c.color }}>
+    <div className={`gridpage${c.total > 40 ? ' dense' : ''}`} style={{ ['--cc' as string]: c.color }}>
       <div className="gtop">
         <div className="gtitle">
           {editing ? <SaveText value={c.name} label="Challenge name" onSave={act.rename} className="field big" /> : <h2 className="pagetitle small2">{c.name}</h2>}

@@ -1,5 +1,6 @@
 import type { Db } from '../db/adapter';
 import type { PrintData } from '../domain/printPlan';
+import { listSeriesLedger } from './series';
 
 /** What there is to print for a year (or one month of it): the months with reading in them, the books finished, the series read, the challenges. */
 export async function getPrintData(db: Db, year: number, month: number | null): Promise<PrintData> {
@@ -24,5 +25,12 @@ export async function getPrintData(db: Db, year: number, month: number | null): 
   const challenges = await db.select<{ id: string; name: string }>(
     `SELECT c.id AS id, c.name AS name FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
      WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY c.sort_order, c.created_at, c.rowid`, [year]);
-  return { activeMonths, reads, series, challenges };
+  const q = await db.select<{ id: string; chars: number; bookId: string }>(
+    `SELECT q.id AS id, length(q.text) + COALESCE(length(q.note), 0) AS chars, q.book_id AS bookId
+     FROM quote q JOIN book b ON b.id = q.book_id AND b.deleted_at IS NULL
+     JOIN (SELECT book_id, min(finish_date) AS fd FROM read WHERE deleted_at IS NULL AND status IN ('finished', 'dnf') AND finish_date BETWEEN ? AND ? GROUP BY book_id) rr ON rr.book_id = b.id
+     WHERE q.deleted_at IS NULL ORDER BY rr.fd, b.id, COALESCE(q.page, 999999), q.created_at, q.rowid`, [from, to]);
+  const quotes = q.map((x, i) => ({ id: x.id, chars: x.chars, newBook: i === 0 || q[i - 1].bookId !== x.bookId }));
+  const ledger = (await listSeriesLedger(db)).map((r) => ({ id: r.id, marks: r.marks.length }));
+  return { activeMonths, reads, series, challenges, ledger, quotes };
 }

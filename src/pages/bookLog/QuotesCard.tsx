@@ -14,13 +14,14 @@ export function QuoteForm({ initial, onSave, onCancel }: { initial?: Quote; onSa
   const [page, setPage] = useState(initial?.page?.toString() ?? '');
   const [time, setTime] = useState(initial?.audio_seconds != null ? formatDuration(initial.audio_seconds) : '');
   const [note, setNote] = useState(initial?.note ?? '');
+  const [who, setWho] = useState(initial?.character_name ?? '');
   const [error, setError] = useState<string | null>(null);
   const save = async () => {
     const pageN = page.trim() ? Number(page) : null;
     const secs = time.trim() ? parseDuration(time) : null;
     if (pageN !== null && (!Number.isInteger(pageN) || pageN < 0)) { setError('The page must be a whole number.'); return; }
     if (time.trim() && secs === null) { setError('Write the time like 1:23 or 1h 23m.'); return; }
-    try { await onSave({ text, page: pageN, audio_seconds: secs, note }); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    try { await onSave({ text, page: pageN, audio_seconds: secs, note, character_name: who }); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
   return (
     <div className="quoteform">
@@ -29,6 +30,7 @@ export function QuoteForm({ initial, onSave, onCancel }: { initial?: Quote; onSa
         <input className="field small" type="number" min="0" aria-label="Page" placeholder="Page" value={page} onChange={(e) => setPage(e.target.value)} />
         <input className="field small" aria-label="Audio time" placeholder="Audio time (1:23)" value={time} onChange={(e) => setTime(e.target.value)} />
       </div>
+      <input className="field" aria-label="Character" placeholder="Who said it? A character's name (optional)" value={who} onChange={(e) => setWho(e.target.value)} />
       <input className="field" aria-label="Quote note" placeholder="Why it stuck with you (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
       {error && <span className="notice" role="alert">{error}</span>}
       <div className="inline"><button type="button" className="btn on" onClick={save}>Save</button><button type="button" className="btn" onClick={onCancel}>Cancel</button></div>
@@ -44,6 +46,7 @@ export function QuoteItem({ q, act, title }: { q: Quote; act: QuoteActions; titl
   return (
     <li className={`quoteitem${q.is_favorite ? ' fav' : ''}`}>
       <span className="quotetext">{q.text}</span>
+      {q.character_name && <span className="small quotewho">{'\u2014 '}{q.character_name}</span>}
       {q.note && <span className="muted small">{q.note}</span>}
       <span className="small inline">
         {title && <Link className="l" to={title.to}>{title.text}</Link>}

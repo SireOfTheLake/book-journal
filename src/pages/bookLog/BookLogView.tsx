@@ -1,4 +1,4 @@
-import { useContext, useEffect, useState, type ReactNode } from 'react';
+import { useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { entryLabel } from '../../domain/entryLabel';
 import { ageText, formatDuration, HEAT, parseDuration } from '../../domain/format';
@@ -25,6 +25,7 @@ import LayoutGrid from './LayoutGrid';
 import { DbContext } from '../../db/DbContext';
 import { useSync } from '../../sync/SyncContext';
 import { getLayout } from '../../repo/bookLayout';
+import { usePrinting } from '../print/printContext';
 import { layoutKeyFor, normalizeLayout, type BookLayout, type CardId } from '../../domain/bookLayout';
 import QuotesCard, { type QuoteActions } from './QuotesCard';
 import type { Quote } from '../../repo/quotes';
@@ -348,7 +349,9 @@ export interface ChallengeInfo { items: ReadChallenge[]; choices: ChallengeChoic
 // The saved layout for this book (today one layout for every book), or the default one until it has loaded.
 function useBookLayout(book: { id: string; shelf: string | null }): BookLayout {
   const db = useContext(DbContext);
-  const { flags } = useFeatures();
+  const { flags: allFlags } = useFeatures();
+  const printing = usePrinting();
+  const flags = useMemo(() => (printing ? { ...allFlags, quotes: false } : allFlags), [allFlags, printing]); // quotes get pages of their own in the printed journal
   const { dataVersion } = useSync();
   const key = layoutKeyFor(book);
   const flagKey = JSON.stringify(flags);

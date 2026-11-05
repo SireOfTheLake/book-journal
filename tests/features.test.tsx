@@ -64,7 +64,7 @@ describe('quotes', () => {
     fireEvent.change(screen.getByLabelText('Page'), { target: { value: '7' } });
     fireEvent.change(screen.getByLabelText('Audio time'), { target: { value: '1:05' } });
     fireEvent.click(within(document.body).getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(calls).toEqual([{ text: 'To be', page: 7, audio_seconds: expect.any(Number), note: '' }]));
+    await waitFor(() => expect(calls).toEqual([{ text: 'To be', page: 7, audio_seconds: expect.any(Number), note: '', character_name: '' }]));
   });
 });
 

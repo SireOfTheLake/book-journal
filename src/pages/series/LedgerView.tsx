@@ -21,7 +21,7 @@ export function MarkView({ m, color }: { m: Mark; color: string }) {
   return m.bookId ? <Link to={`/book/${m.bookId}`} className="mklink">{inner}</Link> : inner;
 }
 
-export default function LedgerView({ rows, onCreate }: { rows: LedgerRow[]; onCreate(title: string): void | Promise<void> }) {
+export default function LedgerView({ rows, onCreate, colorOffset = 0 }: { rows: LedgerRow[]; onCreate(title: string): void | Promise<void>; colorOffset?: number }) {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('');
   const [pub, setPub] = useState('');
@@ -55,7 +55,7 @@ export default function LedgerView({ rows, onCreate }: { rows: LedgerRow[]; onCr
       <div className="ltable">
         <div className="srow shead"><span>Series</span><span>Books (position shown in each circle)</span><span>Read</span><span>Status</span></div>
         {shown.map((r, i) => {
-          const color = BOOK_COLORS[i % BOOK_COLORS.length];
+          const color = BOOK_COLORS[(i + colorOffset) % BOOK_COLORS.length];
           return (
             <div key={r.id} className="srow" style={{ background: r.status === 'finished' ? `${color}26` : undefined }}>
               <span>{r.flagged === 1 && <span className="serflag" role="img" aria-label="Needs a change" title="Needs a change">&#9873; </span>}<Link className="l ttl" to={`/series/${r.id}`}>{r.title}</Link>{r.universe && r.universe_id && <span className="muted small"> · <Link className="l inlinelink" to={`/universes/${r.universe_id}`}>{r.universe}</Link></span>}</span>

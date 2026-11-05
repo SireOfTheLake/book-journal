@@ -4,11 +4,11 @@ import BookLogPage from '../BookLogPage';
 import BracketPage from '../BracketPage';
 import CalendarPage from '../CalendarPage';
 import ChallengePage from '../ChallengePage';
-import DashboardPage from '../DashboardPage';
 import MonthChartPage from '../MonthChartPage';
-import SeriesLedgerPage from '../series/SeriesLedgerPage';
 import SeriesPageContainer from '../series/SeriesPageContainer';
 import TrackerPage from '../TrackerPage';
+import PrintDashboard from './PrintDashboards';
+import { LedgerPrint, QuotesPrint } from './ListPages';
 import ChallengeTrackerSheet from './ChallengeTrackerSheet';
 
 
@@ -18,12 +18,13 @@ export default function SheetContent({ view }: { view: SheetView }) {
   switch (view.kind) {
     case 'tracker': return <TrackerPage kind={view.tracker} />;
     case 'calendar': return <CalendarPage fixedMonth={view.month} />;
-    case 'dashboardMonth': return <DashboardPage fixed={{ tab: 'monthly', month: view.month }} />;
-    case 'dashboardYear': return <DashboardPage fixed={{ tab: 'yearly' }} />;
+    case 'dashboardMonth': return <PrintDashboard month={view.month} />;
+    case 'dashboardYear': return <PrintDashboard part={view.part} />;
     case 'monthChart': return <MonthChartPage />;
     case 'bracket': return <BracketPage />;
     case 'challenges': return <ChallengeTrackerSheet />;
-    case 'ledger': return <SeriesLedgerPage />;
+    case 'ledger': return <LedgerPrint ids={view.ids} part={view.part} parts={view.parts} />;
+    case 'quotes': return <QuotesPrint ids={view.ids} part={view.part} parts={view.parts} />;
     default: {
       // These pages read their book, challenge or series from the address, so they are given an address of their own.
       const path = view.kind === 'book' ? `book/${view.bookId}/${view.readId}` : view.kind === 'challenge' ? `challenge/${view.id}` : `series/${view.id}`;

@@ -9,6 +9,7 @@ const ALL = PRINT_TYPES.map((t) => t.id);
 // A month's printout is the month itself; the year-wide pages are there to add if you want them.
 const MONTH_DEFAULT: PrintType[] = ['calendar', 'dashboard', 'bookLogs', 'seriesLogs'];
 const KEY = (mode: 'year' | 'month') => `print_types_${mode}`;
+const setText = (db: ReturnType<typeof useDb>, key: string, value: string) => db.execute("INSERT INTO app_setting (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')", [key, value]);
 
 async function loadTypes(db: ReturnType<typeof useDb>, mode: 'year' | 'month'): Promise<Set<PrintType>> {
   const [row] = await db.select<{ value: string }>('SELECT value FROM app_setting WHERE key = ?', [KEY(mode)]);
@@ -30,8 +31,18 @@ export default function PrintPage() {
   const [ready, setReady] = useState(false);
   const [pages, setPages] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [title, setTitle] = useState('Book Journal');
+  const [name, setName] = useState('');
   const period = useMemo(() => ({ year, month: mode === 'month' ? month : null }), [year, mode, month]);
 
+  useEffect(() => {
+    let live = true;
+    db.select<{ key: string; value: string }>("SELECT key, value FROM app_setting WHERE key IN ('print_title', 'print_name')").then((r) => {
+      if (!live) return;
+      for (const x of r) { if (x.key === 'print_title' && x.value) setTitle(x.value); if (x.key === 'print_name') setName(x.value); }
+    }, () => undefined);
+    return () => { live = false; };
+  }, [db]);
   useEffect(() => { setMonth(year === new Date().getFullYear() ? new Date().getMonth() + 1 : 1); }, [year]);
   useEffect(() => { let live = true; setTypes(null); loadTypes(db, mode).then((t) => live && setTypes(t), (e) => live && setError(String(e))); return () => { live = false; }; }, [db, mode]);
   useEffect(() => { let live = true; setData(null); getPrintData(db, year, period.month).then((d) => live && setData(d), (e) => live && setError(String(e))); return () => { live = false; }; }, [db, year, period.month]);
@@ -68,6 +79,13 @@ export default function PrintPage() {
             <span className="muted small">{periodLabel(period)}</span>
           </div>
           <div className="bcard">
+            <span className="lbl2">Title page</span>
+            <label className="stack"><span className="muted small">Title</span>
+              <input className="field" aria-label="Title" value={title} placeholder="Book Journal" onChange={(e) => setTitle(e.target.value)} onBlur={() => void setText(db, 'print_title', title.trim() || 'Book Journal')} /></label>
+            <label className="stack"><span className="muted small">Your name (optional)</span>
+              <input className="field" aria-label="Your name" value={name} placeholder="Leave blank to skip" onChange={(e) => setName(e.target.value)} onBlur={() => void setText(db, 'print_name', name.trim())} /></label>
+          </div>
+          <div className="bcard">
             <span className="lbl2">Pages to include</span>
             <ul className="printtypes">
               {PRINT_TYPES.map((t) => (
@@ -83,11 +101,11 @@ export default function PrintPage() {
           </div>
           <div className="bcard">
             <button type="button" className="btn on printgo" disabled={!ready || !sheets} onClick={print}>{ready ? `Print or save as PDF (${pages} page${pages === 1 ? '' : 's'})` : 'Getting pages ready...'}</button>
-            <span className="muted small">In the print window choose your printer, or <b>Microsoft Print to PDF</b> to save a PDF. Leave the scale at 100% and the margins on Default. Pages print on white paper in Letter size; calendars, the month chart, and the bracket are turned sideways.</span>
+            <span className="muted small">In the print window choose your printer, or <b>Microsoft Print to PDF</b> to save a PDF. Leave the scale at 100% and the margins on Default. Pages print on white paper in Letter size; calendars, dashboards, the month chart, and the bracket are turned sideways. A calendar always sits on a left-hand page with its dashboard facing it, so a blank page is added where needed for double-sided printing.</span>
           </div>
         </aside>
         <div className="printpreview">
-          {sheets ? <PrintDocument period={period} sheets={sheets} onReady={onReady} onTotal={onTotal} /> : <p className="muted noprint">Loading...</p>}
+          {sheets ? <PrintDocument period={period} sheets={sheets} onReady={onReady} onTotal={onTotal} title={title} name={name} /> : <p className="muted noprint">Loading...</p>}
         </div>
       </div>
     </section>

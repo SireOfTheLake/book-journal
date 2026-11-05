@@ -6,10 +6,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Db } from '../src/db/adapter';
 import { DbContext } from '../src/db/DbContext';
 import { migrateNodeDb } from '../src/db/nodeDb';
-import { periodLabel, planSheets, startPages, tocSections, PRINT_TYPES, type PrintData, type PrintType } from '../src/domain/printPlan';
+import { periodLabel, layoutPages, paginate, planSheets, shortPeriodLabel, tocSections, PRINT_TYPES, type PrintData, type PrintType } from '../src/domain/printPlan';
 import { getPrintData } from '../src/repo/printData';
 import { quickAdd, saveDayEntry, updateBook, updateRead } from '../src/repo/bookLog';
-import { addQuote } from '../src/repo/quotes';
+import { addQuote, listAllQuotes } from '../src/repo/quotes';
 import { createSeries, setBookSeries } from '../src/repo/series';
 import { getCalendarMonth } from '../src/repo/calendar';
 import { buildWrapup, exportWrapup } from '../src/backup/wrapup';
@@ -36,12 +36,13 @@ const ALL = new Set<PrintType>(PRINT_TYPES.map((t) => t.id));
 const data: PrintData = {
   activeMonths: [1, 2], reads: [{ bookId: 'b1', readId: 'r1', title: 'One' }, { bookId: 'b2', readId: 'r2', title: 'Two' }],
   series: [{ id: 's1', title: 'Saga' }], challenges: [{ id: 'c1', name: 'Bingo' }],
+  ledger: [{ id: 's1', marks: 3 }], quotes: [{ id: 'q1', chars: 80, newBook: true }],
 };
 
 describe('what gets printed, and in what order', () => {
   it('puts like pages together, each month calendar followed by its dashboard, with book logs right after the yearly dashboard', () => {
     const order = planSheets({ year: 2026, month: null }, ALL, data).map((s) => s.key);
-    expect(order).toEqual(['trk-pages', 'trk-books', 'cal-1', 'dash-1', 'cal-2', 'dash-2', 'chart', 'bracket', 'dash-year', 'book-r1', 'book-r2', 'chal-tracker', 'chal-c1', 'ledger', 'series-s1']);
+    expect(order).toEqual(['trk-pages', 'trk-books', 'cal-1', 'dash-1', 'cal-2', 'dash-2', 'chart', 'bracket', 'dash-year-1', 'dash-year-2', 'book-r1', 'book-r2', 'quotes-0', 'chal-tracker', 'chal-c1', 'ledger-0', 'series-s1']);
   });
   it('lets any page type be left out, and one month is just that month', () => {
     const some = new Set<PrintType>(['calendar', 'bookLogs']);
@@ -51,22 +52,37 @@ describe('what gets printed, and in what order', () => {
   it('turns the calendars, month chart and the rest into the right paper', () => {
     const s = planSheets({ year: 2026, month: null }, ALL, data);
     expect(s.find((x) => x.key === 'cal-1')!.landscape).toBe(true);
-    expect(s.find((x) => x.key === 'dash-1')!.landscape).toBe(false);
+    expect(s.find((x) => x.key === 'dash-1')!.landscape).toBe(true);
+    expect(s.find((x) => x.key === 'cal-1')!.align).toBe('even');
   });
-  it('numbers the pages after the contents page and builds the contents', () => {
+  it('numbers the pages after the title and contents pages and builds the contents', () => {
     const sheets = planSheets({ year: 2026, month: null }, ALL, data);
-    const counts = sheets.map((s) => (s.key === 'ledger' ? 2 : 1));
-    const starts = startPages(counts);
-    expect(starts[0]).toBe(2);
-    expect(starts[sheets.findIndex((s) => s.key === 'series-s1')]).toBe(2 + sheets.length - 1 + 1);
-    const toc = tocSections(sheets, starts, counts);
-    expect(toc.map((t) => t.title)).toEqual(['Trackers', 'Calendars and monthly dashboards', 'Month chart', 'Book bracket', 'Yearly dashboard', 'Book logs', 'Challenge tracker', 'Challenge logs', 'Series ledger', 'Series logs']);
+    const counts = sheets.map(() => 1);
+    const lay = layoutPages(counts, sheets.map((x) => x.align));
+    expect(lay.starts[0]).toBe(3);
+    const i = (k: string) => sheets.findIndex((x) => x.key === k);
+    // every calendar is on a left (even) page and its dashboard faces it on the next (odd) page
+    for (const m of [1, 2]) { expect(lay.starts[i(`cal-${m}`)] % 2).toBe(0); expect(lay.starts[i(`dash-${m}`)]).toBe(lay.starts[i(`cal-${m}`)] + 1); }
+    expect(lay.starts[i('dash-year-1')] % 2).toBe(0);
+    expect(lay.starts[i('dash-year-2')]).toBe(lay.starts[i('dash-year-1')] + 1);
+    expect(lay.blankBefore[i('cal-1')]).toBe(true); // trackers end on an odd page 4? pages 3 and 4, so the calendar starts at 5 and needs a blank
+    expect(lay.total).toBeGreaterThanOrEqual(2 + sheets.length);
+    const toc = tocSections(sheets, lay.starts, counts);
+    expect(toc.map((t) => t.title)).toEqual(['Trackers', 'Calendars and monthly dashboards', 'Month chart', 'Book bracket', 'Yearly dashboard', 'Book logs', 'Quotes', 'Challenge tracker', 'Challenge logs', 'Series ledger', 'Series logs']);
     const pair = toc[1];
-    expect([pair.from, pair.to]).toEqual([4, 7]);
     expect(pair.entries.map((e) => e.label)).toEqual(['January', 'February']);
-    const ledger = toc.find((t) => t.title === 'Series ledger')!;
-    expect(ledger.to - ledger.from).toBe(1);
+    expect(toc.find((t) => t.title === 'Book logs')!.entries).toEqual([]);
     expect(periodLabel({ year: 2026, month: 3 })).toBe('March 2026');
+    expect(shortPeriodLabel({ year: 2026, month: 10 })).toBe('Oct. 2026');
+    expect(shortPeriodLabel({ year: 2026, month: null })).toBe('2026');
+  });
+  it('splits long lists across as many pages as they need', () => {
+    expect(paginate([1, 1, 1, 1, 1], 2)).toEqual([[0, 1], [2, 3], [4]]);
+    expect(paginate([], 10)).toEqual([]);
+    const many = { ...data, ledger: Array.from({ length: 70 }, (_, k) => ({ id: `s${k}`, marks: 4 })) };
+    const pages = planSheets({ year: 2026, month: null }, new Set<PrintType>(['seriesLedger']), many);
+    expect(pages.length).toBeGreaterThan(2);
+    expect(pages.flatMap((x) => (x.view.kind === 'ledger' ? x.view.ids : []))).toHaveLength(70);
   });
 });
 
@@ -87,6 +103,23 @@ describe('what there is to print', () => {
   });
 });
 
+describe('quotes in the printed journal', () => {
+  it('keeps the character who said a quote, and finds the quotes from books finished in the period', async () => {
+    const a = await read('Early', '2026-01-10');
+    const b = await read('Late', '2026-03-10');
+    await addQuote(db, a.bookId, { text: 'Hello there', page: 5, character_name: ' Cam ' });
+    await addQuote(db, b.bookId, { text: 'Goodbye', note: 'sad' });
+    const all = await listAllQuotes(db);
+    expect(all.find((q) => q.text === 'Hello there')!.character_name).toBe('Cam');
+    expect(all.find((q) => q.text === 'Goodbye')!.character_name).toBeNull();
+    const y = await getPrintData(db, 2026, null);
+    expect(y.quotes.map((q) => q.newBook)).toEqual([true, true]);
+    const jan = await getPrintData(db, 2026, 1);
+    expect(jan.quotes).toHaveLength(1);
+    expect(y.ledger).toEqual([]);
+  });
+});
+
 function Where() { return <span data-testid="where">{useLocation().pathname + useLocation().search}</span>; }
 
 describe('the print page', () => {
@@ -96,12 +129,13 @@ describe('the print page', () => {
     expect(await screen.findByRole('checkbox', { name: /Trackers/ })).toBeTruthy();
     expect(screen.getAllByRole('checkbox')).toHaveLength(PRINT_TYPES.length);
     await waitFor(() => expect(document.querySelector('[data-sheet="toc"]')).toBeTruthy());
-    expect(document.querySelector('.toc-title')!.textContent).toBe('2026');
+    expect(document.querySelector('.toc-title')!.textContent).toBe('Contents');
+    expect(document.querySelector('.tp-period')!.textContent).toBe('2026');
     await waitFor(() => expect(document.querySelectorAll('[data-sheet]').length).toBeGreaterThan(3));
     fireEvent.click(screen.getByRole('checkbox', { name: /Trackers/ }));
     await waitFor(() => expect(document.querySelector('[data-sheet="trk-pages"]')).toBeNull());
     fireEvent.click(screen.getByRole('button', { name: 'One month' }));
-    await waitFor(() => expect(document.querySelector('.toc-title')!.textContent).toMatch(/\d{4}/));
+    await waitFor(() => expect(document.querySelector('.tp-period')!.textContent).toMatch(/\d{4}/));
     expect(document.querySelector('.printui select')).toBeTruthy();
   });
 });

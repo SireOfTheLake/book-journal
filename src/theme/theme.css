@@ -1417,3 +1417,77 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .bg-tok b { font-size: 18px; }
 .bg-won { border-color: var(--accent); }
 @media (max-width: 1000px) { .bg-layout { grid-template-columns: 1fr; } }
+
+/* Print: dashboards, title page, quotes, ledger */
+.pdash { display: flex; flex-direction: column; gap: 10px; }
+.pdash .dashhead { font-size: 22px; }
+.pdgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; align-items: stretch; }
+.pdgrid .span2 { grid-column: span 1; } .pdgrid .s2 { grid-column: span 2; } .pdgrid .s3 { grid-column: span 3; } .pdgrid .s4 { grid-column: span 4; }
+.pdgrid .bcard { padding: 8px 10px; gap: 4px; }
+.pdgrid .relline { padding: 3px 0; gap: 8px; }
+.pdgrid .statrow { gap: 14px; }
+.pdgrid .makeups { min-height: 0; grid-auto-rows: auto; gap: 5px; }
+.pdgrid .dmk { padding: 6px 4px; gap: 3px; } .pdgrid .dmkglyph { height: 24px; gap: 4px; } .pdgrid .dmkdot { width: 22px; height: 22px; font-size: 11px; } .pdgrid .dmkword { font-size: 12px; } .pdgrid .dmkname { font-size: 11px; } .pdgrid .dmknum { font-size: 18px; }
+.pdgrid .mbars { height: 150px; }
+.pbars { display: flex; gap: 8px; align-items: flex-end; height: 110px; }
+.pbar { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 2px; min-width: 0; font-size: 12px; }
+.pbtrack { flex: 1; width: 100%; display: flex; align-items: flex-end; }
+.pbfill { width: 100%; border-radius: 3px 3px 0 0; }
+.pbl { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.pbar b { font-size: 13px; min-height: 1em; }
+.quotewho { color: var(--muted); }
+.nowrap { white-space: nowrap; }
+
+.tpage { position: relative; height: 900px; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 70px 40px 0; border: 3px double var(--line2); box-sizing: border-box; margin: 10px 0 0; }
+.tp-kicker { font-size: 15px; letter-spacing: .5em; color: var(--accent); }
+.tp-name { font-family: var(--display); font-size: 34px; letter-spacing: .08em; margin-top: 10px; }
+.tp-rule { display: flex; align-items: center; gap: 14px; width: 60%; margin: 46px 0 34px; color: var(--accent); }
+.tp-rule i { flex: 1; border-top: 2px solid var(--line2); }
+.tp-title { margin: 0; font-family: var(--display); font-weight: 400; font-size: 92px; line-height: 1.02; letter-spacing: .05em; text-transform: uppercase; overflow-wrap: anywhere; }
+.tp-period { margin-top: 34px; font-family: var(--display); font-size: 44px; letter-spacing: .3em; color: var(--accent); }
+.tp-shelf { position: absolute; left: 70px; right: 70px; bottom: 90px; height: 250px; display: flex; align-items: flex-end; gap: 6px; }
+.tp-spine { flex: 1; border-radius: 3px 3px 0 0; position: relative; display: block; opacity: .9; }
+.tp-spine i { position: absolute; left: 0; right: 0; top: 14%; border-top: 3px solid rgba(255, 255, 255, .55); border-bottom: 3px solid rgba(255, 255, 255, .55); height: 8px; }
+.tp-spine.lit { outline: 3px solid var(--text); outline-offset: 3px; opacity: 1; }
+.tp-line { position: absolute; left: 70px; right: 70px; bottom: 82px; border-top: 4px solid var(--text); }
+
+.pquotes .pagetitle { margin-bottom: 8px; }
+.pq { padding: 0 0 8px; }
+.pq-book { margin: 14px 0 4px; font-size: 18px; color: var(--accent); border-bottom: 1px solid var(--line2); padding-bottom: 3px; }
+.pq-text { margin: 6px 0 2px 18px; padding-left: 12px; border-left: 3px solid var(--accent); font-style: italic; font-size: 15px; line-height: 1.4; white-space: pre-wrap; }
+.pq-meta { margin-left: 33px; display: flex; gap: 14px; flex-wrap: wrap; }
+.pq-who { font-weight: 700; } .pq-fav { color: var(--accent); }
+.pledger .ltable { width: 100%; } .pledger .srow { font-size: 15px; } .pledger .callegend { font-size: 12px; }
+
+/* Print: book logs */
+.printdoc .mainrow { flex-wrap: wrap; row-gap: 2px; }
+.printdoc .mainrow .rel { flex: 1 1 100%; order: 3; text-align: left; font-size: .92em; }
+.printdoc .mainrow .nm { overflow-wrap: anywhere; }
+.printdoc .narr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; }
+.printdoc .narrname { grid-column: 1; overflow-wrap: anywhere; }
+.printdoc .narr .narrside { grid-column: 2; grid-row: 1; margin-left: 0; }
+.printdoc .narr .narrvoice { grid-column: 1 / -1; flex: none; }
+.printdoc .narrx { display: none; }
+.printdoc [data-card='format'] .seg { flex-direction: column; }
+.printdoc [data-card='format'] .seg button { border-right: 0; border-bottom: 1px solid var(--line2); flex-direction: row; justify-content: center; padding: 4px; }
+.printdoc [data-card='format'] .seg button:last-child { border-bottom: 0; }
+.printdoc [data-card='series'] { min-width: 0; }
+.printdoc [data-card='series'] .serarrow { display: none; }
+.printdoc [data-card='series'] .serieshead .big { font-size: 18px; overflow-wrap: break-word; }
+
+/* Print: challenge pages. Cards run the full width; a challenge with many prompts gets small covers and no book titles so it fits one page. */
+.printdoc .gcards { gap: 8px; }
+.printdoc .gcards > .gcard { --cell: 100px; --gap: 8px; --pad: 8px; width: auto; flex: 1 1 100%; }
+.printdoc .gcards.split > .gcard { flex: 1 1 40%; }
+.printdoc .gridpage.dense .gcards > .gcard { --cell: 70px; }
+.printdoc .gridpage.dense .gbook, .printdoc .gridpage.dense .plannedtag { display: none; }
+.printdoc .gridpage.dense .glabel { font-size: 10px; }
+.printdoc .gslot { gap: 3px; }
+.printdoc .usmaptools .check { display: none; }
+
+/* Print: series ledger and series log */
+.pledger .srow { font-size: 17px; } .pledger .shead { font-size: 12px; } .pledger .mk { width: 26px; height: 26px; font-size: 12px; }
+.printdoc .seriespage .bookgrid { display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); gap: 12px; }
+.printdoc .seriespage .bookcard { width: auto; min-width: 0; }
+.printdoc .seriespage .bookcard .chips, .printdoc .seriespage .addrow, .printdoc .seriespage .addchar { display: none; }
+.printdoc .seriespage .scover { width: 100%; }

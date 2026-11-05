@@ -14,7 +14,7 @@ export type DashTab = 'monthly' | 'yearly';
 
 const pretty = (n: number) => (Number.isInteger(n) ? n.toLocaleString('en-US') : String(n));
 
-function Counts({ title, items, empty = 'None yet.' }: { title: string; items: { name: string; count: number }[]; empty?: string }) {
+export function Counts({ title, items, empty = 'None yet.' }: { title: string; items: { name: string; count: number }[]; empty?: string }) {
   return (
     <Card label={title}>
       {items.length === 0 ? <span className="muted small">{empty}</span> : items.map((i, n) => (
@@ -34,7 +34,7 @@ export function SplitBar({ label, split, month }: { label: string; split: { befo
   );
 }
 
-function GoalRow({ g, month }: { g: GoalSplit; month: number }) {
+export function GoalRow({ g, month }: { g: GoalSplit; month: number }) {
   return (
     <div className="dgoal" aria-label={g.label}>
       <div className="goalhead"><span className="goaltitle">{g.label}</span><span className="grow" /><span className="muted small">{g.timed ? `${g.from} to ${g.to}` : 'Whole year'}</span></div>
@@ -47,7 +47,7 @@ function GoalRow({ g, month }: { g: GoalSplit; month: number }) {
   );
 }
 
-function BookLine({ b }: { b: MonthBook | null }) {
+export function BookLine({ b }: { b: MonthBook | null }) {
   if (!b) return <span className="muted small">—</span>;
   return <Link className="l" to={`/book/${b.book_id}/${b.read_id}`}>{b.title}</Link>;
 }
@@ -111,7 +111,7 @@ export function SummaryCard({ d, label }: { d: DashboardCore; label: string }) {
 
 // Everything from the covers down: the same for a month and a year.
 const FAVORITES_SHOWN = 5;
-function FavoritesCard({ books }: { books: MonthBook[] }) {
+export function FavoritesCard({ books }: { books: MonthBook[] }) {
   const [all, setAll] = useState(false);
   const shown = all ? books : books.slice(0, FAVORITES_SHOWN);
   return (
@@ -183,7 +183,7 @@ export function SharedCards({ d, period }: { d: DashboardCore; period: string })
 }
 
 // ---------- the yearly dashboard ----------
-function StackBar({ label, before, byMonth, target }: { label: string; before: number; byMonth: number[]; target: number }) {
+export function StackBar({ label, before, byMonth, target }: { label: string; before: number; byMonth: number[]; target: number }) {
   const w = (n: number) => (target > 0 ? Math.min(100, (n / target) * 100) : 0);
   let used = w(before);
   return (
@@ -194,7 +194,7 @@ function StackBar({ label, before, byMonth, target }: { label: string; before: n
   );
 }
 
-function MonthKey() {
+export function MonthKey() {
   return <div className="monthkey small muted">{Array.from({ length: 12 }, (_, i) => <span key={i}><i className="sw" style={{ background: monthColor(i + 1) }} />{monthName(i + 1).slice(0, 3)}</span>)}</div>;
 }
 

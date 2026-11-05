@@ -209,6 +209,12 @@ pub fn run() {
         description: "random colors for tags without one",
         sql: include_str!("../migrations/0036_tag_colors.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 37,
+        description: "quotes can name a character",
+        sql: include_str!("../migrations/0037_quote_character.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

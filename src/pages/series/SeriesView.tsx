@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Item, Status } from '../../repo/bookLog';
 import type { Release, SeriesBook, SeriesPage } from '../../repo/series';
+import { usePrinting } from '../print/printContext';
 import { Card, Combo, EditNotes, EditSelect, EditText, Icon, StarRow, TagEditor } from '../bookLog/parts';
 
 export interface SeriesLists { universes: Item[]; genres: Item[]; books: (Item & { authors: string | null })[]; authors: Item[] }
@@ -135,6 +136,9 @@ function ExistingBook({ lists, act }: { lists: SeriesLists; act: SeriesActions }
 
 export default function SeriesView({ page, lists, act }: { page: SeriesPage; lists: SeriesLists; act: SeriesActions }) {
   const { series } = page;
+  const printing = usePrinting();
+  const n = page.books.length;
+  const cols = n <= 3 ? 3 : n <= 8 ? 4 : n <= 15 ? 5 : n <= 24 ? 6 : 8; // in the printed journal the covers share the whole width
   const [title, setTitle] = useState('');
   const add = async () => { if (title.trim()) { await act.addBook(title); setTitle(''); } };
   return (
@@ -155,7 +159,7 @@ export default function SeriesView({ page, lists, act }: { page: SeriesPage; lis
             <span className="muted small">{`${page.allBooks} ${page.allBooks === 1 ? 'book' : 'books'} in total${page.novellas ? `, including ${page.novellas} ${page.novellas === 1 ? 'novella' : 'novellas'}` : ''}`}</span>
             <span className="inline"><span className="muted small">Numbered books</span><EditText label="Total books in the series" addLabel="Set total" type="number" value={series.total_books} onCommit={(v) => act.update({ total_books: v === '' ? null : Number(v) })} /></span></div>
           <div className="stack"><span className="lbl2">Average rating</span>
-            {page.avgStars !== null ? <span className="inline"><StarRow value={Math.round(page.avgStars * 4) / 4} size={20} /><span className="muted">{(Math.round(page.avgStars * 100) / 100).toString()} · {page.ratedBooks} rated</span></span> : <span className="muted">No ratings yet</span>}</div>
+            {page.avgStars !== null ? <span className="inline"><StarRow value={Math.round(page.avgStars * 4) / 4} size={20} /><span className="muted nowrap">{(Math.round(page.avgStars * 100) / 100).toString()} · {page.ratedBooks} rated</span></span> : <span className="muted">No ratings yet</span>}</div>
           <label className="stack"><span className="lbl2">Interconnected standalones</span>
             <span className="inline"><input type="checkbox" role="switch" className="toggle" checked={series.interconnected_standalones === 1} onChange={(e) => act.update({ interconnected_standalones: e.target.checked ? 1 : 0 })} aria-label="Interconnected standalones" /><span className="muted">{series.interconnected_standalones ? 'Yes' : 'No'}</span></span></label>
         </div>
@@ -175,7 +179,7 @@ export default function SeriesView({ page, lists, act }: { page: SeriesPage; lis
         <button type="button" className="mini" onClick={add}>Add book</button>
       </div>
       <ExistingBook lists={lists} act={act} />
-      <div className="bookgrid">
+      <div className="bookgrid" style={printing ? ({ '--cols': cols } as React.CSSProperties) : undefined}>
         {page.books.map((b) => <BookCard key={b.id} b={b} act={act} />)}
         {page.books.length === 0 && <span className="muted">No books in this series yet.</span>}
       </div>

@@ -67,7 +67,7 @@ export async function buildWrapup(db: Db, period: WrapupPeriod, opts: { includeC
       stoppedBecause: rd.stopped_reason ?? null, stoppedAt: rd.stopped_where ?? null,
       synopsis: log.book.synopsis, notes: rd.notes,
       dayLog: log.entries.map((e) => ({ date: e.entry_date, page: e.position_page, percent: e.position_percent, seconds: e.position_seconds, text: e.text })).filter((e) => e.date <= to),
-      quotes: quotes.map((q) => ({ text: q.text, page: q.page, favorite: q.is_favorite === 1, note: q.note })), cover,
+      quotes: quotes.map((q) => ({ text: q.text, page: q.page, favorite: q.is_favorite === 1, note: q.note, character: q.character_name })), cover,
     });
   }
   const inProgress = await db.select<{ title: string; start_date: string | null; status: string; authors: string | null }>(

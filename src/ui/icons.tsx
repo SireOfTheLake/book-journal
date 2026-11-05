@@ -22,6 +22,7 @@ const PATHS = {
   dice: ['M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z', 'M8 8h.01', 'M16 8h.01', 'M12 12h.01', 'M8 16h.01', 'M16 16h.01'],
   sparkle: ['M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z', 'M19 16l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z'],
   import: ['M12 4v11', 'M7 11l5 5 5-5', 'M5 20h14'],
+  printer: ['M7 9V4h10v5', 'M7 17H4V9h16v8h-3', 'M7 14h10v6H7z'],
   settings: ['M4 7h10', 'M18 7h2', 'M4 17h2', 'M10 17h10', 'M14 5v4', 'M6 15v4'],
 } as const;
 export type IconName = keyof typeof PATHS;

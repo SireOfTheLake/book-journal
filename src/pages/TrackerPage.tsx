@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDb } from '../db/DbContext';
 import { getTracker, saveBounds, type Tracker } from '../repo/tracker';
 import { useJournalYear } from '../ui/Shell';
@@ -6,6 +7,7 @@ import TrackerView, { type TrackerKind } from './TrackerView';
 
 export default function TrackerPage({ kind: forced }: { kind?: TrackerKind }) {
   const db = useDb();
+  const nav = useNavigate();
   const year = useJournalYear();
   const [kind, setKind] = useState<TrackerKind>(forced ?? 'pages');
   const [t, setT] = useState<Tracker | null>(null);
@@ -22,7 +24,7 @@ export default function TrackerPage({ kind: forced }: { kind?: TrackerKind }) {
         </div>
       )}
       {error && <div className="bcard warn" role="alert">{error}</div>}
-      {t ? <TrackerView tracker={t} kind={kind} editable={!forced} onBounds={(b) => void saveBounds(db, b).then(load)} /> : <p className="muted">Loading...</p>}
+      {t ? <TrackerView tracker={t} kind={kind} editable={!forced} onBounds={(b) => void saveBounds(db, b).then(load)} onDay={forced ? undefined : (date) => nav(`/journal/calendar?month=${Number(date.slice(5, 7))}`)} /> : <p className="muted">Loading...</p>}
     </section>
   );
 }

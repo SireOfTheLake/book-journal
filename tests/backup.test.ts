@@ -25,6 +25,7 @@ function env(opts: { pick?: string | null } = {}): BackupEnv {
     copy: async (a, b) => copyFileSync(a, b),
     pickSavePath: async () => (opts.pick === undefined ? join(elsewhere, 'chosen.out') : opts.pick),
     writeText: async (p, t) => writeFileSync(p, t),
+    writeBytes: async (p, b) => writeFileSync(p, b),
     join: (d, n) => join(d, n),
     now: () => clock,
   };

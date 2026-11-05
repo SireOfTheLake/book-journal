@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useBackupEnv } from '../backup/context';
+import { exportWrapup } from '../backup/wrapup';
+import { MONTHS } from '../domain/printPlan';
 import { exportJson, lastBackupAt, listBackups, makeBackup, saveCopy, type BackupFile, type BackupKind } from '../backup/backup';
 import { useDb } from '../db/DbContext';
 import AppearanceCard from './settings/AppearanceCard';
@@ -34,6 +36,11 @@ export default function SettingsPage() {
     catch (e) { setUnavailable(`Backups can only be made inside the app window. (${e instanceof Error ? e.message : String(e)})`); }
   }, [db, getEnv]);
   useEffect(() => { load().catch((e) => setMessage({ ok: false, text: String(e) })); }, [load]);
+
+  const [wrapMode, setWrapMode] = useState<'year' | 'month'>('year');
+  const [wrapYear, setWrapYear] = useState(new Date().getFullYear());
+  const [wrapMonth, setWrapMonth] = useState(new Date().getMonth() + 1);
+  const [wrapCovers, setWrapCovers] = useState(true);
 
   async function run(label: string, fn: () => Promise<string | null>) {
     setBusy(label); setMessage(null);
@@ -77,6 +84,22 @@ export default function SettingsPage() {
         <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={pictures} onChange={(e) => setPictures(e.target.checked)} /><span className="muted">Include pictures (makes the file much larger)</span></label>
         <div className="pictools">
           <button type="button" className="btn" disabled={busy !== null || unavailable !== null} onClick={() => run('export', async () => { const r = await exportJson(db, await getEnv(), { includePictures: pictures }); return r ? `Exported ${r.rows.toLocaleString()} records from ${r.tables} tables to ${r.path}${r.includesPictures ? '' : ' (without pictures)'}.` : null; })}>{busy === 'export' ? 'Exporting...' : 'Export all data (JSON)...'}</button>
+        </div>
+
+        <hr className="rule" />
+        <span className="lbl2">Reading wrap-up export</span>
+        <p className="muted">Everything about a month or a year of reading in one file (books, your notes and day logs, favorite passages, ratings, tags, series, challenges and cover pictures), to give to Claude for a designed wrap-up with recommendations.</p>
+        <div className="pictools">
+          <div className="seg" role="group" aria-label="Wrap-up period">
+            <button type="button" className={wrapMode === 'year' ? 'on' : ''} aria-pressed={wrapMode === 'year'} onClick={() => setWrapMode('year')}>Whole year</button>
+            <button type="button" className={wrapMode === 'month' ? 'on' : ''} aria-pressed={wrapMode === 'month'} onClick={() => setWrapMode('month')}>One month</button>
+          </div>
+          <input className="field num" type="number" aria-label="Wrap-up year" value={wrapYear} onChange={(e) => setWrapYear(Number(e.target.value) || wrapYear)} />
+          {wrapMode === 'month' && <select aria-label="Wrap-up month" value={wrapMonth} onChange={(e) => setWrapMonth(Number(e.target.value))}>{MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}</select>}
+        </div>
+        <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={wrapCovers} onChange={(e) => setWrapCovers(e.target.checked)} /><span className="muted">Include cover pictures (saved as a zip file)</span></label>
+        <div className="pictools">
+          <button type="button" className="btn" disabled={busy !== null || unavailable !== null} onClick={() => run('wrapup', async () => { const r = await exportWrapup(db, await getEnv(), { year: wrapYear, month: wrapMode === 'month' ? wrapMonth : null }, { includeCovers: wrapCovers }); return r ? `Saved ${r.books} ${r.books === 1 ? 'book' : 'books'}${r.covers ? ` and ${r.covers} ${r.covers === 1 ? 'cover' : 'covers'}` : ''} to ${r.path}.` : null; })}>{busy === 'wrapup' ? 'Preparing...' : 'Export wrap-up...'}</button>
         </div>
         {message && <div className={message.ok ? 'notice' : 'muted'} role={message.ok ? 'status' : 'alert'}>{message.text}</div>}
         {unavailable && <div className="muted" role="alert">{unavailable}</div>}

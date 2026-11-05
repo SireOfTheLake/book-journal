@@ -35,7 +35,7 @@ export default function LedgerView({ rows, onCreate }: { rows: LedgerRow[]; onCr
 
   return (
     <div className="ledger">
-      <div className="bltools">
+      <div className="bltools noprint">
         <input className="field search2" placeholder="Find a series" aria-label="Find a series" value={query} onChange={(e) => setQuery(e.target.value)} />
         <select aria-label="Reading status" value={status} onChange={(e) => setStatus(e.target.value)}>
           <option value="">Any reading status</option>
@@ -48,7 +48,7 @@ export default function LedgerView({ rows, onCreate }: { rows: LedgerRow[]; onCr
         <span className="grow" />
         <span className="muted">{shown.length} of {rows.length} series</span>
       </div>
-      <div className="addrow card-ish">
+      <div className="addrow card-ish noprint">
         <input className="field grow" placeholder="+ New series: type a title and press Enter" aria-label="New series" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <button type="button" className="mini" onClick={add}>Add</button>
       </div>

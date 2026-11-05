@@ -11,6 +11,7 @@ export interface BackupEnv {
   copy(from: string, to: string): Promise<void>;
   pickSavePath(defaultName: string, kindName: string, extension: string): Promise<string | null>; // null if cancelled
   writeText(path: string, text: string): Promise<void>;
+  writeBytes(path: string, bytes: Uint8Array): Promise<void>;
   join(dir: string, name: string): string;
   now(): Date;
 }

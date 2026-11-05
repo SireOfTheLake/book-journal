@@ -14,6 +14,7 @@ export function tempBackupEnv(opts: { pick?: () => string | null; failCopy?: boo
     copy: async (a, b) => { if (opts.failCopy) throw new Error('The drive is full.'); copyFileSync(a, b); },
     pickSavePath: async (name) => (opts.pick ? opts.pick() : join(elsewhere, name)),
     writeText: async (p, t) => writeFileSync(p, t),
+    writeBytes: async (p, b) => writeFileSync(p, b),
     join: (d, n) => join(d, n),
     now: opts.clock ?? (() => new Date()),
   };

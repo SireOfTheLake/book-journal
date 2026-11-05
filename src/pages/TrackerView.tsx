@@ -7,7 +7,7 @@ export type TrackerKind = 'pages' | 'books';
 const pad = (n: number) => String(n).padStart(2, '0');
 
 // One bullet-journal tracker: a column for each month and a row for each day, a legend beside it. A slash marks a day a book was finished.
-export default function TrackerView({ tracker, kind, editable, onBounds }: { tracker: Tracker; kind: TrackerKind; editable?: boolean; onBounds?(b: number[] | null): void }) {
+export default function TrackerView({ tracker, kind, editable, onBounds, onDay }: { tracker: Tracker; kind: TrackerKind; editable?: boolean; onBounds?(b: number[] | null): void; onDay?(date: string): void }) {
   const { year, days, bounds } = tracker;
   const labels = kind === 'pages' ? rangeLabels(bounds) : COUNT_LABELS;
   const level = (month: number, day: number) => {
@@ -36,9 +36,11 @@ export default function TrackerView({ tracker, kind, editable, onBounds }: { tra
             {Array.from({ length: 12 }, (_, mi) => mi + 1).map((m) => {
               const off = day > daysInMonth(year, m);
               const lv = off ? -1 : level(m, day);
-              return <span key={m} className={`trk-cell${off ? ' off' : ''}${kind === 'pages' && !off && finished(m, day) ? ' fin' : ''}`} data-level={off ? 'off' : lv}
+              const date = `${year}-${pad(m)}-${pad(day)}`;
+              const go = !off && onDay ? { role: 'link', tabIndex: 0, 'aria-label': `Open ${date} in the calendar`, onClick: () => onDay(date), onKeyDown: (e: React.KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onDay(date); } } } : {};
+              return <span key={m} className={`trk-cell${off ? ' off' : ''}${kind === 'pages' && !off && finished(m, day) ? ' fin' : ''}${go.role ? ' go' : ''}`} data-level={off ? 'off' : lv}
                 style={lv >= 0 ? { background: RANGE_COLORS[lv] } : undefined}
-                title={off ? undefined : `${year}-${pad(m)}-${pad(day)}`} />;
+                title={off ? undefined : date} {...go} />;
             })}
           </div>
         ))}

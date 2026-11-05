@@ -13,6 +13,7 @@ export async function createTauriBackupEnv(): Promise<BackupEnv> {
     copy: (from, to) => fs.copyFile(from, to),
     async pickSavePath(defaultName, kindName, extension) { return save({ defaultPath: defaultName, filters: [{ name: kindName, extensions: [extension] }] }); },
     writeText: (path, text) => fs.writeTextFile(path, text),
+    writeBytes: (path, bytes) => fs.writeFile(path, bytes),
     join: (dir, name) => `${dir.replace(/[\\/]+$/, '')}${dir.includes('\\') ? '\\' : '/'}${name}`,
     now: () => new Date(),
   };

@@ -6,16 +6,17 @@ import DashboardView, { type DashTab } from './DashboardView';
 
 const isoToday = () => new Date().toLocaleDateString('en-CA');
 
-export default function DashboardPage() {
+// `fixed` is for the printed journal: one monthly dashboard, or the yearly one.
+export default function DashboardPage({ fixed }: { fixed?: { tab: DashTab; month?: number } } = {}) {
   const db = useDb();
   const year = useJournalYear();
   const today = isoToday();
-  const [tab, setTab] = useState<DashTab>('monthly');
-  const [month, setMonth] = useState(() => (today.startsWith(String(year)) ? Number(today.slice(5, 7)) : 1));
+  const [tab, setTab] = useState<DashTab>(fixed?.tab ?? 'monthly');
+  const [month, setMonth] = useState(() => fixed?.month ?? (today.startsWith(String(year)) ? Number(today.slice(5, 7)) : 1));
   const [d, setD] = useState<MonthlyDashboard | null>(null);
   const [y, setY] = useState<YearlyDashboard | null>(null);
   const [error, setError] = useState<string | null>(null);
-  useEffect(() => { setMonth(today.startsWith(String(year)) ? Number(today.slice(5, 7)) : 1); }, [year]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (fixed?.month) return; setMonth(today.startsWith(String(year)) ? Number(today.slice(5, 7)) : 1); }, [year]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (tab !== 'yearly') return;
     let live = true; setY(null);

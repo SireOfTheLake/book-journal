@@ -263,13 +263,13 @@ export default function DashboardView({ tab, setTab, year, month, setMonth, d, y
   const t = d?.totals;
   return (
     <div className="dash">
-      <div className="seg dashtabs" role="tablist" aria-label="Dashboard type">
+      <div className="seg dashtabs noprint" role="tablist" aria-label="Dashboard type">
         {(['monthly', 'yearly'] as const).map((k) => <button type="button" role="tab" key={k} aria-selected={tab === k} aria-pressed={tab === k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}>{k === 'monthly' ? 'Monthly' : 'Yearly'}</button>)}
       </div>
 
       {tab === 'yearly' ? (y ? <YearlyView d={y} /> : <p className="muted">Loading...</p>) : (
         <>
-          <div className="monthtabs" role="tablist" aria-label="Month">
+          <div className="monthtabs noprint" role="tablist" aria-label="Month">
             {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
               <button type="button" role="tab" key={m} aria-selected={month === m} className={`mtab ${month === m ? 'on' : ''}`} style={{ ['--mc' as string]: monthColor(m) }} onClick={() => setMonth(m)}>
                 {monthName(m).slice(0, 3)}{today.startsWith(`${year}-${String(m).padStart(2, '0')}`) ? ' •' : ''}

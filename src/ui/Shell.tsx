@@ -12,7 +12,7 @@ import { useFeatures } from '../features/FeaturesContext';
 import UpdateToast from '../update/UpdateToast';
 import ChangelogModal, { useChangelog } from '../changelog/ChangelogModal';
 
-const YearContext = createContext<number>(new Date().getFullYear());
+export const YearContext = createContext<number>(new Date().getFullYear());
 export const useJournalYear = () => useContext(YearContext);
 
 const link = ({ isActive }: { isActive: boolean }) => (isActive ? 'nav cur' : 'nav');
@@ -102,6 +102,7 @@ export default function Shell() {
         <NavLink to="/journal/month-chart" className={link}><Icon name="grid" />Month chart</NavLink>
         <NavLink to="/journal/bracket" className={link}><Icon name="bracket" />Book bracket</NavLink>
         <NavLink to="/journal/tracker" className={link}><Icon name="grid" />Trackers</NavLink>
+        <NavLink to="/journal/print" className={link}><Icon name="printer" />Print and PDF</NavLink>
         <NavLink to="/journal/overview" className={link}><Icon name="overview" />Overview and goals</NavLink>
         <NavLink to="/journal/dashboard" className={link}><Icon name="dashboard" />Dashboard</NavLink>
         <NavLink to="/journal/challenges" className={link}><Icon name="challenges" />Challenges</NavLink>

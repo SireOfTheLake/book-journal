@@ -71,6 +71,8 @@ export default function CalendarView({ data, today, canPrev, canNext, onPrev, on
     const col = idx % 7;
     const covers: CalFinish[] = data.finishes.filter((f) => f.finish_date === date);
     const entries = data.entries.filter((e) => e.date === date);
+    const dayPages = data.pages[date] ?? 0;
+    const daySeconds = data.audio?.[date] ?? 0;
     const here = lines.filter((l) => l.s <= d && d <= l.e);
     return (
       <div key={date} className={`cday${date === today ? ' today' : ''}`}
@@ -124,9 +126,10 @@ export default function CalendarView({ data, today, canPrev, canNext, onPrev, on
           );
         })}
         {entries.length > 0 && <span className="flag" title={entries.map((e) => `${e.title}: ${entryText(e)}`).join('\n')}><Icon name="ebook" />{entryText(entries[0])}{entries.length > 1 ? ` +${entries.length - 1}` : ''}</span>}
-        {(covers.length > 0 || entries.length > 0) && spot?.date === date && (
+        {(covers.length > 0 || entries.length > 0 || dayPages > 0 || daySeconds > 0) && spot?.date === date && (
           <div className="tip" style={{ left: spot.left, top: spot.top, bottom: spot.bottom }}>
             <span className="lbl2">{new Date(year, month - 1, d).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</span>
+            {(dayPages > 0 || daySeconds > 0) && <span className="tiptotal"><b>Read that day:</b> {[dayPages > 0 ? `${dayPages.toLocaleString()} ${dayPages === 1 ? 'page' : 'pages'}` : '', daySeconds > 0 ? `${(daySeconds / 3600).toFixed(1)} ${daySeconds === 3600 ? 'hour' : 'hours'} listened` : ''].filter(Boolean).join(' · ')}</span>}
             {covers.length > 0 && <span className="muted">Finished</span>}
             {covers.map((f) => (
               <div key={f.read_id} className="tipbook" style={{ borderLeftColor: bookColor(f.color_index) }}>
@@ -146,10 +149,10 @@ export default function CalendarView({ data, today, canPrev, canNext, onPrev, on
   return (
     <div className="calendar">
       <div className="calhead">
-        <button type="button" className="ib" aria-label="Previous month" disabled={!canPrev} onClick={onPrev}>&#8249;</button>
+        <button type="button" className="ib noprint" aria-label="Previous month" disabled={!canPrev} onClick={onPrev}>&#8249;</button>
         <span className="calmonth" style={{ color }}>{`${MONTH_NAMES[month - 1].toUpperCase()} ${year}`}</span>
-        <button type="button" className="ib" aria-label="Next month" disabled={!canNext} onClick={onNext}>&#8250;</button>
-        <button type="button" className="mini" onClick={onToday}>Today</button>
+        <button type="button" className="ib noprint" aria-label="Next month" disabled={!canNext} onClick={onNext}>&#8250;</button>
+        <button type="button" className="mini noprint" onClick={onToday}>Today</button>
         <span className="grow" />
         <span><span className="lbl2">Books finished</span> <b className="count">{data.finishes.length}</b></span>
         <span><span className="lbl2">Days with a finish</span> <b className="count">{daysWithFinish}</b></span>

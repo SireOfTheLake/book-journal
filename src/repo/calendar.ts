@@ -9,6 +9,7 @@ export interface CalendarMonth {
   year: number; month: number; start: string; end: string;
   finishes: CalFinish[]; lines: CalLine[]; entries: CalEntry[];
   pages: Record<string, number>; // date -> pages, for days in this month
+  audio?: Record<string, number>; // date -> seconds listened, for days in this month
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -48,7 +49,8 @@ export async function getCalendarMonth(db: Db, year: number, month: number, toda
   }));
   const amounts = new Map(pageReads.map((r) => [r.id, dayAmounts(r)]));
   const perDay = new Map<string, number>();
-  for (const m of amounts.values()) for (const [d, a] of m) if (a.pages) perDay.set(d, (perDay.get(d) ?? 0) + a.pages);
+  const listened = new Map<string, number>();
+  for (const m of amounts.values()) for (const [d, a] of m) { if (a.pages) perDay.set(d, (perDay.get(d) ?? 0) + a.pages); if (a.seconds) listened.set(d, (listened.get(d) ?? 0) + a.seconds); }
   // Every logged place shows a whole-number percent plus the page (and, for audiobooks, the time), worked out from whatever was typed.
   const readById = new Map(reads.map((r) => [r.read_id, r]));
   const entries: CalEntry[] = rawEntries.map((e) => {
@@ -57,6 +59,7 @@ export async function getCalendarMonth(db: Db, year: number, month: number, toda
     return { ...e, page: p.page, percent: p.percent, seconds: p.seconds, gain: amounts.get(e.read_id)?.get(e.date) ?? null };
   });
   const pages: Record<string, number> = {};
-  for (let d = start; d <= end; d = addDays(d, 1)) { const v = perDay.get(d); if (v) pages[d] = Math.round(v); }
-  return { year, month, start, end, finishes, lines, entries: entries.filter((e) => e.date >= start && e.date <= end), pages };
+  const audio: Record<string, number> = {};
+  for (let d = start; d <= end; d = addDays(d, 1)) { const v = perDay.get(d); if (v) pages[d] = Math.round(v); const s = listened.get(d); if (s) audio[d] = Math.round(s); }
+  return { year, month, start, end, finishes, lines, entries: entries.filter((e) => e.date >= start && e.date <= end), pages, audio };
 }

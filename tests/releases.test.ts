@@ -38,6 +38,16 @@ describe('upcoming releases', () => {
     expect(sooner.formats).toEqual({ physical: { status: 'dated', date: '2026-10-20' }, ebook: { status: 'tba', date: null } });
     expect(got.find((x) => x.title === 'Later')!.formats.audio).toEqual({ status: 'dated', date: '2027-01-10' });
   });
+  it('lists a stand-alone book whose publication date is in the future, in every format, until it has its own format dates', async () => {
+    const a = await book('Standalone'); await db.execute('UPDATE book SET original_publication_date = ? WHERE id = ?', ['2026-12-25', a]);
+    const past = await book('Already out'); await db.execute('UPDATE book SET original_publication_date = ? WHERE id = ?', ['2026-01-25', past]);
+    const [got, ...rest] = await listUpcoming(db, TODAY);
+    expect(rest).toEqual([]);
+    expect(got).toMatchObject({ title: 'Standalone', next: '2026-12-25' });
+    expect(got.formats.audio).toEqual({ status: 'dated', date: '2026-12-25' });
+    await setFormatRelease(db, a, 'ebook', '2027-02-01');
+    expect((await listUpcoming(db, TODAY))[0]).toMatchObject({ next: '2027-02-01' });
+  });
   it('leaves out books whose dates have all passed, and formats that are not planned or cleared', async () => {
     const a = await book('Old'); await setFormatRelease(db, a, 'ebook', '2026-01-01');
     const b = await book('Cleared'); await setFormatRelease(db, b, 'ebook', '2027-01-01'); await setFormatRelease(db, b, 'ebook', null);

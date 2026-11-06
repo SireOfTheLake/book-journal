@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDb } from '../../db/DbContext';
-import { chooseWild, completeTile, finishIndex, generateBoard, linkedReadIds, needsChoice, progressOf, promptOf, rerollTile, rollDice, SIZES, takeTurn, TOKEN_LABEL, toggleQuest, type Board, type Pools, type StretchLevel, type TokenName } from '../../domain/boardGame/board';
+import { chooseWild, completeTile, finishIndex, generateBoard, linkedReadIds, needsChoice, progressOf, promptOf, rerollTile, zoneAbout, rollDice, SIZES, takeTurn, TOKEN_LABEL, toggleQuest, type Board, type Pools, type StretchLevel, type TokenName } from '../../domain/boardGame/board';
 import { FAMILY_LABEL, promptCapacity, type Extras } from '../../domain/boardGame/prompts';
 import { newSeed, seeded } from '../../domain/boardGame/rng';
 import { deleteBoard, findReads, listBoards, loadExtras, loadPools, saveBoard, type ReadChoice } from '../../repo/boardGame';
@@ -127,8 +127,18 @@ function BoardView({ board, extras, pools, selected, setSelected, update, roll, 
         <div className="bg-legend muted small" aria-label="Legend">
           <span>{'▲'} bonus</span><span>{'▼'} penalty</span><span>{'◆'} item</span><span>{'✦'} wild</span><span>{'❯❯'} next in series</span><span>{'▤'} TBR</span><span>{'♛'} boss</span><span>! side quest</span>
         </div>
-        <div className="bg-zones">
-          {board.zones.map((z, i) => <span key={i} className="bg-zchip" style={{ ['--zc' as string]: ZONE_COLOR[z.color] }} title={z.blurb}><i />{z.name}{board.tiles[z.to].done ? ' ✓' : ''}</span>)}
+        <div className="bcard">
+          <span className="lbl2">The zones on this board</span>
+          <ul className="bg-zlist">
+            {board.zones.map((z, i) => (
+              <li key={i} style={{ ['--zc' as string]: ZONE_COLOR[z.color] }}>
+                <i aria-hidden="true" />
+                <span><b>{z.name}</b>{board.tiles[z.to].done ? <span className="muted small"> {'\u2713'} boss beaten</span> : null}<br />
+                  <span className="muted">{z.blurb}.</span> {zoneAbout(z.name)}<br />
+                  <span className="muted small">Spaces {board.tiles[z.from].i}{'\u2013'}{z.to}, ending with a boss{board.tiles[z.to].reward ? ` (title: ${board.tiles[z.to].reward})` : ''}.</span></span>
+              </li>
+            ))}
+          </ul>
         </div>
       </div>
       <aside className="bg-right">
@@ -153,8 +163,10 @@ function BoardView({ board, extras, pools, selected, setSelected, update, roll, 
         )}
         <div className="bcard">
           <span className="lbl2">Tokens</span>
-          <div className="bg-tokens">{tokens.map((t) => <span key={t} className="bg-tok" title={TOKEN_HELP[t]}><b>{board.tokens[t]}</b> {TOKEN_LABEL[t]}</span>)}</div>
-          <span className="muted small">Rerolls change a prompt. A shield blocks one slide back. An extra die adds a second die to one roll. Side quests earn rerolls. Bosses block the way until you beat them.</span>
+          <div className="bg-tokens">{tokens.map((t) => <span key={t} className="bg-tok" title={TOKEN_HELP[t]}><TokenIcon token={t} /><b>{board.tokens[t]}</b> {TOKEN_LABEL[t]}</span>)}</div>
+          <ul className="bg-toklist">
+            {tokens.map((t) => <li key={t}><TokenIcon token={t} /><span><b>{TOKEN_LABEL[t]}</b><br /><span className="muted">{TOKEN_WHAT[t]}</span></span></li>)}
+          </ul>
         </div>
         {shown && (
           <div className="bcard">
@@ -181,6 +193,20 @@ function BoardView({ board, extras, pools, selected, setSelected, update, roll, 
 }
 
 const ZONE_COLOR = ['#b0603a', '#5b7e8e', '#8a9a5e', '#9a6aa0', '#c79a45', '#a0505e', '#4f8a7a', '#7a7ab0'];
+const TOKEN_WHAT: Record<TokenName, string> = {
+  reroll: 'Swap the prompt you landed on for a new one. Earn more from side quests, bosses and item spaces. Bosses can\'t be rerolled.',
+  shield: 'Blocks the next penalty that would send you back. Earn one from each boss and from some item spaces.',
+  die: 'Roll two dice instead of one, once. You start with one and can find more on item spaces.',
+};
+export function TokenIcon({ token }: { token: TokenName }) {
+  return (
+    <svg className="bg-ticon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {token === 'reroll' && <><path d="M20 11a8 8 0 0 0-14-4.5L4 9" /><path d="M4 4v5h5" /><path d="M4 13a8 8 0 0 0 14 4.5L20 15" /><path d="M20 20v-5h-5" /></>}
+      {token === 'shield' && <path d="M12 3l8 3v6c0 4.5-3.2 7.8-8 9-4.8-1.2-8-4.5-8-9V6z" />}
+      {token === 'die' && <><rect x="4" y="4" width="16" height="16" rx="3" /><circle cx="9" cy="9" r="1" fill="currentColor" /><circle cx="15" cy="15" r="1" fill="currentColor" /><circle cx="12" cy="12" r="1" fill="currentColor" /></>}
+    </svg>
+  );
+}
 const TOKEN_HELP: Record<TokenName, string> = { reroll: 'Change a prompt', shield: 'Blocks one slide back', die: 'A second die for one roll' };
 
 function PlayTurn({ board, tile, extras, pools, update }: { board: Board; tile: Board['tiles'][number]; extras: Extras; pools: Pools; update(b: Board): Promise<void> }) {

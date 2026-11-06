@@ -12,8 +12,8 @@ export interface ReleaseBook {
   next: string | null; // the soonest date that is today or later, null when every unreleased format is TBA
 }
 
-interface Row { id: string; title: string; authors: string | null; series: string | null; series_id: string | null; position: number | null; shelf: 'tbr' | 'up_next' | null; read: number }
-const BOOKS = `SELECT b.id AS id, b.title AS title, b.series_id AS series_id, b.series_position AS position, b.shelf AS shelf,
+interface Row { id: string; title: string; authors: string | null; series: string | null; series_id: string | null; position: number | null; shelf: 'tbr' | 'up_next' | null; read: number; pub: string | null }
+const BOOKS = `SELECT b.id AS id, b.title AS title, b.series_id AS series_id, b.series_position AS position, b.shelf AS shelf, b.original_publication_date AS pub,
    (SELECT s.title FROM series s WHERE s.id = b.series_id) AS series,
    (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors,
    EXISTS (SELECT 1 FROM read r WHERE r.book_id = b.id AND r.status = 'finished' AND r.deleted_at IS NULL) AS read
@@ -25,8 +25,12 @@ async function withFormats(db: Db, rows: Row[]): Promise<ReleaseBook[]> {
     `SELECT book_id, format, status, release_date FROM format_release WHERE deleted_at IS NULL AND book_id IN (${rows.map(() => '?').join(',')})`, rows.map((r) => r.id));
   return rows.map((r) => {
     const formats: ReleaseBook['formats'] = {};
-    for (const f of rels.filter((x) => x.book_id === r.id)) if (FMTS.includes(f.format)) formats[f.format] = { status: f.status, date: f.release_date };
-    return { ...r, read: !!r.read, formats, next: null };
+    const mine = rels.filter((x) => x.book_id === r.id);
+    for (const f of mine) if (FMTS.includes(f.format)) formats[f.format] = { status: f.status, date: f.release_date };
+    // A stand-alone book with only a publication date (no per-format dates) is treated as coming out in every format on that day.
+    if (!mine.length && r.pub) for (const f of FMTS) formats[f] = { status: 'dated', date: r.pub };
+    const { pub: _pub, ...rest } = r; void _pub;
+    return { ...rest, read: !!r.read, formats, next: null };
   });
 }
 const futureDates = (b: ReleaseBook, today: string) => Object.values(b.formats).flatMap((f) => (f && f.status === 'dated' && f.date && f.date >= today ? [f.date] : []));
@@ -35,7 +39,9 @@ const hasTba = (b: ReleaseBook) => Object.values(b.formats).some((f) => f?.statu
 // Books with something still to come: a format dated today or later, or announced without a date. Soonest first, books with only TBA formats last.
 export async function listUpcoming(db: Db, today: string): Promise<ReleaseBook[]> {
   const ids = await db.select<{ book_id: string }>(
-    `SELECT DISTINCT book_id FROM format_release WHERE deleted_at IS NULL AND (status = 'tba' OR (status = 'dated' AND release_date >= ?))`, [today]);
+    `SELECT DISTINCT book_id FROM format_release WHERE deleted_at IS NULL AND (status = 'tba' OR (status = 'dated' AND release_date >= ?))
+     UNION SELECT b.id FROM book b WHERE b.deleted_at IS NULL AND b.original_publication_date >= ?
+       AND NOT EXISTS (SELECT 1 FROM format_release f WHERE f.book_id = b.id AND f.deleted_at IS NULL)`, [today, today]);
   if (!ids.length) return [];
   const rows = (await db.select<Row>(`${BOOKS} AND b.id IN (${ids.map(() => '?').join(',')})`, ids.map((i) => i.book_id)));
   const books = (await withFormats(db, rows)).map((b) => ({ ...b, next: futureDates(b, today).sort()[0] ?? null }));

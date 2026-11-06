@@ -38,6 +38,9 @@ const ZONES: ZoneKind[] = [
   { name: 'Audio Alley', blurb: 'Close your eyes and let the voices guide you', theme: 'none', mix: { format: 6, trope: 2, character: 1, playful: 1 } },
   { name: 'Wild Woods', blurb: 'Anything can happen here', theme: 'wild', mix: { playful: 2, stretch: 3, format: 2, trope: 2, reread: 1 } },
 ];
+const ZONE_ABOUT: Record<string, string> = {"Trope Town": "Mostly tropes, with a few character and setting prompts.", "The Locker Room": "Sports romance and character prompts: jocks, teammates, rivals and coaches.", "Cover Story": "Playful prompts about covers and titles: colors, objects and words. Judge away.", "Wanderlust Way": "Mostly setting prompts: states, countries, towns and eras.", "Campus Quad": "College and school settings, young characters and the tropes that go with them.", "Neon Nights": "City life, nightlife, and characters with big-city jobs.", "Kingdom Come": "Royalty, knights, heirs, and fantasy stretches into other worlds.", "Fated Forest": "Shifters, fated mates, and paranormal tropes, with a little fantasy stretch.", "Cozy Corner": "Gentle prompts: small towns, comfort reads, and sweet tropes.", "Dark & Stormy": "Mostly stretch prompts: mystery, suspense and thrillers, plus the tropes that fit.", "Audio Alley": "Mostly format prompts: audiobooks, narrators, length and how you read.", "Wild Woods": "A mixed bag: playful prompts, stretch genres, rereads and format twists."};
+/** What a zone is about, for the zone list. */
+export const zoneAbout = (name: string) => ZONE_ABOUT[name] ?? '';
 const ZONE_COLORS = 8;
 
 export interface Pools { series: Pick[]; tbr: Pick[] }

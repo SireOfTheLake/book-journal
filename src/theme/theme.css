@@ -1491,3 +1491,9 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .printdoc .seriespage .bookcard { width: auto; min-width: 0; }
 .printdoc .seriespage .bookcard .chips, .printdoc .seriespage .addrow, .printdoc .seriespage .addchar { display: none; }
 .printdoc .seriespage .scover { width: 100%; }
+.bg-zlist, .bg-toklist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.bg-zlist li { display: flex; gap: 10px; align-items: flex-start; }
+.bg-zlist li > i { flex: none; width: 12px; height: 12px; margin-top: 5px; border-radius: 50%; background: var(--zc); }
+.bg-toklist li { display: flex; gap: 10px; align-items: flex-start; }
+.bg-ticon { flex: none; color: var(--accent); }
+.bg-tok { display: inline-flex; align-items: center; gap: 6px; }

@@ -11,8 +11,8 @@ import { useBackupEnv } from '../backup/context';
 import { isTauri } from '../db/tauriDb';
 import ChallengesView, { type CreateInput, type NewBingoForm } from './ChallengesView';
 
-// Saves every challenge (all years) with its subcategories, prompts, books and stickers as one JSON file.
-function ExportCard() {
+// Saves the challenges of the selected journal year with their subcategories, prompts, books and stickers as one JSON file.
+function ExportCard({ year }: { year: number }) {
   const db = useDb();
   const getEnv = useBackupEnv();
   const [pictures, setPictures] = useState(true);
@@ -20,8 +20,8 @@ function ExportCard() {
   const save = async () => {
     setMsg(null);
     try {
-      const text = JSON.stringify(await exportChallenges(db, { pictures }), null, 1);
-      const name = 'challenges-export.json';
+      const text = JSON.stringify(await exportChallenges(db, { pictures, year }), null, 1);
+      const name = `challenges-export-${year}.json`;
       if (isTauri()) {
         const env = await getEnv();
         const target = await env.pickSavePath(name, 'JSON', 'json');
@@ -37,7 +37,7 @@ function ExportCard() {
   return (
     <section className="bcard" aria-label="Export challenges">
       <h2 className="gname-sm">Export challenge data</h2>
-      <span className="muted small">Saves every challenge from every year with its type, subcategories, prompts, the books on them and the stickers, as one file you can share for analysis.</span>
+      <span className="muted small">Saves the challenges of journal {year} with their type, subcategories, prompts, the books on them and the stickers, as one file you can share for analysis.</span>
       <label className="check"><input type="checkbox" checked={pictures} onChange={(e) => setPictures(e.target.checked)} /> Include the sticker pictures (a bigger file)</label>
       <div className="actions"><button type="button" className="mini" onClick={() => void save()}>Export challenges</button>{msg && <span className="muted small" role="status">{msg}</span>}</div>
     </section>
@@ -71,7 +71,7 @@ export default function ChallengesPage() {
           if (description) await setChallengeDescription(db, id, description);
           nav(`/journal/challenges/${id}`);
         }} /> : <p className="muted">Loading...</p>}
-      <ExportCard />
+      <ExportCard year={year} />
     </section>
   );
 }

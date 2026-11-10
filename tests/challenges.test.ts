@@ -318,5 +318,7 @@ describe('challenge export', () => {
     expect(st.prompts[0]).toMatchObject({ prompt: 'Tea', subcategory: 'Cozy', has_sticker: true, sticker: null });
     expect((await exportChallenges(db, { pictures: true })).challenges.find((x) => x.name === 'Stickers')!.prompts[0].sticker).toBe('data:image/png;base64,AAA');
     expect(sid).toBeTruthy();
+    expect((await exportChallenges(db, { pictures: false, year: 2026 })).challenges.length).toBe(2);
+    expect((await exportChallenges(db, { pictures: false, year: 2027 })).challenges.length).toBe(0);
   });
 });

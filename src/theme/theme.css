@@ -1050,12 +1050,21 @@ a.serarrow:hover, a.serarrow:focus-visible { background: var(--panel2); color: v
 .ordernew .field:first-child { flex: 1 1 240px; }
 .orderlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .orderrow { display: grid; grid-template-columns: auto 28px 44px 1fr auto auto; gap: 10px; align-items: center; padding: 6px 8px; border: 1px solid var(--line2); border-radius: 6px; background: var(--panel, transparent); }
-.orderrow.dragging { opacity: .45; }
-.orderrow.over { border-color: var(--accent); box-shadow: 0 -2px 0 var(--accent); }
+.orderrow { transition: transform .12s; }
+.orderrow.dragging { opacity: .5; border-style: dashed; border-color: var(--accent); background: var(--panel2, transparent); }
+@media (prefers-reduced-motion: reduce) { .orderrow { transition: none; } }
 .orderrow.isread .big { opacity: .7; }
+.orderrow.st-read { border-color: var(--ok); } .orderrow.st-reading { border-color: var(--warn); } .orderrow.st-dnf { border-color: var(--bad); }
+.orderrow.st-read, .orderrow.st-reading, .orderrow.st-dnf { border-width: 2px; }
+.orderrow.dragging { border-color: var(--accent); }
 .draghandle { cursor: grab; color: var(--muted); letter-spacing: -2px; user-select: none; }
 .ordernum { color: var(--muted); text-align: right; }
 .ordercover { width: 44px; height: 66px; object-fit: cover; border-radius: 3px; border: 1px solid var(--line2); display: block; }
+.ordercover.ph { box-sizing: border-box; display: flex; align-items: center; justify-content: center; text-align: center; padding: 3px; font-family: var(--display); font-size: 8px; line-height: 1.1; color: #eee; overflow: hidden; word-break: break-word; }
+.ordercover.ph::after { content: attr(data-t); }
+.ordertitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; }
+.chip.unitag { padding: 1px 8px; font-size: 11px; color: var(--accent); border-color: var(--accent); text-decoration: none; }
+.orderunis { align-items: center; margin: 6px 0; }
 .ordercover.blank { background: hsl(0 0% 50% / .12); }
 .ordermain { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .orderstate { font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line2); white-space: nowrap; color: var(--muted); }

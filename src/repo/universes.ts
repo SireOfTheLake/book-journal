@@ -96,3 +96,7 @@ export const setBookUniverse = (db: Db, bookId: string, universeId: string | nul
 
 export const setSeriesUniverse = (db: Db, seriesId: string, universeId: string | null) =>
   db.execute('UPDATE series SET universe_id = ? WHERE id = ?', [universeId, seriesId]);
+
+export async function listUniverseOptions(db: Db): Promise<{ id: string; name: string }[]> {
+  return db.select<{ id: string; name: string }>('SELECT id, name FROM universe WHERE deleted_at IS NULL ORDER BY CASE WHEN lower(name) LIKE \'the %\' THEN lower(substr(name, 5)) ELSE lower(name) END');
+}

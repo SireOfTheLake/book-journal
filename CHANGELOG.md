@@ -2,7 +2,21 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 -->
+
+## 0.5.4 — 2026-11-10
+
+### New
+- [Desktop] Reading orders have an Add to universe button: search for a universe or type a new one, and every library book in the order goes in. A series whose books are all in the order is added as a whole series.
+- [Desktop] Reading order books show their universe as a tag beside the title, the order lists the universes it touches, and the reading orders list has a Universes column.
+- [Desktop] Challenges page has an Export challenge data button that saves every challenge from every year (name, type, subcategories, prompts, the books on them and the sticker pictures) as one JSON file.
+
+### Improved
+- [Desktop] Dragging a book in a reading order now shows a ghost of the card in the spot where it will land, with the cards below shuffling down to make room.
+- [Desktop] Books in a reading order now have a green border when read, yellow when in progress, and red when you did not finish them.
+
+### Fixed
+- [Desktop] Reading order books without a cover now show their placeholder cover instead of a blank box (books not yet created keep the blank cover).
 
 ## 0.5.3 — 2026-11-06
 

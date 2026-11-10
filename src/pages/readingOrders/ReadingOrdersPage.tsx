@@ -63,13 +63,14 @@ export default function ReadingOrdersPage() {
       <div className="bcard">
         {orders === null ? <p className="muted">Loading...</p> : orders.length === 0 ? <p className="muted">No reading orders yet.</p> : (
           <table className="ordertable">
-            <thead><tr><th>Reading order</th><th>Authors</th><th>Series</th><th>Read</th></tr></thead>
+            <thead><tr><th>Reading order</th><th>Authors</th><th>Series</th><th>Universes</th><th>Read</th></tr></thead>
             <tbody>
               {orders.map((o) => (
                 <tr key={o.id}>
                   <td><Link className="l big" to={`/reading-orders/${o.id}`}>{o.name}</Link></td>
                   <td>{o.authors.join(', ') || <span className="muted">-</span>}</td>
                   <td>{o.series.join(', ') || <span className="muted">-</span>}</td>
+                  <td>{o.universes.length ? <span className="chips">{o.universes.map((u) => <Link key={u.id} className="chip unitag" to={`/universes/${u.id}`}>{u.name}</Link>)}</span> : <span className="muted">-</span>}</td>
                   <td>{o.read} of {o.total}</td>
                 </tr>
               ))}

@@ -6,7 +6,43 @@ import { deleteChallenge, createGrid, createSticker, setChallengeDescription, li
 import { createWordBuilder } from '../repo/words';
 import { useJournalYear } from '../ui/Shell';
 import { createBank, createBingo, deleteBank, listBanks, type BankSummary } from '../repo/bingo';
+import { exportChallenges } from '../repo/challengeExport';
+import { useBackupEnv } from '../backup/context';
+import { isTauri } from '../db/tauriDb';
 import ChallengesView, { type CreateInput, type NewBingoForm } from './ChallengesView';
+
+// Saves every challenge (all years) with its subcategories, prompts, books and stickers as one JSON file.
+function ExportCard() {
+  const db = useDb();
+  const getEnv = useBackupEnv();
+  const [pictures, setPictures] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const save = async () => {
+    setMsg(null);
+    try {
+      const text = JSON.stringify(await exportChallenges(db, { pictures }), null, 1);
+      const name = 'challenges-export.json';
+      if (isTauri()) {
+        const env = await getEnv();
+        const target = await env.pickSavePath(name, 'JSON', 'json');
+        if (!target) return;
+        await env.writeText(target, text);
+      } else {
+        const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+        const a = document.createElement('a'); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
+      }
+      setMsg('Saved.');
+    } catch (e) { setMsg(e instanceof Error ? e.message : String(e)); }
+  };
+  return (
+    <section className="bcard" aria-label="Export challenges">
+      <h2 className="gname-sm">Export challenge data</h2>
+      <span className="muted small">Saves every challenge from every year with its type, subcategories, prompts, the books on them and the stickers, as one file you can share for analysis.</span>
+      <label className="check"><input type="checkbox" checked={pictures} onChange={(e) => setPictures(e.target.checked)} /> Include the sticker pictures (a bigger file)</label>
+      <div className="actions"><button type="button" className="mini" onClick={() => void save()}>Export challenges</button>{msg && <span className="muted small" role="status">{msg}</span>}</div>
+    </section>
+  );
+}
 
 export default function ChallengesPage() {
   const db = useDb();
@@ -35,6 +71,7 @@ export default function ChallengesPage() {
           if (description) await setChallengeDescription(db, id, description);
           nav(`/journal/challenges/${id}`);
         }} /> : <p className="muted">Loading...</p>}
+      <ExportCard />
     </section>
   );
 }

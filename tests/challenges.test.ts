@@ -295,3 +295,28 @@ describe('a book on a prompt before it has been read', () => {
     expect((await ch.listReadChallenges(db, r))[0]).toMatchObject({ planned: false, done: 1 });
   });
 });
+
+describe('challenge export', () => {
+  it('lists type, subcategories, prompts and the books on them, with or without sticker pictures', async () => {
+    const { exportChallenges } = await import('../src/repo/challengeExport');
+    const id = await make();
+    await db.execute('UPDATE challenge SET published = 1 WHERE id = ?', [id]);
+    const c = (await ch.getChallenge(db, id))!;
+    const slot = c.groups[0].slots[0];
+    const { r } = await read('Baker Book', 'finished', '2026-03-01');
+    await ch.fillSlot(db, slot.id, r);
+    const sid = await ch.createSticker(db, { year: 2026, name: 'Stickers', groups: [{ name: 'Cozy' }], stickers: [{ prompt: 'Tea', group: 'Cozy', image: { dataUrl: 'data:image/png;base64,AAA' } }] });
+    const plain = await exportChallenges(db, { pictures: false });
+    const grid = plain.challenges.find((x) => x.name === '100 Prompts')!;
+    expect(grid.type).toBe('Grid');
+    expect(grid.subcategories).toEqual(['Main Character', 'Cover']);
+    expect(grid.prompts.map((p) => [p.prompt, p.subcategory])).toEqual([['Free pick', null], ['A baker', 'Main Character'], ['A spy', 'Main Character'], ['Blue cover', 'Cover']]);
+    expect(grid.prompts.find((p) => p.prompt === 'A baker')!.book).toMatchObject({ title: 'Baker Book', status: 'finished', finished: '2026-03-01' });
+    expect(grid.totals).toEqual({ prompts: 4, with_book: 1, finished: 1 });
+    const st = plain.challenges.find((x) => x.name === 'Stickers')!;
+    expect(st.type).toBe('Sticker');
+    expect(st.prompts[0]).toMatchObject({ prompt: 'Tea', subcategory: 'Cozy', has_sticker: true, sticker: null });
+    expect((await exportChallenges(db, { pictures: true })).challenges.find((x) => x.name === 'Stickers')!.prompts[0].sticker).toBe('data:image/png;base64,AAA');
+    expect(sid).toBeTruthy();
+  });
+});

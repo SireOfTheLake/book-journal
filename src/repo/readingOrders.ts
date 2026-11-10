@@ -5,16 +5,20 @@ import { bestMatch } from '../domain/nameMatch';
 import { createBook } from './books';
 import { setBookCover } from './bookLog';
 import { createSeries, setBookSeries } from './series';
+import { setBookUniverse, setSeriesUniverse } from './universes';
 
 const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 
-export interface OrderSummary { id: string; name: string; total: number; read: number; authors: string[]; series: string[] }
+export interface UniverseRef { id: string; name: string }
+export interface OrderSummary { id: string; name: string; total: number; read: number; authors: string[]; series: string[]; universes: UniverseRef[] }
 export interface OrderItem {
   id: string; position: number; book_id: string | null; title: string; authors: string | null;
   series_id: string | null; series_name: string | null; series_position: number | null;
   is_read: boolean; cover: string | null; note: string | null;
+  universe: UniverseRef | null; // the book's own universe, or its series' universe
+  state: 'read' | 'reading' | 'dnf' | null; // finished wins over reading, and reading over a did-not-finish
 }
-export interface OrderDetail { id: string; name: string; series_id: string | null; author_id: string | null; items: OrderItem[] }
+export interface OrderDetail { id: string; name: string; series_id: string | null; author_id: string | null; items: OrderItem[]; universes: UniverseRef[] }
 
 const IS_READ = "EXISTS (SELECT 1 FROM read r WHERE r.book_id = b.id AND r.status = 'finished' AND r.deleted_at IS NULL)";
 
@@ -25,7 +29,7 @@ export async function listOrders(db: Db): Promise<OrderSummary[]> {
     const o = await getOrder(db, h.id);
     if (!o) continue;
     const uniq = (xs: (string | null)[]) => [...new Set(xs.flatMap((x) => (x ?? '').split(',')).map((x) => x.trim()).filter(Boolean))].sort(byTitle);
-    out.push({ id: o.id, name: o.name, total: o.items.length, read: o.items.filter((i) => i.is_read).length, authors: uniq(o.items.map((i) => i.authors)), series: uniq(o.items.map((i) => i.series_name)) });
+    out.push({ id: o.id, name: o.name, total: o.items.length, read: o.items.filter((i) => i.is_read).length, authors: uniq(o.items.map((i) => i.authors)), series: uniq(o.items.map((i) => i.series_name)), universes: o.universes });
   }
   return out.sort((a, b) => byTitle(a.name, b.name));
 }
@@ -52,25 +56,51 @@ export async function getOrder(db: Db, id: string): Promise<OrderDetail | null> 
   if (!o) return null;
   const rows = await db.select<{
     id: string; position: number; book_id: string | null; title: string; author_name: string | null; series_name: string | null; series_position: number | null; note: string | null;
-    live: string | null; b_title: string | null; b_series_id: string | null; b_series: string | null; b_pos: number | null; b_authors: string | null; read: number | null; cover: string | null;
+    uni_id: string | null; uni_name: string | null; live: string | null; b_title: string | null; b_series_id: string | null; b_series: string | null; b_pos: number | null; b_authors: string | null; read: number | null; cover: string | null; rs: string | null;
   }>(
     `SELECT i.id, i.position, i.book_id, i.title, i.author_name, i.series_name, i.series_position, i.note,
+       u.id AS uni_id, u.name AS uni_name,
        b.id AS live, b.title AS b_title, b.series_id AS b_series_id, s.title AS b_series, b.series_position AS b_pos,
        (SELECT group_concat(a.name, ', ') FROM book_author ba JOIN author a ON a.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL) AS b_authors,
-       CASE WHEN b.id IS NULL THEN NULL ELSE ${IS_READ} END AS read, im.file_path AS cover
+       CASE WHEN b.id IS NULL THEN NULL ELSE ${IS_READ} END AS read, im.file_path AS cover,
+       (SELECT CASE WHEN SUM(r.status = 'finished') > 0 THEN 'read' WHEN SUM(r.status = 'reading') > 0 THEN 'reading' WHEN SUM(r.status = 'dnf') > 0 THEN 'dnf' END FROM read r WHERE r.book_id = b.id AND r.deleted_at IS NULL) AS rs
      FROM reading_order_item i
      LEFT JOIN book b ON b.id = i.book_id AND b.deleted_at IS NULL
      LEFT JOIN series s ON s.id = b.series_id AND s.deleted_at IS NULL
+     LEFT JOIN universe u ON u.id = COALESCE(b.universe_id, s.universe_id) AND u.deleted_at IS NULL
      LEFT JOIN image im ON im.id = b.cover_image_id AND im.deleted_at IS NULL
      WHERE i.order_id = ? AND i.deleted_at IS NULL ORDER BY i.position, i.created_at, i.rowid`, [id]);
   const items: OrderItem[] = rows.map((r) => r.live ? {
     id: r.id, position: r.position, book_id: r.live, title: r.b_title ?? r.title, authors: r.b_authors ?? r.author_name,
-    series_id: r.b_series_id, series_name: r.b_series ?? null, series_position: r.b_pos, is_read: !!r.read, cover: r.cover, note: r.note,
+    series_id: r.b_series_id, series_name: r.b_series ?? null, series_position: r.b_pos, is_read: !!r.read, cover: r.cover, note: r.note, universe: r.uni_id ? { id: r.uni_id, name: r.uni_name ?? '' } : null, state: (r.rs as OrderItem['state']) ?? null,
   } : {
     id: r.id, position: r.position, book_id: null, title: r.title, authors: r.author_name, series_id: null, series_name: r.series_name,
-    series_position: r.series_position, is_read: false, cover: null, note: r.note,
+    series_position: r.series_position, is_read: false, cover: null, note: r.note, universe: null, state: null,
   });
-  return { ...o, items };
+  const seen = new Map<string, UniverseRef>();
+  for (const i of items) if (i.universe) seen.set(i.universe.id, i.universe);
+  return { ...o, items, universes: [...seen.values()].sort((a, b) => byTitle(a.name, b.name)) };
+}
+
+// Puts every library book of the order into a universe. A series whose books are all in the order goes in as a whole
+// (and its books stop having a universe of their own); other books go in one by one. Lines that are not in the library are skipped.
+export async function addOrderToUniverse(db: Db, orderId: string, universeId: string): Promise<{ books: number; series: number; skipped: number }> {
+  const o = await getOrder(db, orderId);
+  if (!o) throw new Error('That reading order is gone.');
+  const inLib = o.items.filter((i) => i.book_id);
+  const bySeries = new Map<string, string[]>();
+  for (const i of inLib) if (i.series_id) bySeries.set(i.series_id, [...(bySeries.get(i.series_id) ?? []), i.book_id as string]);
+  let series = 0, books = 0;
+  const handled = new Set<string>();
+  for (const [sid, ids] of bySeries) {
+    const [{ n }] = await db.select<{ n: number }>('SELECT count(*) AS n FROM book WHERE series_id = ? AND deleted_at IS NULL', [sid]);
+    if (Number(n) !== ids.length) continue;
+    await setSeriesUniverse(db, sid, universeId);
+    for (const b of ids) { await setBookUniverse(db, b, null); handled.add(b); }
+    series++; books += ids.length;
+  }
+  for (const i of inLib) if (!handled.has(i.book_id as string)) { await setBookUniverse(db, i.book_id as string, universeId); books++; }
+  return { books, series, skipped: o.items.length - inLib.length };
 }
 
 export async function renameOrder(db: Db, id: string, name: string) {

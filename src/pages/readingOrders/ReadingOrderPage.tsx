@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useDb } from '../../db/DbContext';
-import { addCustomItem, addLibraryItem, addSeriesToOrder, deleteOrder, getOrder, moveItem, removeItem, renameOrder, updateCustomItem, searchLibraryBooks, type OrderDetail, type OrderItem } from '../../repo/readingOrders';
+import { addOrderToUniverse, addCustomItem, addLibraryItem, addSeriesToOrder, deleteOrder, getOrder, moveItem, removeItem, renameOrder, updateCustomItem, searchLibraryBooks, type OrderDetail, type OrderItem } from '../../repo/readingOrders';
 import { listSeriesOptions } from '../../repo/series';
-import { EditText } from '../bookLog/parts';
+import { createUniverseNamed, listUniverseOptions } from '../../repo/universes';
+import { Combo, EditText } from '../bookLog/parts';
 import AddToLibraryDialog, { type LibraryStart } from './AddToLibraryDialog';
 
 // One reading order. Drag a line (or use the arrows) to change the order.
@@ -14,8 +15,9 @@ export default function ReadingOrderPage() {
   const [order, setOrder] = useState<OrderDetail | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
+  const [slot, setSlot] = useState<number | null>(null); // where the dragged line would land, counted among the other lines
   const [adding, setAdding] = useState<LibraryStart | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const reload = useCallback(async () => setOrder(await getOrder(db, orderId)), [db, orderId]);
@@ -27,20 +29,41 @@ export default function ReadingOrderPage() {
 
   const move = (id: string, to: number) => void run(() => moveItem(db, order.id, id, to));
   const read = order.items.filter((i) => i.is_read).length;
-  const drop = (target: OrderItem) => {
-    const from = dragId;
-    setDragId(null); setOverId(null);
-    if (from && from !== target.id) move(from, order.items.findIndex((i) => i.id === target.id));
+  const endDrag = () => { setDragId(null); setSlot(null); };
+  const drop = () => {
+    const from = dragId, to = slot;
+    endDrag();
+    if (from && to !== null && to !== order.items.findIndex((i) => i.id === from)) move(from, to);
+  };
+  // While a line is dragged, the list is shown as it would be after the drop: the line sits in its new place and the others make room.
+  const others = order.items.filter((i) => i.id !== dragId);
+  const dragged = order.items.find((i) => i.id === dragId);
+  const shown = dragged && slot !== null ? [...others.slice(0, slot), dragged, ...others.slice(slot)] : order.items;
+  const hover = (e: React.DragEvent<HTMLLIElement>, id: string) => {
+    if (!dragId) return;
+    e.preventDefault();
+    if (id === dragId) return;
+    const r = e.currentTarget.getBoundingClientRect();
+    const at = others.findIndex((i) => i.id === id);
+    const next = e.clientY < r.top + r.height / 2 ? at : at + 1;
+    if (next !== slot) setSlot(next);
   };
 
   return (
     <section>
       <h1 className="pagetitle"><Link className="l" to="/reading-orders">READING ORDERS</Link> <span className="muted small">{read} of {order.items.length} read</span></h1>
       {error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}
+      {notice && <div className="bcard" role="status">{notice} <button type="button" className="mini" onClick={() => setNotice(null)}>Dismiss</button></div>}
       <div className="bcard">
         <span className="lbl2">Name</span>
         <EditText label="Reading order name" addLabel="Add name" value={order.name} onCommit={(v) => run(() => renameOrder(db, order.id, v))} />
+        {order.universes.length > 0 && <div className="chips orderunis"><span className="lbl2">Universes</span>{order.universes.map((u) => <UniChip key={u.id} u={u} />)}</div>}
         <div className="actions">
+          <AddToUniverse disabled={!order.items.some((i) => i.book_id)} onPick={(pick) => run(async () => {
+            const id = pick.id ?? await createUniverseNamed(db, pick.name);
+            const r = await addOrderToUniverse(db, order.id, id);
+            setNotice(`Added ${r.books} book${r.books === 1 ? '' : 's'}${r.series ? ` (${r.series} whole series)` : ''} to the universe${r.skipped ? `; ${r.skipped} not in your library ${r.skipped === 1 ? 'was' : 'were'} skipped` : ''}.`);
+          })} />
           {order.series_id && <Link className="mini" to={`/series/${order.series_id}`}>Open the series</Link>}
           {order.author_id && <Link className="mini" to={`/authors/${order.author_id}`}>Open the author</Link>}
           <span className="grow" />
@@ -52,25 +75,27 @@ export default function ReadingOrderPage() {
 
       <div className="bcard">
         {order.items.length === 0 ? <p className="muted">Nothing here yet. Add books below.</p> : (
-          <ol className="orderlist" aria-label="Reading order">
-            {order.items.map((it, idx) => (
-              <li key={it.id} className={`orderrow${dragId === it.id ? ' dragging' : ''}${overId === it.id && dragId !== it.id ? ' over' : ''}${it.is_read ? ' isread' : ''}`}
-                draggable onDragStart={(e) => { setDragId(it.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); }}
-                onDragOver={(e) => { if (dragId) { e.preventDefault(); setOverId(it.id); } }} onDrop={(e) => { e.preventDefault(); drop(it); }}
-                onDragEnd={() => { setDragId(null); setOverId(null); }}>
+          <ol className="orderlist" aria-label="Reading order" onDragOver={(e) => { if (dragId) e.preventDefault(); }} onDrop={(e) => { e.preventDefault(); drop(); }}>
+            {shown.map((it, idx) => (
+              <li key={it.id} className={`orderrow${dragId === it.id ? ' dragging' : ''}${it.is_read ? ' isread' : ''}${it.state ? ` st-${it.state}` : ''}`}
+                draggable onDragStart={(e) => { setDragId(it.id); setSlot(order.items.findIndex((i) => i.id === it.id)); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', it.id); }}
+                onDragOver={(e) => hover(e, it.id)} onDrop={(e) => { e.preventDefault(); drop(); }}
+                onDragEnd={endDrag}>
                 <span className="draghandle" aria-hidden="true" title="Drag to reorder">&#8942;&#8942;</span>
                 <span className="ordernum">{idx + 1}</span>
-                {it.cover ? <img className="ordercover" src={it.cover} alt="" /> : <span className="ordercover blank" aria-hidden="true" />}
+                {it.cover ? <img className="ordercover" src={it.cover} alt="" />
+                  : it.book_id ? <span className="ordercover ph" aria-hidden="true" data-t={it.title} style={{ background: COVER[[...it.title].reduce((n, c) => n + c.charCodeAt(0), 0) % COVER.length] }} />
+                  : <span className="ordercover blank" aria-hidden="true" />}
                 <span className="ordermain">
                   {editing === it.id ? (
                     <EditLine item={it} onCancel={() => setEditing(null)} onSave={(v) => { setEditing(null); void run(() => updateCustomItem(db, it.id, v)); }} />
                   ) : (<>
-                  {it.book_id ? <Link className="l big" to={`/book/${it.book_id}`}>{it.title}</Link> : <b className="big">{it.title}</b>}
+                  <span className="ordertitle">{it.book_id ? <Link className="l big" to={`/book/${it.book_id}`}>{it.title}</Link> : <b className="big">{it.title}</b>}{it.universe && <UniChip u={it.universe} />}</span>
                   <span className="muted small">{[it.authors, it.series_name ? `${it.series_name}${it.series_position !== null ? ` #${it.series_position}` : ''}` : null].filter(Boolean).join(' · ') || ' '}</span></>)}
                   <NoteEdit note={it.note} onSave={(n) => run(async () => { const { updateItemNote } = await import('../../repo/readingOrders'); await updateItemNote(db, it.id, n); })} />
                 </span>
                 <span className={`orderstate ${it.is_read ? 'yes' : 'no'}`}>
-                  {it.is_read ? 'Read' : it.book_id ? 'Not read' : 'Not in library'}
+                  {it.state === 'read' ? 'Read' : it.state === 'reading' ? 'Reading' : it.state === 'dnf' ? 'Did not finish' : it.book_id ? 'Not read' : 'Not in library'}
                 </span>
                 <span className="orderacts">
                   {!it.book_id && <button type="button" className="mini" aria-label={`Edit ${it.title}`} onClick={() => setEditing(it.id)}>Edit</button>}
@@ -91,6 +116,24 @@ export default function ReadingOrderPage() {
       {adding && <AddToLibraryDialog start={adding} onClose={() => setAdding(null)} onDone={() => { setAdding(null); void reload(); }} />}
     </section>
   );
+}
+
+const COVER = ['#5a1f3a', '#2f3a5a', '#3a2f5a', '#4a2f3a', '#2d4a3a', '#5a3a1f'];
+
+function UniChip({ u }: { u: { id: string; name: string } }) {
+  return <Link className="chip unitag" to={`/universes/${u.id}`} title={`Universe: ${u.name}`}>{u.name}</Link>;
+}
+
+// Search for a universe, or type a new name to make one. Every library book in this order goes in.
+function AddToUniverse({ onPick, disabled }: { onPick(p: { id: string | null; name: string }): void; disabled: boolean }) {
+  const db = useDb();
+  const [open, setOpen] = useState(false);
+  const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => { if (open) listUniverseOptions(db).then(setOptions, () => undefined); }, [db, open]);
+  if (!open) return <button type="button" className="mini" disabled={disabled} onClick={() => setOpen(true)}>Add to universe</button>;
+  return <Combo autoFocus label="Search universes" placeholder="Search for a universe" onClose={() => setOpen(false)}
+    options={options.map((o) => ({ key: o.id, label: o.name }))}
+    onPick={(id) => onPick({ id, name: '' })} onCreate={(t) => onPick({ id: null, name: t })} createLabel={(t) => `+ Add "${t}" as a new universe`} />;
 }
 
 function NoteEdit({ note, onSave }: { note: string | null; onSave(n: string): void }) {

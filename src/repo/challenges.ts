@@ -288,6 +288,17 @@ export async function setChallengeColor(db: Db, id: string, color: string) {
   if (!isHexColor(color)) throw new Error('That is not a color.');
   await db.execute('UPDATE challenge SET color = ? WHERE id = ?', [color.toLowerCase(), id]);
 }
+// Puts a challenge before another one in its year (beforeId null = last). The year's challenges are renumbered 0, 1, 2 ...
+export async function moveChallenge(db: Db, id: string, beforeId: string | null) {
+  const me = await first<{ journal_year_id: string }>(db, 'SELECT journal_year_id FROM challenge WHERE id = ? AND deleted_at IS NULL', [id]);
+  if (!me) throw new Error('That challenge no longer exists.');
+  const rows = await db.select<{ id: string }>('SELECT id FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at, rowid', [me.journal_year_id]);
+  const ids = rows.map((r) => r.id).filter((x) => x !== id);
+  const at = beforeId ? ids.indexOf(beforeId) : -1;
+  if (beforeId && at < 0) throw new Error('That challenge is in another year.');
+  ids.splice(at < 0 ? ids.length : at, 0, id);
+  for (const [i, cid] of ids.entries()) await db.execute('UPDATE challenge SET sort_order = ? WHERE id = ? AND sort_order IS NOT ?', [i, cid, i]);
+}
 export async function deleteChallenge(db: Db, id: string) {
   for (const sql of [
     `UPDATE challenge_completion SET deleted_at = ${NOW} WHERE challenge_id = ? AND deleted_at IS NULL`,

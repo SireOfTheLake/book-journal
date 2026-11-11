@@ -1522,3 +1522,9 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .gslots.pyr { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .gslots.pyr > .gslot { width: 118px; }
 .extras { margin-top: 6px; }
+
+.chalcard { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; }
+.chalcard > :last-child { margin-top: auto; }
+.chalwrap { cursor: grab; } .chalwrap.dragging { opacity: .45; }
+.chalwrap.dropbefore { outline: 2px dashed var(--gc, var(--accent)); outline-offset: 3px; border-radius: 6px; }
+.chalwrap > .movebtns { align-self: flex-start; }

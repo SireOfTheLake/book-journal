@@ -199,22 +199,33 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   );
 }
 
-export default function ChallengesView({ year, list, banks, onCreate, onNewBank, onDelete }: { year: number; list: ChallengeSummary[]; banks: BankSummary[]; onCreate(input: CreateInput, description?: string): Promise<void>; onNewBank(name: string, prompts: string[]): Promise<void>; onDelete?(id: string): Promise<void> }) {
+export default function ChallengesView({ year, list, banks, onCreate, onNewBank, onDelete, onMove }: { onMove?(id: string, beforeId: string | null): Promise<void>; year: number; list: ChallengeSummary[]; banks: BankSummary[]; onCreate(input: CreateInput, description?: string): Promise<void>; onNewBank(name: string, prompts: string[]): Promise<void>; onDelete?(id: string): Promise<void> }) {
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
+  const endDrag = () => { setDragId(null); setOverId(null); };
   return (
     <div className="chalpage">
       {!adding && <div><button type="button" className="btn on" onClick={() => setAdding(true)}>+ New challenge</button></div>}
       {adding && <NewChallenge year={year} banks={banks} used={list.map((c) => c.color)} onCancel={() => setAdding(false)} onCreate={async (i) => { await onCreate(i); setAdding(false); }} />}
       {list.length === 0 && !adding && <p className="muted">No challenges for {year} yet. Create one to start placing books on prompts.</p>}
       <div className="chalgrid">
-        {list.map((c) => (
-          <div key={c.id} className="chalwrap">
+        {list.map((c, i) => (
+          <div key={c.id} className={`chalwrap${dragId === c.id ? ' dragging' : ''}${overId === c.id && dragId !== c.id ? ' dropbefore' : ''}`}
+            draggable={!!onMove} onDragStart={(e) => { setDragId(c.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.id); }}
+            onDragOver={(e) => { if (dragId) { e.preventDefault(); setOverId(c.id); } }}
+            onDrop={(e) => { e.preventDefault(); const id = dragId; endDrag(); if (id && id !== c.id && onMove) void onMove(id, c.id); }}
+            onDragEnd={endDrag}>
             <Link to={`/journal/challenges/${c.id}`} className="bcard chalcard" style={{ ['--gc' as string]: c.color ?? accentAt(0) }}>
               <span className="gname-sm">{c.name}</span>
               <span className="muted small">{c.usMap ? 'Map' : c.word ? 'Word builder' : c.pyramid ? 'Pyramid' : KIND[c.kind]}{c.published ? '' : ' · Draft'}</span>
               <TrackerBar t={c} color={c.color ?? undefined} bonus={c.bonus} />
             </Link>
+            {onMove && <span className="movebtns">
+              <button type="button" className="mini" aria-label={`Move ${c.name} earlier`} disabled={i === 0} onClick={() => void onMove(c.id, list[i - 1].id)}>&#9664;</button>
+              <button type="button" className="mini" aria-label={`Move ${c.name} later`} disabled={i === list.length - 1} onClick={() => void onMove(c.id, list[i + 2]?.id ?? null)}>&#9654;</button>
+            </span>}
             {onDelete && (confirm === c.id
               ? <span className="movebtns"><button type="button" className="mini danger" onClick={() => { setConfirm(null); void onDelete(c.id); }}>Delete {c.name}</button><button type="button" className="mini" onClick={() => setConfirm(null)}>Keep</button></span>
               : <button type="button" className="mini" aria-label={`Delete challenge ${c.name}`} onClick={() => setConfirm(c.id)}>Delete</button>)}

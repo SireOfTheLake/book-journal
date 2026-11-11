@@ -2,7 +2,7 @@ import { createMap } from '../repo/usmap';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDb } from '../db/DbContext';
-import { deleteChallenge, createGrid, createSticker, createPyramid, setChallengeDescription, listChallenges, type ChallengeSummary } from '../repo/challenges';
+import { deleteChallenge, createGrid, createSticker, createPyramid, moveChallenge, setChallengeDescription, listChallenges, type ChallengeSummary } from '../repo/challenges';
 import { createWordBuilder } from '../repo/words';
 import { useJournalYear } from '../ui/Shell';
 import { createBank, createBingo, deleteBank, listBanks, type BankSummary } from '../repo/bingo';
@@ -59,6 +59,7 @@ export default function ChallengesPage() {
       {error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}
       {list ? <ChallengesView year={year} list={list} banks={banks} onDelete={async (id) => { try { await deleteChallenge(db, id); await reload(); } catch (e) { setError(String(e)); } }}
         onNewBank={async (name, prompts) => { await createBank(db, name, prompts); await reload(); }}
+        onMove={async (id, before) => { try { await moveChallenge(db, id, before); await reload(); } catch (e) { setError(String(e)); } }}
         onCreate={async (input: CreateInput, description?: string) => {
           let id: string;
           if ('preferUnused' in input) {

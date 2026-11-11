@@ -600,6 +600,9 @@ a.librow:hover { background: var(--panel2); }
 .gcards > .gcard { --cell: 118px; --gap: 14px; --pad: 14px; flex: 0 1 auto; min-width: 0; box-sizing: border-box; max-width: 100%;
   width: calc(var(--cols, 1) * var(--cell) + (var(--cols, 1) - 1) * var(--gap) + 2 * var(--pad) + 2px); }
 .gcards > .gcard.full { width: 100%; }
+.gcards.pyramid { flex-direction: column; align-items: center; gap: 6px; }
+.gcards.pyramid > .gcard { flex: 0 0 auto; border-radius: 4px; border-top-width: 3px; }
+.gcards.pyramid > .gcard .gslots { gap: 6px; }
 .gcards > .gcard.stickercard { --cell: 132px; }
 .gcards .gslots, .gcards .stickersheet { grid-template-columns: repeat(auto-fill, minmax(var(--cell), 1fr)); gap: var(--gap); }
 .stickersheet { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -1506,3 +1509,11 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .bg-toklist li { display: flex; gap: 10px; align-items: flex-start; }
 .bg-ticon { flex: none; color: var(--accent); }
 .bg-tok { display: inline-flex; align-items: center; gap: 6px; }
+
+.combochip { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; padding: 4px 10px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 14%, var(--panel)); border: 1px solid var(--accent); align-self: flex-start; }
+.promptsugg { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
+.promptsugg ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.promptsugg li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.seasonlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.seasonlist li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.seasonlist progress { flex: 1 1 120px; }

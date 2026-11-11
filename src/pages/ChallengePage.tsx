@@ -34,7 +34,7 @@ export default function ChallengePage() {
     const run = async (fn: () => Promise<unknown>) => { try { await fn(); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
     return {
       fill: (s, r, note) => run(async () => { await repo.fillSlot(db, s, r); if (note) await repo.setPromptNote(db, s, note); }), clear: (s) => run(() => repo.clearSlot(db, s)),
-      search: (q) => repo.searchReads(db, id, q),
+      search: (q, n) => repo.searchReads(db, id, q, 30, n),
       describe: (t) => run(() => repo.setChallengeDescription(db, id, t)), rename: (n) => run(() => repo.renameChallenge(db, id, n)), color: (h) => run(() => repo.setChallengeColor(db, id, h)),
       remove: () => { repo.deleteChallenge(db, id).then(() => nav('/journal/challenges'), (e) => setError(String(e))); },
       addGroup: (n) => run(() => repo.addGroup(db, id, n)), renameGroup: (g, n) => run(() => repo.renameGroup(db, g, n)),
@@ -43,23 +43,24 @@ export default function ChallengePage() {
       removePrompt: (s) => run(() => repo.deletePrompt(db, s)),
       askAll: (ask, label) => run(() => repo.setChallengeNotes(db, id, ask, label)), askPrompt: (s, ask) => run(() => repo.setPromptAsk(db, s, ask)), note: (s, t) => run(() => repo.setPromptNote(db, s, t)),
       cardCols: (k, n) => run(() => repo.setCardCols(db, id, k, n)), moveCard: (k, b) => run(() => repo.moveCard(db, id, k, b)),
-      shuffleCards: () => run(() => repo.shuffleCards(db, id)), movePrompt: (s, g, b) => run(() => repo.movePrompt(db, s, g, b)),
+      shuffleCards: () => run(() => repo.shuffleCards(db, id)), setPyramid: (on) => run(() => repo.setPyramid(db, id, on)), movePrompt: (s, g, b) => run(() => repo.movePrompt(db, s, g, b)),
       shufflePrompts: (g) => run(() => repo.shufflePrompts(db, id, g)),
       setLimit: (n, a) => run(() => repo.setLimit(db, id, { required: n, allowBonus: a })), optional: (s, o) => run(() => repo.setPromptOptional(db, s, o)), reveal: () => run(() => repo.revealStickers(db, id)),
       addStickers: async (items) => { await repo.addStickers(db, id, items); await reload(); },
+      attachStickers: (files) => run(async () => { const imgs = []; for (const f of files) imgs.push(await fileToDataUrl(f, 400)); await repo.attachStickers(db, id, imgs); }),
       replaceSticker: (s, f) => run(async () => repo.replaceSticker(db, s, await fileToDataUrl(f, 400))),
     };
   }, [db, id, nav, reload]);
   const bact = useMemo<BingoActions>(() => {
     const run = async (fn: () => Promise<unknown>) => { try { await fn(); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
     return {
-      fill: (s, r) => run(() => repo.fillSlot(db, s, r)), clear: (s) => run(() => repo.clearSlot(db, s)), search: (q) => repo.searchReads(db, id, q),
+      fill: (s, r) => run(() => repo.fillSlot(db, s, r)), clear: (s) => run(() => repo.clearSlot(db, s)), search: (q, n) => repo.searchReads(db, id, q, 30, n),
       describe: (t) => run(() => repo.setChallengeDescription(db, id, t)), rename: (n) => run(() => repo.renameChallenge(db, id, n)),
       remove: () => { repo.deleteChallenge(db, id).then(() => nav('/journal/challenges'), (e) => setError(String(e))); },
       publish: () => run(() => bingo.publishBingo(db, id)), regenerate: () => run(() => bingo.regenerateBoard(db, id)),
       setText: (s, t) => run(() => bingo.setSquareText(db, s, t)), setImage: (s, f) => run(async () => bingo.setSquareImage(db, s, f ? await fileToSquare(f) : null)),
       setColor: (s, h) => run(() => bingo.setSquareColor(db, s, h)), setPalette: (cols) => run(() => bingo.setPalette(db, id, cols)), replaceColor: (from, to) => run(() => bingo.replacePaletteColor(db, id, from, to)), setGoal: (n) => run(() => bingo.setBingoGoal(db, id, n)),
-      rerollColors: () => run(() => bingo.rerollColors(db, id)), swapForAnother: (s) => run(() => bingo.swapForAnother(db, s)),
+      setWindow: (f, u) => run(() => repo.setActiveWindow(db, id, f, u)), rerollColors: () => run(() => bingo.rerollColors(db, id)), swapForAnother: (s) => run(() => bingo.swapForAnother(db, s)),
       pickBankPrompt: (s, p) => run(() => bingo.pickBankPrompt(db, s, p)), swapSquares: (a, b) => run(() => bingo.swapSquares(db, a, b)),
       shuffleBoard: () => run(() => bingo.shuffleBoard(db, id)), size: (n) => run(() => repo.setCardCols(db, id, 'board', n)),
     };
@@ -68,7 +69,7 @@ export default function ChallengePage() {
     const run = async (fn: () => Promise<unknown>) => { try { await fn(); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
     return {
       addWord: (r, w) => run(() => words.setWord(db, id, r, w)), clear: (s) => run(() => repo.clearSlot(db, s)), renameWord: (s, w) => run(() => repo.renamePrompt(db, s, w)),
-      search: (q) => repo.searchReads(db, id, q), describe: (t) => run(() => repo.setChallengeDescription(db, id, t)), rename: (n) => run(() => repo.renameChallenge(db, id, n)), color: (h) => run(() => repo.setChallengeColor(db, id, h)),
+      search: (q, n) => repo.searchReads(db, id, q, 30, n), describe: (t) => run(() => repo.setChallengeDescription(db, id, t)), rename: (n) => run(() => repo.renameChallenge(db, id, n)), color: (h) => run(() => repo.setChallengeColor(db, id, h)),
       theme: (t) => run(() => words.setWordSettings(db, id, { theme: t })), target: (n) => run(() => words.setWordSettings(db, id, { target: n })),
       allowBonus: (on) => run(() => words.setWordSettings(db, id, { allowBonus: on })), bonusLimit: (n) => run(() => words.setWordSettings(db, id, { bonusLimit: n })), presets: (list) => run(() => words.addPresetWords(db, id, list)),
       setLetter: async (l, f) => { try { await words.setLetter(db, id, l, await fileToDataUrl(f, 300)); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } },
@@ -79,7 +80,7 @@ export default function ChallengePage() {
   const mact = useMemo<MapActions>(() => {
     const run = async (fn: () => Promise<unknown>) => { try { await fn(); await reload(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } };
     return {
-      fill: (s, r) => run(() => repo.fillSlot(db, s, r)), clear: (s) => run(() => repo.clearSlot(db, s)), search: (q) => repo.searchReads(db, id, q),
+      fill: (s, r) => run(() => repo.fillSlot(db, s, r)), clear: (s) => run(() => repo.clearSlot(db, s)), search: (q, n) => repo.searchReads(db, id, q, 30, n),
       reroll: (s) => run(() => usmap.rerollStateColor(db, s)),
       fillPlace: (p, r) => run(() => usmap.fillPlace(db, id, p, r)),
       place: (s, p) => run(() => usmap.setSlotPlace(db, s, p)),

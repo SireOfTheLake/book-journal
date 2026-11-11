@@ -4,6 +4,7 @@ import type { ChallengeChoice, ReadChallenge } from '../../repo/challenges';
 import { hasLetters } from '../../domain/words';
 import WordTiles from '../../ui/WordTiles';
 import { Card } from './parts';
+import { matchPrompt, type BookFacts } from '../../domain/promptMatch';
 
 export interface ChallengeActions { assign(slotId: string): void; remove(slotId: string): void; setWord?(challengeId: string, word: string): void }
 
@@ -19,7 +20,8 @@ function PromptSelect({ choice, value, onChange }: { choice: ChallengeChoice; va
 }
 
 // Which challenges this read counts toward, and the prompt it fills in each (one prompt per challenge).
-export default function ChallengesCard({ items, choices, act, bare = false }: { items: ReadChallenge[]; choices: ChallengeChoice[]; act: ChallengeActions; bare?: boolean }) {
+export default function ChallengesCard({ items, choices, act, facts, bare = false }: { items: ReadChallenge[]; choices: ChallengeChoice[]; act: ChallengeActions; facts?: BookFacts; bare?: boolean }) {
+  const [showAll, setShowAll] = useState(false);
   const [adding, setAdding] = useState(false);
   const [changing, setChanging] = useState<string | null>(null); // challenge id whose prompt is being changed
   const [pickChallenge, setPickChallenge] = useState('');
@@ -31,8 +33,14 @@ export default function ChallengesCard({ items, choices, act, bare = false }: { 
   const reset = () => { setAdding(false); setChanging(null); setPickChallenge(''); setPickSlot(''); setWord(''); };
   const lettersOf = (id: string) => choices.find((c) => c.id === id)?.letters ?? {};
 
+  // Prompts in challenges this read is not yet in, that the book's facts say it could fill (a free prompt, or one with no book on it).
+  const suggestions = facts ? choices.filter((c) => !c.word && !items.some((i) => i.challenge_id === c.id) && c.kind !== 'bingo').flatMap((c) => c.slots.filter((s) => !s.taken).map((s) => ({ c, s, why: matchPrompt(s.label, facts) })).filter((x) => x.why)) : [];
+  const combo = items.filter((i) => !i.planned).length;
+  const plannedCount = items.length - combo;
+
   const body = (
     <>
+      {items.length >= 2 && <div className="combochip" role="status" aria-label="Combo"><b>{`Combo x${items.length}`}</b><span className="muted small">{` ${combo} ${combo === 1 ? 'prompt' : 'prompts'} filled across ${new Set(items.map((i) => i.challenge_id)).size} challenges${plannedCount ? `, ${plannedCount} planned` : ''}`}</span></div>}
       {items.length === 0 && !adding && <span className="muted">This read is not counting toward a challenge.</span>}
       <ul className="readchs">
         {items.map((i) => {
@@ -94,6 +102,18 @@ export default function ChallengesCard({ items, choices, act, bare = false }: { 
           </div>
         </div>
       ) : <button type="button" className="mini addchar" onClick={() => setAdding(true)}>+ Add to a challenge</button>}
+      {suggestions.length > 0 && (
+        <div className="promptsugg">
+          <span className="lbl2">{`This book could also fill (${suggestions.length})`}</span>
+          <ul>
+            {(showAll ? suggestions : suggestions.slice(0, 5)).map(({ c, s, why }) => (
+              <li key={s.id}><span className="rcprompt"><span className="muted">{`${c.name}: `}</span><b>{s.label}</b><span className="muted small">{` (${why})`}</span></span>
+                <button type="button" className="mini" aria-label={`Add to ${s.label} in ${c.name}`} onClick={() => act.assign(s.id)}>Add</button></li>
+            ))}
+          </ul>
+          {suggestions.length > 5 && <button type="button" className="quiet" onClick={() => setShowAll((v) => !v)}>{showAll ? 'Show fewer' : `Show all ${suggestions.length}`}</button>}
+        </div>
+      )}
     </>
   );
   return bare ? body : <Card label="Challenges" className="narrowcard">{body}</Card>;

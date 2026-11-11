@@ -11,7 +11,7 @@ export interface BingoActions extends SquareActions {
   describe?(text: string): void;
   fill(slotId: string, readId: string): void;
   clear(slotId: string): void;
-  search(query: string): Promise<Candidate[]>;
+  search(query: string, seriesLen?: number | null): Promise<Candidate[]>;
   rename(name: string): void;
   remove(): void;
   publish(): void;
@@ -19,6 +19,7 @@ export interface BingoActions extends SquareActions {
   setPalette(colors: string[]): void;
   replaceColor(from: string, to: string): void;
   setGoal(goal: number | null): void;
+  setWindow?(from: string | null, until: string | null): void; // the dates the board shows on Home
   rerollColors(): void;
   swapSquares(a: string, b: string): void;
   shuffleBoard(): void;
@@ -87,6 +88,16 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
               <option value="blackout">Full blackout (all 25 squares)</option>
               {Array.from({ length: MAX_BINGO_GOAL }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} bingo{n === 1 ? '' : 's'}</option>)}
             </select></label>
+          {act.setWindow && (
+            <div className="stack"><span className="lbl2">Active on Home</span>
+              <span className="addrow">
+                <input className="field small" type="date" aria-label="Active from" value={c.activeFrom ?? ''} onChange={(e) => act.setWindow!(e.target.value || null, c.activeUntil)} />
+                <span className="muted small">to</span>
+                <input className="field small" type="date" aria-label="Active until" value={c.activeUntil ?? ''} onChange={(e) => act.setWindow!(c.activeFrom, e.target.value || null)} />
+                {(c.activeFrom || c.activeUntil) && <button type="button" className="mini" onClick={() => act.setWindow!(null, null)}>Clear dates</button>}
+              </span>
+              <span className="muted small">The board appears on Home between these dates.</span></div>
+          )}
           <div className="palette" role="group" aria-label="Palette">
             <span className="lbl2">Colors</span>
             {info.palette.map((col) => (

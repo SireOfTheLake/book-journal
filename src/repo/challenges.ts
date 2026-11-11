@@ -17,12 +17,31 @@ export interface Bonus { done: number; total: number } // bonus places on a map:
 export interface ChallengeSummary extends Tracker { id: string; name: string; kind: ChallengeKind; color: string | null; published: boolean; word: boolean; usMap: boolean; bonus: Bonus | null; limited: boolean } // usMap = a US map challenge (a Grid of the 50 states); word = a Word Builder (a kind of Sticker challenge)
 export interface SlotFill { read_id: string; book_id: string; title: string; authors: string | null; status: string }
 export interface Slot { id: string; is_bonus: boolean; is_optional: boolean; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: boolean; bank_prompt_id: string | null; fill: SlotFill | null; askNote: boolean | null; note: string | null } // askNote: true / false = this prompt decides, null = follows the challenge; note = what you wrote for the book on it
+// ---------- date window (a seasonal board shows on Home while it is in season) ----------
+const isoDate = (d: string | null) => d === null || (/^\d{4}-\d{2}-\d{2}$/.test(d) && !Number.isNaN(Date.parse(d)));
+export async function setActiveWindow(db: Db, challengeId: string, from: string | null, until: string | null) {
+  const f = from?.trim() || null; const u = until?.trim() || null;
+  if (!isoDate(f) || !isoDate(u)) throw new Error('Use real dates for the active window.');
+  if (f && u && f > u) throw new Error('The window cannot end before it starts.');
+  await db.execute('UPDATE challenge SET active_from = ?, active_until = ? WHERE id = ? AND deleted_at IS NULL', [f, u, challengeId]);
+}
+export interface InSeason { id: string; name: string; kind: ChallengeKind; color: string | null; year: number; from: string | null; until: string | null; done: number; total: number }
+// Published challenges whose window includes `today` (a challenge with no dates is never "in season").
+export async function listInSeason(db: Db, today: string): Promise<InSeason[]> {
+  const rows = await db.select<{ id: string; year: number; from: string | null; until: string | null }>(
+    `SELECT c.id AS id, y.year AS year, c.active_from AS "from", c.active_until AS until FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
+     WHERE c.deleted_at IS NULL AND y.deleted_at IS NULL AND c.published = 1 AND (c.active_from IS NOT NULL OR c.active_until IS NOT NULL)
+       AND (c.active_from IS NULL OR c.active_from <= ?) AND (c.active_until IS NULL OR c.active_until >= ?) ORDER BY c.active_until IS NULL, c.active_until, c.sort_order, c.rowid`, [today, today]);
+  if (!rows.length) return [];
+  const all = new Map((await Promise.all([...new Set(rows.map((r) => r.year))].map((y) => listChallenges(db, y)))).flat().map((c) => [c.id, c]));
+  return rows.flatMap((r) => { const c = all.get(r.id); return c ? [{ id: r.id, name: c.name, kind: c.kind, color: c.color, year: r.year, from: r.from, until: r.until, done: c.done, total: c.total }] : []; });
+}
 export interface BingoInfo { published: boolean; palette: string[]; bankId: string | null; bankName: string | null; preferUnused: boolean }
 // Every square counts, the free space of a Bingo board too: it is a square where any book goes.
 export const countsTowardTracker = (_s: { is_free: boolean; label: string; art: string | null }) => true;
 export interface Group { id: string; name: string; color: string; slots: Slot[] }
 export interface Challenge extends Tracker {
-  id: string; name: string; kind: ChallengeKind; color: string; year: number;
+  id: string; name: string; kind: ChallengeKind; color: string; year: number; activeFrom: string | null; activeUntil: string | null;
   bingo: BingoInfo | null; layout: Layout; groups: Group[]; loose: Slot[]; // loose = prompts that belong to the main category only
   usMap: boolean; mapRegion: MapId | null; bonusMode: BonusMode; territoryMode: BonusMode; mapLimit: number | null; australia: boolean; ukSplit: boolean; extras: boolean; bonus: Bonus | null; // usMap = any map challenge; mapLimit: "complete after N" with N boxes
   description: string | null; askNote: boolean; noteLabel: string; // askNote: every prompt asks for a short note; noteLabel: what it is called
@@ -46,8 +65,8 @@ export async function listChallenges(db: Db, year: number): Promise<ChallengeSum
 }
 
 export async function getChallenge(db: Db, id: string): Promise<Challenge | null> {
-  const c = await first<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; layout: string | null; published: number; palette: string | null; bank_id: string | null; bank_name: string | null; prefer_unused: number; word: number; usMap: number; map_region: string | null; bonus_mode: string; territory_mode: string | null; map_limit: number | null; map_australia: number; description: string | null; ask_note: number; note_label: string | null; theme: string | null; target: number | null; required_count: number | null; allow_bonus: number; bonus_limit: number | null; bingo_goal: number | null; stickers_revealed: number }>(
-    db, `SELECT c.required_count AS required_count, c.allow_bonus AS allow_bonus, c.bonus_limit AS bonus_limit, c.bingo_goal AS bingo_goal, c.stickers_revealed AS stickers_revealed, c.us_map AS usMap, c.map_region AS map_region, c.bonus_mode AS bonus_mode, c.territory_mode AS territory_mode, c.map_limit AS map_limit, c.map_australia AS map_australia, c.description AS description, c.ask_note AS ask_note, c.note_label AS note_label, c.word_builder AS word, c.word_theme AS theme, c.word_target AS target, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.layout AS layout, c.published AS published, c.palette AS palette, c.bank_id AS bank_id, c.prefer_unused AS prefer_unused,
+  const c = await first<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; layout: string | null; published: number; palette: string | null; bank_id: string | null; bank_name: string | null; prefer_unused: number; word: number; usMap: number; map_region: string | null; bonus_mode: string; territory_mode: string | null; map_limit: number | null; map_australia: number; description: string | null; ask_note: number; note_label: string | null; theme: string | null; target: number | null; required_count: number | null; allow_bonus: number; bonus_limit: number | null; bingo_goal: number | null; stickers_revealed: number; active_from: string | null; active_until: string | null }>(
+    db, `SELECT c.active_from AS active_from, c.active_until AS active_until, c.required_count AS required_count, c.allow_bonus AS allow_bonus, c.bonus_limit AS bonus_limit, c.bingo_goal AS bingo_goal, c.stickers_revealed AS stickers_revealed, c.us_map AS usMap, c.map_region AS map_region, c.bonus_mode AS bonus_mode, c.territory_mode AS territory_mode, c.map_limit AS map_limit, c.map_australia AS map_australia, c.description AS description, c.ask_note AS ask_note, c.note_label AS note_label, c.word_builder AS word, c.word_theme AS theme, c.word_target AS target, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.layout AS layout, c.published AS published, c.palette AS palette, c.bank_id AS bank_id, c.prefer_unused AS prefer_unused,
        (SELECT b.name FROM bingo_bank b WHERE b.id = c.bank_id AND b.deleted_at IS NULL) AS bank_name, y.year AS year FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id WHERE c.id = ? AND c.deleted_at IS NULL`, [id]);
   if (!c) return null;
   if (c.usMap && c.map_limit !== null && (c.map_australia & 4)) await syncBonusBoxes(db, id); // keeps the one empty extra box in step
@@ -86,7 +105,7 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
   const bingoGoalSet = c.kind === 'bingo' && c.bingo_goal !== null;
   const canReveal = generic && c.kind === 'sticker' && !c.stickers_revealed && !allowBonus && !hasOptional && counted.length > c.required_count! && done >= c.required_count!;
   return {
-    id: c.id, name: c.name, kind: c.kind, color: c.color && isHexColor(c.color) ? c.color : accentAt(0), year: c.year, layout: resolveLayout(c.kind, groups.map((g) => g.id), c.layout),
+    id: c.id, activeFrom: c.active_from, activeUntil: c.active_until, name: c.name, kind: c.kind, color: c.color && isHexColor(c.color) ? c.color : accentAt(0), year: c.year, layout: resolveLayout(c.kind, groups.map((g) => g.id), c.layout),
     groups: groups.map((g, i) => ({ id: g.id, name: g.name, color: g.color && isHexColor(g.color) ? g.color : accentAt(i + 1), slots: slots.filter((s) => s.group_id === g.id) })),
     loose: slots.filter((s) => !s.group_id || !groups.some((g) => g.id === s.group_id)),
     bingo: c.kind === 'bingo' ? { published: !!c.published, palette: parsePalette(c.palette), bankId: c.bank_id, bankName: c.bank_name, preferUnused: !!c.prefer_unused } : null,
@@ -140,7 +159,7 @@ export async function createGrid(db: Db, input: NewGrid): Promise<string> {
 // A sticker is a small picture kept inside the database (already shrunk by the screen), the same way other pictures are.
 export interface StickerImage { dataUrl: string; width?: number; height?: number; mime?: string }
 // A sticker can sit in a sub-category: `group` is the name of one of the challenge's groups (empty or missing = the main prompts).
-export interface NewSticker { required?: number | null; allowBonus?: boolean; year: number; name: string; color?: string; groups?: { name: string; color?: string }[]; stickers: { prompt: string; image: StickerImage; group?: string }[] }
+export interface NewSticker { required?: number | null; allowBonus?: boolean; year: number; name: string; color?: string; groups?: { name: string; color?: string }[]; stickers: { prompt: string; image?: StickerImage | null; group?: string }[] }
 export const saveImage = async (db: Db, img: StickerImage) => {
   const id = newId();
   await db.execute('INSERT INTO image (id, file_path, mime_type, width, height) VALUES (?, ?, ?, ?, ?)', [id, img.dataUrl, img.mime ?? null, img.width ?? null, img.height ?? null]);
@@ -169,7 +188,7 @@ export async function createSticker(db: Db, input: NewSticker): Promise<string> 
   }
   let pos = 1;
   for (const st of input.stickers) {
-    const img = await saveImage(db, st.image);
+    const img = st.image ? await saveImage(db, st.image) : null;
     const gid = st.group?.trim() ? groupIds.get(st.group.trim().toLowerCase()) ?? null : null;
     if (st.group?.trim() && !gid) throw new Error(`There is no sub-category called "${st.group.trim()}".`);
     await db.execute('INSERT INTO challenge_slot (id, challenge_id, label, position, art_image_id, group_id) VALUES (?, ?, ?, ?, ?, ?)', [newId(), id, st.prompt.trim(), pos++, img, gid]);
@@ -177,16 +196,25 @@ export async function createSticker(db: Db, input: NewSticker): Promise<string> 
   if (input.required != null) await setLimit(db, id, { required: input.required, allowBonus: !!input.allowBonus });
   return id;
 }
-export async function addStickers(db: Db, challengeId: string, stickers: { prompt: string; image: StickerImage; groupId?: string | null }[]) {
+export async function addStickers(db: Db, challengeId: string, stickers: { prompt: string; image?: StickerImage | null; groupId?: string | null }[]) {
   if (stickers.some((s) => !s.prompt.trim())) throw new Error('Every sticker needs a prompt.');
   const groups = new Set((await db.select<{ id: string }>('SELECT id FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL', [challengeId])).map((g) => g.id));
   if (stickers.some((s) => s.groupId && !groups.has(s.groupId))) throw new Error('That sub-category no longer exists.');
   for (const st of stickers) {
     const n = (await first<{ n: number | null }>(db, 'SELECT max(position) AS n FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL', [challengeId]))?.n ?? 0;
-    const img = await saveImage(db, st.image);
+    const img = st.image ? await saveImage(db, st.image) : null;
     await db.execute('INSERT INTO challenge_slot (id, challenge_id, label, position, art_image_id, group_id) VALUES (?, ?, ?, ?, ?, ?)', [newId(), challengeId, st.prompt.trim(), n + 1, img, st.groupId || null]);
   }
   await syncCount(db, challengeId);
+}
+// Puts pictures on the prompts that still have none, in the order the prompts sit in the challenge. Returns how many were attached.
+export async function attachStickers(db: Db, challengeId: string, images: StickerImage[]): Promise<number> {
+  const empty = await db.select<{ id: string }>(
+    `SELECT s.id FROM challenge_slot s LEFT JOIN challenge_group g ON g.id = s.group_id AND g.deleted_at IS NULL
+     WHERE s.challenge_id = ? AND s.deleted_at IS NULL AND s.art_image_id IS NULL AND s.is_free = 0 ORDER BY g.position IS NOT NULL, g.position, s.position, s.rowid`, [challengeId]);
+  let n = 0;
+  for (const img of images.slice(0, empty.length)) { await db.execute('UPDATE challenge_slot SET art_image_id = ? WHERE id = ?', [await saveImage(db, img), empty[n].id]); n++; }
+  return n;
 }
 export async function replaceSticker(db: Db, slotId: string, image: StickerImage) {
   const old = await first<{ art_image_id: string | null }>(db, 'SELECT art_image_id FROM challenge_slot WHERE id = ? AND deleted_at IS NULL', [slotId]);
@@ -367,18 +395,19 @@ export async function clearSlot(db: Db, slotId: string) {
   if (ch) await syncBonusBoxes(db, ch.challenge_id);
 }
 
-export interface Candidate { read_id: string; book_id: string; title: string; authors: string | null; series: string | null; status: string; when: string | null; used_on: string | null }
+export interface Candidate { read_id: string; book_id: string; title: string; authors: string | null; series: string | null; status: string; when: string | null; used_on: string | null; series_len?: number | null }
 // Reads you can put on a prompt: in progress and paused first, then everything else, newest first. Every word typed must be found in the title, author or series.
-export async function searchReads(db: Db, challengeId: string, query: string, limit = 30): Promise<Candidate[]> {
+export async function searchReads(db: Db, challengeId: string, query: string, limit = 30, seriesLen: number | null = null): Promise<Candidate[]> {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const where = words.map(() => `lower(b.title || ' ' || COALESCE((SELECT group_concat(au.name, ' ') FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL), '') || ' ' || COALESCE((SELECT s.title FROM series s WHERE s.id = b.series_id), '')) LIKE ?`).join(' AND ');
   return db.select<Candidate>(
     `SELECT r.id AS read_id, b.id AS book_id, b.title AS title, CASE WHEN b.shelf IS NOT NULL AND r.status = 'on_hold' AND r.start_date IS NULL THEN 'up_next' ELSE r.status END AS status, COALESCE(r.finish_date, r.start_date) AS "when",
        (SELECT group_concat(x.name, ', ') FROM (SELECT au.name AS name FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order) x) AS authors,
        (SELECT s.title FROM series s WHERE s.id = b.series_id) AS series,
+       (SELECT count(*) FROM book mb WHERE mb.series_id = b.series_id AND mb.deleted_at IS NULL AND (mb.series_position IS NULL OR mb.series_position = CAST(mb.series_position AS INTEGER))) AS series_len,
        (SELECT cs.label FROM challenge_completion k JOIN challenge_slot cs ON cs.id = k.slot_id WHERE k.read_id = r.id AND k.challenge_id = ? AND k.deleted_at IS NULL AND cs.deleted_at IS NULL) AS used_on
      FROM read r JOIN book b ON b.id = r.book_id AND b.deleted_at IS NULL
-     WHERE r.deleted_at IS NULL ${where ? `AND ${where}` : ''}
+     WHERE r.deleted_at IS NULL ${where ? `AND ${where}` : ''}${seriesLen ? ` AND b.series_id IS NOT NULL AND (SELECT count(*) FROM book mb WHERE mb.series_id = b.series_id AND mb.deleted_at IS NULL AND (mb.series_position IS NULL OR mb.series_position = CAST(mb.series_position AS INTEGER))) ${seriesLen >= 7 ? '>=' : '='} ${Math.floor(seriesLen)}` : ''}
      ORDER BY (r.status IN ('reading','on_hold') AND b.shelf IS NULL) DESC, COALESCE(r.finish_date, r.start_date, '') DESC, r.created_at DESC, r.rowid DESC LIMIT ?`,
     [challengeId, ...words.map((w) => `%${w}%`), limit]);
 }
@@ -403,6 +432,19 @@ export async function setCardCols(db: Db, challengeId: string, key: string, cols
 export async function moveCard(db: Db, challengeId: string, key: string, beforeKey: string | null) {
   const l = await loadLayout(db, challengeId);
   await saveLayout(db, challengeId, { ...l, order: moveBefore(l.order, key, beforeKey) });
+}
+// Pyramid layout: the cards sit one per row, centered, top to bottom. Turning it on makes each card exactly as wide as its prompt count, so the rows widen like a pyramid.
+export async function setPyramid(db: Db, challengeId: string, on: boolean) {
+  const l = await loadLayout(db, challengeId);
+  if (!on) { const { pyramid: _p, ...rest } = l; await saveLayout(db, challengeId, rest); return; }
+  const rows = await db.select<{ group_id: string | null; n: number }>('SELECT group_id, COUNT(*) AS n FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL GROUP BY group_id', [challengeId]);
+  const cols = { ...l.cols };
+  for (const k of Object.keys(cols)) {
+    if (k === 'stickers') continue;
+    const n = rows.filter((r) => (k === 'main' ? !r.group_id || !(r.group_id in cols) : r.group_id === k)).reduce((a, r) => a + Number(r.n), 0);
+    if (n > 0) cols[k] = Math.min(MAX_COLS, n);
+  }
+  await saveLayout(db, challengeId, { ...l, cols, pyramid: true });
 }
 export async function shuffleCards(db: Db, challengeId: string, rng: () => number = Math.random) {
   const l = await loadLayout(db, challengeId);

@@ -14,7 +14,7 @@ export interface WordActions {
   addWord(readId: string, word: string): void;
   clear(slotId: string): void;
   renameWord(slotId: string, word: string): void;
-  search(query: string): Promise<Candidate[]>;
+  search(query: string, seriesLen?: number | null): Promise<Candidate[]>;
   rename(name: string): void;
   color(hex: string): void;
   theme(text: string): void;

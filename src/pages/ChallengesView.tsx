@@ -65,6 +65,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   const [freeText, setFreeText] = useState('');
   const bank = banks.find((b) => b.id === bankId) ?? null;
   const [staged, setStaged] = useState<Staged[]>([]);
+  const [laterList, setLaterList] = useState('');
   const [stickerGroups, setStickerGroups] = useState<string[]>([]);
   const [newGroup, setNewGroup] = useState('');
   const addStickerGroup = () => { const n = newGroup.trim(); if (n && !stickerGroups.some((g) => g.toLowerCase() === n.toLowerCase())) setStickerGroups((g) => [...g, n]); setNewGroup(''); };
@@ -78,7 +79,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
       if (kind === 'bingo') { await onCreate({ year, name, bankId: bank ? bank.id : null, newBankPrompts: bank ? [] : splitPrompts(bankText), preferUnused: bank?.lastYear ? prefer : false, freeText, goal: goal === 'blackout' ? null : Number(goal) }); return; }
       if (kind === 'map') { await onCreate({ usMap: true, year, name, color, region: mapId, bonus: hasBonusPlaces(mapId) ? bonus : mapId === 'us' ? 'off' : 'optional', territories: mapId === 'us' ? territories : undefined, australia, ukSplit, extras: limited && extras, limit: limited ? Number(limit) : null }); return; }
       if (kind === 'word') { await onCreate({ word: true, year, name, color, theme, target: target.trim() ? Number(target) : null, letters }); return; }
-      if (kind === 'sticker') { await onCreate({ ...limitInput, year, name, color, groups: stickerGroups.map((g, i) => ({ name: g, color: accentAt(i + 1) })), stickers: staged.map((s) => ({ prompt: s.prompt, image: s.image, group: s.group })) }); return; }
+      if (kind === 'sticker') { await onCreate({ ...limitInput, year, name, color, groups: stickerGroups.map((g, i) => ({ name: g, color: accentAt(i + 1) })), stickers: [...staged.map((s) => ({ prompt: s.prompt, image: s.image, group: s.group })), ...splitPrompts(laterList).map((prompt) => ({ prompt, image: null }))] }); return; }
       await onCreate({ ...limitInput, year, name, color, prompts: splitPrompts(main), groups: groups.map((g, i) => ({ name: g.name, color: accentAt(i + 1), prompts: splitPrompts(g.text) })) });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
   };
@@ -157,6 +158,8 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
               <button type="button" className="mini" onClick={addStickerGroup}>Add sub-category</button></div></div>
           <div className="stack"><span className="lbl2">Stickers and their prompts</span>
             <StickerStaging value={staged} onChange={setStaged} groups={stickerGroups.map((g) => ({ value: g, label: g }))} /></div>
+          <label className="stack"><span className="lbl2">Prompts without stickers yet (one per line)</span>
+            <textarea className="field" rows={4} aria-label="Prompts without stickers yet" placeholder="Paste the prompts now and add each sticker later, in Edit" value={laterList} onChange={(e) => setLaterList(e.target.value)} /></label>
         </>
       ) : <>
       <label className="stack"><span className="lbl2">{groups.length ? 'Main prompts (not in a sub-category), one per line' : 'Prompts, one per line'}</span>
@@ -172,7 +175,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
       {(kind === 'grid' || kind === 'sticker') && (
         <div className="notesettings">
           <div className="toggleline">
-            <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={reqOn} onChange={(e) => { setReqOn(e.target.checked); if (!reqText) setReqText(String(Math.max(1, kind === 'sticker' ? staged.length : splitPrompts(main).length))); if (!e.target.checked) setReqBonus(false); }} /><span>Limited Challenge</span></label>
+            <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={reqOn} onChange={(e) => { setReqOn(e.target.checked); if (!reqText) setReqText(String(Math.max(1, kind === 'sticker' ? staged.length + splitPrompts(laterList).length : splitPrompts(main).length))); if (!e.target.checked) setReqBonus(false); }} /><span>Limited Challenge</span></label>
             {reqOn && <input className="field tiny" type="number" min={1} aria-label="Prompts needed" value={reqText} onChange={(e) => setReqText(e.target.value)} />}
           </div>
           {reqOn && <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={reqBonus} onChange={(e) => setReqBonus(e.target.checked)} /><span>Bonus prompts</span></label>}

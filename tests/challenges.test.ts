@@ -195,6 +195,58 @@ describe('arranging: order and size', () => {
     await expect(ch.setCardCols(db, id, g, 13)).rejects.toThrow('books wide');
     await expect(ch.setCardCols(db, id, 'nope', 2)).rejects.toThrow('no longer');
   });
+  it('shows series length and filters the picker by it', async () => {
+    const id = await make();
+    const sa = 'sr-a', sb = 'sr-b';
+    await db.execute("INSERT INTO series (id, title) VALUES (?, 'Duo'), (?, 'Trio')", [sa, sb]);
+    const mk = async (bid: string, title: string, sid: string, pos: number | null) => {
+      await db.execute('INSERT INTO book (id, title, series_id, series_position) VALUES (?, ?, ?, ?)', [bid, title, sid, pos]);
+      await db.execute("INSERT INTO read (id, book_id, status) VALUES (?, ?, 'finished')", ['r-' + bid, bid]);
+    };
+    await mk('d1', 'Duo One', sa, 1); await mk('d2', 'Duo Two', sa, 2);
+    await mk('t1', 'Trio One', sb, 1); await mk('t2', 'Trio Two', sb, 2); await mk('t3', 'Trio Three', sb, 3); await mk('t35', 'Trio Novella', sb, 2.5);
+    const all = await ch.searchReads(db, id, 'duo');
+    expect(all[0].series_len).toBe(2);
+    expect((await ch.searchReads(db, id, '', 30, 3)).map((x) => x.title).sort()).toEqual(['Trio Novella', 'Trio One', 'Trio Three', 'Trio Two']);
+    expect((await ch.searchReads(db, id, '', 30, 2)).map((x) => x.title).sort()).toEqual(['Duo One', 'Duo Two']);
+    expect(await ch.searchReads(db, id, '', 30, 7)).toEqual([]);
+  });
+  it('a sticker challenge can start from prompts alone and get its pictures later', async () => {
+    const id = await ch.createSticker(db, { year: 2026, name: 'Later', stickers: [{ prompt: 'One' }, { prompt: 'Two', image: { dataUrl: 'data:two' } }, { prompt: 'Three' }] });
+    let c = (await ch.getChallenge(db, id))!;
+    expect(c.loose.map((x) => !!x.art)).toEqual([false, true, false]);
+    expect(await ch.attachStickers(db, id, [{ dataUrl: 'data:a' }, { dataUrl: 'data:b' }, { dataUrl: 'data:c' }])).toBe(2); // extras are ignored
+    c = (await ch.getChallenge(db, id))!;
+    expect(c.loose.map((x) => x.art)).toEqual(['data:a', 'data:two', 'data:b']);
+    await ch.addStickers(db, id, [{ prompt: 'Four' }]);
+    await ch.replaceSticker(db, (await ch.getChallenge(db, id))!.loose[3].id, { dataUrl: 'data:d' });
+    expect((await ch.getChallenge(db, id))!.loose[3].art).toBe('data:d');
+  });
+  it('a board with a date window is in season only between its dates', async () => {
+    const id = await make();
+    await db.execute('UPDATE challenge SET published = 1 WHERE id = ?', [id]);
+    expect(await ch.listInSeason(db, '2026-10-20')).toEqual([]); // no dates: never in season
+    await ch.setActiveWindow(db, id, '2026-10-01', '2026-10-31');
+    expect((await ch.getChallenge(db, id))!.activeFrom).toBe('2026-10-01');
+    expect((await ch.listInSeason(db, '2026-10-20')).map((x) => x.id)).toEqual([id]);
+    expect(await ch.listInSeason(db, '2026-11-01')).toEqual([]);
+    expect(await ch.listInSeason(db, '2026-09-30')).toEqual([]);
+    await expect(ch.setActiveWindow(db, id, '2026-11-02', '2026-11-01')).rejects.toThrow('before it starts');
+    await expect(ch.setActiveWindow(db, id, 'soon', null)).rejects.toThrow('real dates');
+    await ch.setActiveWindow(db, id, null, null);
+    expect(await ch.listInSeason(db, '2026-10-20')).toEqual([]);
+  });
+  it('pyramid layout sizes each card to its prompt count and can be turned off', async () => {
+    const id = await make();
+    const c0 = (await ch.getChallenge(db, id))!;
+    expect(c0.layout.pyramid).toBeUndefined();
+    await ch.setPyramid(db, id, true);
+    const c1 = (await ch.getChallenge(db, id))!;
+    expect(c1.layout.pyramid).toBe(true);
+    for (const g of c1.groups) if (g.slots.length) expect(c1.layout.cols[g.id]).toBe(g.slots.length);
+    await ch.setPyramid(db, id, false);
+    expect((await ch.getChallenge(db, id))!.layout.pyramid).toBeUndefined();
+  });
   it('moves and shuffles cards, and a new or deleted sub-category does not break the order', async () => {
     const id = await make();
     let c = (await ch.getChallenge(db, id))!;

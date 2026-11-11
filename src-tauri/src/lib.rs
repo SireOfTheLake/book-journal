@@ -215,6 +215,12 @@ pub fn run() {
         description: "quotes can name a character",
         sql: include_str!("../migrations/0037_quote_character.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 38,
+        description: "challenges can have a date window",
+        sql: include_str!("../migrations/0038_challenge_window.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

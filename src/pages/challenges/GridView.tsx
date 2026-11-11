@@ -9,12 +9,13 @@ import StickerStaging, { type Staged } from './StickerStaging';
 import Blurb from './Blurb';
 import { ZoomImage } from '../bookLog/parts';
 import TrackerBar from './TrackerBar';
+import { splitPrompts } from '../../domain/challenges';
 
 export interface GridActions {
   describe?(text: string): void;
   fill(slotId: string, readId: string, note?: string): void;
   clear(slotId: string): void;
-  search(query: string): Promise<Candidate[]>;
+  search(query: string, seriesLen?: number | null): Promise<Candidate[]>;
   rename(name: string): void;
   color(hex: string): void;
   remove(): void;
@@ -30,9 +31,11 @@ export interface GridActions {
   note?(slotId: string, text: string): void;
   addStickers?(items: { prompt: string; image: StickerImage; groupId?: string | null }[]): Promise<void>;
   replaceSticker?(slotId: string, file: File): void;
+  attachStickers?(files: File[]): void; // pictures for the prompts that have none yet, in order
   cardCols(key: string, cols: number): void;
   moveCard(key: string, beforeKey: string | null): void;
   shuffleCards(): void;
+  setPyramid?(on: boolean): void; // one card per row, centered, widest at the bottom
   movePrompt(slotId: string, groupId: string | null, beforeSlotId: string | null): void;
   shufflePrompts(groupId: string | null): void;
   setLimit?(required: number | null, allowBonus: boolean): void; // a limited challenge needs only some of its prompts; bonus prompts keep earning points after
@@ -103,7 +106,7 @@ function SlotCard({ slot, cover, editing, sticker, revealed, onPick, act, dnd, a
           <span className={`sticker${(f && !planned) || editing || revealed ? ' got' : ''}${revealed && !f ? ' revealed' : ''}`} title={slot.label}>
             {((f && !planned) || editing || revealed) && slot.art ? (editing ? <img src={slot.art} alt={`Sticker for ${slot.label}`} /> : <ZoomImage src={slot.art} alt={f ? `Sticker: ${slot.label}` : `Sticker for ${slot.label}`} />) : <span className="num" aria-hidden="true">?</span>}
           </span>
-          {editing && act.replaceSticker && <ReplaceSticker label={slot.label} onFile={(file) => act.replaceSticker!(slot.id, file)} />}
+          {editing && act.replaceSticker && <ReplaceSticker has={!!slot.art} label={slot.label} onFile={(file) => act.replaceSticker!(slot.id, file)} />}
         </>
       )}
       <button type="button" className={`gframe${f ? ' filled' : ''}${planned ? ' planned' : ''}`} aria-label={f ? `Change the book for ${slot.label}` : `Add a book for ${slot.label}`} onClick={onPick}>
@@ -141,7 +144,7 @@ function StickerSheet({ slots, editing, revealed, act }: { slots: Slot[]; editin
             <span className={`sticker${got || editing || revealed ? ' got' : ''}${revealed && !got ? ' revealed' : ''}`} title={s.label}>
               {(got || editing || revealed) && s.art ? (editing ? <img src={s.art} alt={`Sticker for ${s.label}`} /> : <ZoomImage src={s.art} alt={got ? `Sticker: ${s.label}` : `Sticker for ${s.label}`} />) : <span className="num" aria-hidden="true">?</span>}
             </span>
-            {editing && act.replaceSticker && <ReplaceSticker label={s.label} onFile={(file) => act.replaceSticker!(s.id, file)} />}
+            {editing && act.replaceSticker && <ReplaceSticker has={!!s.art} label={s.label} onFile={(file) => act.replaceSticker!(s.id, file)} />}
             <span className="glabel" title={s.label}>{s.label}</span>
           </li>
         );
@@ -150,16 +153,18 @@ function StickerSheet({ slots, editing, revealed, act }: { slots: Slot[]; editin
   );
 }
 
-function ReplaceSticker({ label, onFile }: { label: string; onFile(f: File): void }) {
+function ReplaceSticker({ label, onFile, has = true }: { label: string; onFile(f: File): void; has?: boolean }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
     <>
-      <button type="button" className="mini" onClick={() => ref.current?.click()}>Replace</button>
-      <input ref={ref} type="file" accept="image/*" hidden aria-label={`Replace sticker for ${label}`} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f); }} />
+      <button type="button" className="mini" onClick={() => ref.current?.click()}>{has ? 'Replace' : 'Add sticker'}</button>
+      <input ref={ref} type="file" accept="image/*" hidden aria-label={`${has ? 'Replace' : 'Add'} sticker for ${label}`} onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ''; if (f) onFile(f); }} />
     </>
   );
 }
-function AddStickers({ add, groups }: { add(items: { prompt: string; image: StickerImage; groupId?: string | null }[]): Promise<void>; groups: { id: string; name: string }[] }) {
+function AddStickers({ add, attach, missing, groups }: { add(items: { prompt: string; image?: StickerImage | null; groupId?: string | null }[]): Promise<void>; attach?(files: File[]): void; missing: number; groups: { id: string; name: string }[] }) {
+  const [later, setLater] = useState('');
+  const pics = useRef<HTMLInputElement>(null);
   const [staged, setStaged] = useState<Staged[]>([]);
   const [error, setError] = useState<string | null>(null);
   const save = async () => {
@@ -171,6 +176,15 @@ function AddStickers({ add, groups }: { add(items: { prompt: string; image: Stic
       <StickerStaging value={staged} onChange={setStaged} groups={groups.map((g) => ({ value: g.id, label: g.name }))} />
       {error && <div className="muted" role="alert">{error}</div>}
       {staged.length > 0 && <div><button type="button" className="btn on" onClick={save}>Add {staged.length} sticker{staged.length === 1 ? '' : 's'}</button></div>}
+      <details className="stagelistbox"><summary className="small">Add prompts now, stickers later</summary>
+        <textarea className="field" rows={4} aria-label="Prompts without stickers yet" placeholder="One prompt per line" value={later} onChange={(e) => setLater(e.target.value)} />
+        <button type="button" className="mini" onClick={async () => { const lines = splitPrompts(later); if (!lines.length) return; try { await add(lines.map((prompt) => ({ prompt, image: null }))); setLater(''); setError(null); } catch (e) { setError(e instanceof Error ? e.message : String(e)); } }}>Add prompts</button>
+      </details>
+      {missing > 0 && attach && (
+        <div className="addrow"><span className="muted small">{missing} {missing === 1 ? 'prompt has' : 'prompts have'} no sticker yet.</span>
+          <button type="button" className="mini" onClick={() => pics.current?.click()}>Attach stickers in order</button>
+          <input ref={pics} type="file" accept="image/*" multiple hidden aria-label="Attach stickers in order" onChange={(e) => { const f = [...(e.target.files ?? [])]; e.target.value = ''; if (f.length) attach(f); }} /></div>
+      )}
     </div>
   );
 }
@@ -332,13 +346,14 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
           {act.setLimit && <LimitSettings required={c.required} allowBonus={c.allowBonus} prompts={c.loose.concat(c.groups.flatMap((g) => g.slots)).filter((x) => !x.is_optional).length} onSave={act.setLimit} />}
           {act.askAll && <NoteSettings ask={c.askNote} label={c.noteLabel} onSave={act.askAll} />}
           {keys.length > 1 && <button type="button" className="mini" onClick={act.shuffleCards}>Shuffle the cards</button>}
+          {act.setPyramid && keys.length > 1 && <label className="inline"><input type="checkbox" role="switch" className="toggle" aria-label="Pyramid layout" checked={!!c.layout.pyramid} onChange={(e) => act.setPyramid!(e.target.checked)} /><span>Pyramid layout</span></label>}
           {deleting
             ? <span className="movebtns"><button type="button" className="mini danger" onClick={act.remove}>Delete the whole challenge</button><button type="button" className="mini" onClick={() => setDeleting(false)}>Keep</button></span>
             : <button type="button" className="mini" onClick={() => setDeleting(true)}>Delete challenge</button>}
         </div>
       )}
-      {sticker && editing && act.addStickers && <AddStickers add={act.addStickers} groups={c.groups.map((g) => ({ id: g.id, name: g.name }))} />}
-      <div className={`gcards${split ? ' split' : ''}`}>{keys.map(renderCard)}</div>
+      {sticker && editing && act.addStickers && <AddStickers add={act.addStickers} attach={act.attachStickers} missing={c.loose.concat(c.groups.flatMap((g) => g.slots)).filter((x) => !x.art && !x.is_free).length} groups={c.groups.map((g) => ({ id: g.id, name: g.name }))} />}
+      <div className={`gcards${split ? ' split' : ''}${c.layout.pyramid ? ' pyramid' : ''}`}>{keys.map(renderCard)}</div>
       {c.total === 0 && !editing && <p className="muted">This challenge has no prompts yet. Choose Edit to add some.</p>}
       {picking && <ReadPicker prompt={picking.label} search={act.search} noteLabel={(picking.askNote ?? c.askNote) && act.note ? c.noteLabel : undefined} onClose={() => setPicking(null)} onPick={(readId, note) => { act.fill(picking.id, readId, note); setPicking(null); }} />}
     </div>

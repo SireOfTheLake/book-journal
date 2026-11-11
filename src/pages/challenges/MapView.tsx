@@ -11,7 +11,7 @@ export interface MapActions {
   describe?(text: string): void;
   fill(slotId: string, readId: string): void;
   clear(slotId: string): void;
-  search(query: string): Promise<Candidate[]>;
+  search(query: string, seriesLen?: number | null): Promise<Candidate[]>;
   reroll(slotId: string): void;
   place(slotId: string, place: string | null): void;
   fillPlace(place: string, readId: string): void;

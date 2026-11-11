@@ -15,6 +15,7 @@ import LocationEditor from './LocationEditor';
 import type { PlaceInput } from '../../repo/places';
 import BookMenu from './BookMenu';
 import type { MergeCandidate } from '../../repo/bookMerge';
+import type { BookFacts } from '../../domain/promptMatch';
 import ChallengesCard, { type ChallengeActions } from './ChallengesCard';
 import ReasonCard, { type ReasonActions } from './ReasonCard';
 import type { Reason } from '../../repo/reason';
@@ -343,6 +344,18 @@ function DayLog({ log, act }: { log: BookLog; act: Actions }) {
 
 const opts = (items: Item[]) => items.map((i) => ({ value: i.id, label: i.name }));
 
+export function bookFacts(log: BookLog): BookFacts {
+  const b = log.book; const r = log.read;
+  const names = (xs: { name: string }[]) => xs.map((x) => x.name.toLowerCase());
+  const pub = b.original_publication_date ? Number(b.original_publication_date.slice(0, 4)) : NaN;
+  return {
+    title: b.title, authors: log.authors.map((a) => a.name), heat: b.heat_level, stars: r?.rating != null ? r.rating / 4 : null, format: r?.format ?? null,
+    year: Number.isFinite(pub) ? pub : null, seriesLen: log.series ? log.series.main_total : null, seriesPos: b.series_position, pages: b.page_count,
+    tags: [...names(log.genres), ...names(log.tropes), ...names(log.themes), ...names(log.moods), ...names(log.warnings)],
+    places: [b.setting_text ?? '', ...log.places.flatMap((p) => [p.name, p.city, p.area, p.country])].filter((x): x is string => !!x).map((x) => x.toLowerCase()),
+    recommended: !!b.recommended_by, owned: !!(b.own_physical || b.own_ebook || b.own_audio),
+  };
+}
 export interface ChallengeInfo { items: ReadChallenge[]; choices: ChallengeChoice[]; act: ChallengeActions; reason?: Reason; reasonAct?: ReasonActions }
 
 
@@ -514,7 +527,7 @@ export default function BookLogView({ log, lists, act, neighbors, challenges, qu
           <AddNarrator log={log} lists={lists} act={act} />
         </Card>
       ) : <DefaultNarrators log={log} lists={lists} act={act} />;
-      case 'challenges': return challenges && read ? <ChallengesCard items={challenges.items} choices={challenges.choices} act={challenges.act} /> : hint('Challenges', 'Start the book to count it for a challenge.');
+      case 'challenges': return challenges && read ? <ChallengesCard items={challenges.items} choices={challenges.choices} act={challenges.act} facts={bookFacts(log)} /> : hint('Challenges', 'Start the book to count it for a challenge.');
       case 'notes': return read ? (
         <Card label="Notes">
           <EditNotes label="Notes" addLabel="Add notes" value={read.notes} onCommit={(v) => act.updateRead({ notes: v.trim() || null })} />

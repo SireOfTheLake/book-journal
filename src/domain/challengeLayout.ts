@@ -1,5 +1,5 @@
 // How the cards of a challenge are arranged: their order, and how many books (or stickers) wide each is. 0 means the full width.
-export interface Layout { order: string[]; cols: Record<string, number> }
+export interface Layout { order: string[]; cols: Record<string, number>; pyramid?: boolean }
 export const MAX_COLS = 12;
 
 // Card keys: 'main' (prompts not in a sub-category) and a sub-category id (Grid and Sticker challenges), or 'board' (Bingo).
@@ -8,7 +8,7 @@ export const defaultKeys = (kind: string, groupIds: string[]): string[] => (kind
 export const defaultCols = (key: string, split = false): number => (key === 'board' ? 3 : split ? 5 : 0);
 
 export function resolveLayout(kind: string, groupIds: string[], stored: string | null | undefined): Layout {
-  let raw: { order?: unknown; cols?: unknown } = {};
+  let raw: { order?: unknown; cols?: unknown; pyramid?: unknown } = {};
   try { const v = stored ? JSON.parse(stored) : {}; if (v && typeof v === 'object') raw = v; } catch { /* use defaults */ }
   const keys = defaultKeys(kind, groupIds);
   const storedOrder = Array.isArray(raw.order) ? raw.order.filter((k): k is string => typeof k === 'string' && keys.includes(k)) : [];
@@ -19,7 +19,7 @@ export function resolveLayout(kind: string, groupIds: string[], stored: string |
     const n = storedCols[k];
     cols[k] = typeof n === 'number' && Number.isInteger(n) && n >= 0 && n <= MAX_COLS ? n : defaultCols(k, keys.includes('stickers'));
   }
-  return { order, cols };
+  return raw.pyramid === true && keys.some((k) => k !== 'stickers') ? { order, cols, pyramid: true } : { order, cols };
 }
 export const serializeLayout = (l: Layout) => JSON.stringify(l);
 

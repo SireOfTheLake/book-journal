@@ -82,6 +82,19 @@ export default function HomeView({ data, act }: { data: HomeData; act: HomeActio
           {data.paused.length > 0 && <><span className="lbl2">Paused</span>{data.paused.map((r) => <Reading key={r.read_id} r={r} act={act} />)}</>}
         </section>
 
+        {data.inSeason && data.inSeason.length > 0 && (
+          <section className="bcard inseason">
+            <span className="lbl2">In season</span>
+            <ul className="seasonlist">
+              {data.inSeason.map((c) => (
+                <li key={c.id}><Link className="l big2" to={`/journal/challenges/${c.id}`}>{c.name}</Link>
+                  <span className="muted small">{`${c.done} of ${c.total}${c.until ? ` · until ${day(c.until)}` : ''}`}</span>
+                  <progress value={c.total ? c.done / c.total : 0} max={1} aria-label={`${c.name} progress`} /></li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="bcard">
           <span className="lbl2">{`Up next${data.upNextCount ? ` (${data.upNextCount})` : ''}`}</span>
           {data.upNext.length === 0 ? <p className="muted">Nothing is queued. Add a book and choose Up Next.</p> : (

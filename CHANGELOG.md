@@ -2,7 +2,12 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 -->
+
+## 0.5.9 — 2026-11-11
+
+### Fixed
+- [Desktop] The description you type when creating a challenge is now saved (it was being dropped for every kind of challenge)
 
 ## 0.5.8 — 2026-11-11
 

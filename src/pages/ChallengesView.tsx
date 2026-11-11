@@ -208,7 +208,7 @@ export default function ChallengesView({ year, list, banks, onCreate, onNewBank,
   return (
     <div className="chalpage">
       {!adding && <div><button type="button" className="btn on" onClick={() => setAdding(true)}>+ New challenge</button></div>}
-      {adding && <NewChallenge year={year} banks={banks} used={list.map((c) => c.color)} onCancel={() => setAdding(false)} onCreate={async (i) => { await onCreate(i); setAdding(false); }} />}
+      {adding && <NewChallenge year={year} banks={banks} used={list.map((c) => c.color)} onCancel={() => setAdding(false)} onCreate={async (i, description) => { await onCreate(i, description); setAdding(false); }} />}
       {list.length === 0 && !adding && <p className="muted">No challenges for {year} yet. Create one to start placing books on prompts.</p>}
       <div className="chalgrid">
         {list.map((c, i) => (

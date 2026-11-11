@@ -43,7 +43,7 @@ export default function ChallengePage() {
       removePrompt: (s) => run(() => repo.deletePrompt(db, s)),
       askAll: (ask, label) => run(() => repo.setChallengeNotes(db, id, ask, label)), askPrompt: (s, ask) => run(() => repo.setPromptAsk(db, s, ask)), note: (s, t) => run(() => repo.setPromptNote(db, s, t)),
       cardCols: (k, n) => run(() => repo.setCardCols(db, id, k, n)), moveCard: (k, b) => run(() => repo.moveCard(db, id, k, b)),
-      shuffleCards: () => run(() => repo.shuffleCards(db, id)), setPyramid: (on) => run(() => repo.setPyramid(db, id, on)), movePrompt: (s, g, b) => run(() => repo.movePrompt(db, s, g, b)),
+      shuffleCards: () => run(() => repo.shuffleCards(db, id)), moveRow: (g, d) => run(() => repo.moveRow(db, g, d)), movePrompt: (s, g, b) => run(() => repo.movePrompt(db, s, g, b)),
       shufflePrompts: (g) => run(() => repo.shufflePrompts(db, id, g)),
       setLimit: (n, a) => run(() => repo.setLimit(db, id, { required: n, allowBonus: a })), optional: (s, o) => run(() => repo.setPromptOptional(db, s, o)), reveal: () => run(() => repo.revealStickers(db, id)),
       addStickers: async (items) => { await repo.addStickers(db, id, items); await reload(); },

@@ -18,8 +18,8 @@ export interface ChallengeExport { exported_at: string; includes_sticker_picture
 const TYPE: Record<string, string> = { grid: 'Grid', sticker: 'Sticker', bingo: 'Bingo' };
 
 export async function exportChallenges(db: Db, opts: { pictures: boolean; year?: number }): Promise<ChallengeExport> {
-  const cs = await db.select<{ id: string; year: number; name: string; kind: string; color: string | null; description: string | null; word: number; theme: string | null; target: number | null; usMap: number; region: string | null; required: number | null; goal: number | null; bank: string | null }>(
-    `SELECT c.id AS id, y.year AS year, c.name AS name, c.kind AS kind, c.color AS color, c.description AS description, c.word_builder AS word, c.word_theme AS theme, c.word_target AS target,
+  const cs = await db.select<{ id: string; year: number; name: string; kind: string; color: string | null; description: string | null; word: number; pyramid: number; theme: string | null; target: number | null; usMap: number; region: string | null; required: number | null; goal: number | null; bank: string | null }>(
+    `SELECT c.id AS id, y.year AS year, c.name AS name, c.kind AS kind, c.color AS color, c.description AS description, c.word_builder AS word, c.pyramid AS pyramid, c.word_theme AS theme, c.word_target AS target,
        c.us_map AS usMap, c.map_region AS region, c.required_count AS required, c.bingo_goal AS goal, (SELECT b.name FROM bingo_bank b WHERE b.id = c.bank_id AND b.deleted_at IS NULL) AS bank
      FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
      WHERE c.deleted_at IS NULL AND y.deleted_at IS NULL${opts.year === undefined ? '' : ' AND y.year = ?'} ORDER BY y.year, c.sort_order, c.created_at, c.rowid`, opts.year === undefined ? [] : [opts.year]);
@@ -46,7 +46,7 @@ export async function exportChallenges(db: Db, opts: { pictures: boolean; year?:
     }));
     out.push({
       year: Number(c.year), name: c.name,
-      type: c.word ? 'Word Builder' : c.usMap ? `Map${c.region ? ` (${c.region})` : ''}` : TYPE[c.kind] ?? c.kind,
+      type: c.word ? 'Word Builder' : c.pyramid ? 'Pyramid' : c.usMap ? `Map${c.region ? ` (${c.region})` : ''}` : TYPE[c.kind] ?? c.kind,
       description: c.description, color: c.color, prompts_needed: c.required, bingo_goal: c.goal, word_theme: c.theme, word_target: c.target, bingo_bank: c.bank,
       subcategories: groups.map((g) => g.name), prompts,
       letters: c.word ? Object.fromEntries(letters.map((l) => [l.letter, opts.pictures ? l.file_path : 'picture'])) : null,

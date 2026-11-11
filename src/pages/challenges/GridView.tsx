@@ -35,7 +35,7 @@ export interface GridActions {
   cardCols(key: string, cols: number): void;
   moveCard(key: string, beforeKey: string | null): void;
   shuffleCards(): void;
-  setPyramid?(on: boolean): void; // one card per row, centered, widest at the bottom
+  moveRow?(groupId: string, delta: -1 | 1): void; // a pyramid row up or down
   movePrompt(slotId: string, groupId: string | null, beforeSlotId: string | null): void;
   shufflePrompts(groupId: string | null): void;
   setLimit?(required: number | null, allowBonus: boolean): void; // a limited challenge needs only some of its prompts; bonus prompts keep earning points after
@@ -93,7 +93,7 @@ export function NoteText({ value, onSave }: { value: string; onSave(text: string
   return <button type="button" className={`gnotetext${value ? '' : ' empty'}`} aria-label={value ? `Note: ${value}. Click to change` : 'Add a note'} onClick={() => { done.current = false; setEditing(true); }}>{value || 'Note'}</button>;
 }
 
-function SlotCard({ slot, cover, editing, sticker, revealed, onPick, act, dnd, askAll, noteLabel }: { slot: Slot; cover: string | undefined; editing: boolean; sticker?: boolean; revealed?: boolean; onPick(): void; act: GridActions; dnd?: Dnd; askAll: boolean; noteLabel: string }) {
+function SlotCard({ slot, cover, editing, sticker, revealed, onPick, act, dnd, askAll, noteLabel, locked }: { slot: Slot; cover: string | undefined; editing: boolean; locked?: boolean; sticker?: boolean; revealed?: boolean; onPick(): void; act: GridActions; dnd?: Dnd; askAll: boolean; noteLabel: string }) {
   const [confirming, setConfirming] = useState(false);
   const f = slot.fill;
   const planned = !!f && f.status !== 'finished'; // a book is on the prompt but has not been read yet
@@ -114,19 +114,19 @@ function SlotCard({ slot, cover, editing, sticker, revealed, onPick, act, dnd, a
       </button>
       {slot.is_optional && <span className="plannedtag" title="Always a bonus: it does not count toward finishing">optional</span>}
       {planned && <span className="plannedtag" title="It counts once the book is read">planned</span>}
-      {editing ? <SaveText value={slot.label} label={`Prompt: ${slot.label}`} onSave={(v) => act.renamePrompt(slot.id, v)} /> : <span className="glabel" title={slot.label}>{slot.label}</span>}
+      {editing && !locked ? <SaveText value={slot.label} label={`Prompt: ${slot.label}`} onSave={(v) => act.renamePrompt(slot.id, v)} /> : <span className="glabel" title={slot.label}>{slot.label}</span>}
       {asks && f && act.note && <NoteText value={slot.note ?? ''} onSave={(t) => act.note!(slot.id, t)} />}
       <span className="gbook">
         {f ? <><FitText className="l" to={`/book/${f.book_id}/${f.read_id}`} title={f.title} />
           <button type="button" className="xbtn" aria-label={`Take ${f.title} off ${slot.label}`} title="Take this book off" onClick={() => act.clear(slot.id)}>&times;</button></> : null}
       </span>
-      {editing && act.optional && <label className="inline small"><input type="checkbox" role="switch" className="toggle" aria-label={`Optional: ${slot.label}`} checked={slot.is_optional} onChange={(e) => act.optional!(slot.id, e.target.checked)} /><span>Optional</span></label>}
-      {editing && act.askPrompt && (
+      {editing && !locked && act.optional && <label className="inline small"><input type="checkbox" role="switch" className="toggle" aria-label={`Optional: ${slot.label}`} checked={slot.is_optional} onChange={(e) => act.optional!(slot.id, e.target.checked)} /><span>Optional</span></label>}
+      {editing && !locked && act.askPrompt && (
         <select className="gasks" aria-label={`Note for ${slot.label}`} value={slot.askNote === null ? '' : slot.askNote ? 'yes' : 'no'} onChange={(e) => act.askPrompt!(slot.id, e.target.value === '' ? null : e.target.value === 'yes')}>
           <option value="">{`${noteLabel}: as the challenge`}</option><option value="yes">{`${noteLabel}: ask`}</option><option value="no">{`${noteLabel}: don't ask`}</option>
         </select>
       )}
-      {editing && (confirming
+      {editing && !locked && (confirming
         ? <span className="movebtns"><button type="button" className="mini danger" onClick={() => act.removePrompt(slot.id)}>Delete it</button><button type="button" className="mini" onClick={() => setConfirming(false)}>Keep</button></span>
         : <button type="button" className="mini" aria-label={`Delete prompt ${slot.label}`} onClick={() => setConfirming(true)}>Delete prompt</button>)}
     </li>
@@ -326,12 +326,31 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
       </Card>);
   };
 
+  const pyramidRows = c.pyramid && (
+    <div className="pyramid">
+      {c.groups.map((g, i) => (
+        <section key={g.id} className="bcard gcard pyrow" style={{ ['--gc' as string]: g.color }} aria-label={`Row ${i + 1}: ${g.name}`}>
+          <header className="ghead">
+            {editing ? <SaveText value={g.name} label={`Row title: ${g.name}`} onSave={(v) => act.renameGroup(g.id, v)} className="field" /> : <h2 className="gname" style={{ background: g.color, color: readableOn(g.color) }}>{g.name}</h2>}
+            <span className="muted small">{g.slots.filter((x) => x.fill).length}/{g.slots.length}</span>
+          </header>
+          {editing && <div className="gedit"><Swatches value={g.color} label={`Color for ${g.name}`} onPick={(h) => act.groupColor(g.id, h)} />
+            {act.moveRow && <span className="movebtns"><button type="button" className="mini" aria-label={`Move ${g.name} up`} disabled={i === 0} onClick={() => act.moveRow!(g.id, -1)}>&#9650;</button><button type="button" className="mini" aria-label={`Move ${g.name} down`} disabled={i === c.groups.length - 1} onClick={() => act.moveRow!(g.id, 1)}>&#9660;</button></span>}
+            {groupGone === g.id
+              ? <span className="movebtns"><button type="button" className="mini danger" onClick={() => { setGroupGone(null); act.removeGroup(g.id); }}>Delete the row</button><button type="button" className="mini" onClick={() => setGroupGone(null)}>Keep</button></span>
+              : <button type="button" className="mini" aria-label={`Delete row ${g.name}`} onClick={() => setGroupGone(g.id)}>Delete row</button>}</div>}
+          <ul className="gslots pyr">{g.slots.map((sl) => <SlotCard key={sl.id} slot={sl} locked revealed={c.revealed} cover={sl.fill ? covers[sl.fill.book_id] : undefined} editing={editing} onPick={() => setPicking(sl)} act={act} askAll={c.askNote} noteLabel={c.noteLabel} />)}</ul>
+        </section>
+      ))}
+    </div>
+  );
+
   return (
     <div className={`gridpage${c.total > 40 ? ' dense' : ''}`} style={{ ['--cc' as string]: c.color }}>
       <div className="gtop">
         <div className="gtitle">
           {editing ? <SaveText value={c.name} label="Challenge name" onSave={act.rename} className="field big" /> : <h2 className="pagetitle small2">{c.name}</h2>}
-          <span className="muted small">{sticker ? 'Sticker' : 'Grid'} · Journal {c.year}</span>
+          <span className="muted small">{c.pyramid ? 'Pyramid' : sticker ? 'Sticker' : 'Grid'} · Journal {c.year}</span>
         </div>
         <TrackerBar t={c} color={c.color} bonus={c.bonus} />
         {c.canReveal && act.reveal && <button type="button" className="btn" onClick={act.reveal}>Reveal all stickers</button>}
@@ -341,19 +360,29 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
       {editing && (
         <div className="bcard gedit">
           <span className="lbl2">Challenge color</span><Swatches value={c.color} label="Challenge color" onPick={act.color} />
-          {<div className="addrow"><input className="field small" aria-label="New sub-category" placeholder="New sub-category" value={newGroup} onChange={(e) => setNewGroup(e.target.value)} />
-            <button type="button" className="mini" onClick={() => { if (newGroup.trim()) { act.addGroup(newGroup.trim()); setNewGroup(''); } }}>Add sub-category</button></div>}
+ {<div className="addrow"><input className="field small" aria-label={c.pyramid ? 'New row' : 'New sub-category'} placeholder={c.pyramid ? 'New row (for example Duology)' : 'New sub-category'} value={newGroup} onChange={(e) => setNewGroup(e.target.value)} />
+            <button type="button" className="mini" onClick={() => { if (newGroup.trim()) { act.addGroup(newGroup.trim()); setNewGroup(''); } }}>{c.pyramid ? 'Add row' : 'Add sub-category'}</button></div>}
           {act.setLimit && <LimitSettings required={c.required} allowBonus={c.allowBonus} prompts={c.loose.concat(c.groups.flatMap((g) => g.slots)).filter((x) => !x.is_optional).length} onSave={act.setLimit} />}
           {act.askAll && <NoteSettings ask={c.askNote} label={c.noteLabel} onSave={act.askAll} />}
-          {keys.length > 1 && <button type="button" className="mini" onClick={act.shuffleCards}>Shuffle the cards</button>}
-          {act.setPyramid && keys.length > 1 && <label className="inline"><input type="checkbox" role="switch" className="toggle" aria-label="Pyramid layout" checked={!!c.layout.pyramid} onChange={(e) => act.setPyramid!(e.target.checked)} /><span>Pyramid layout</span></label>}
+          {!c.pyramid && keys.length > 1 && <button type="button" className="mini" onClick={act.shuffleCards}>Shuffle the cards</button>}
           {deleting
             ? <span className="movebtns"><button type="button" className="mini danger" onClick={act.remove}>Delete the whole challenge</button><button type="button" className="mini" onClick={() => setDeleting(false)}>Keep</button></span>
             : <button type="button" className="mini" onClick={() => setDeleting(true)}>Delete challenge</button>}
         </div>
       )}
       {sticker && editing && act.addStickers && <AddStickers add={act.addStickers} attach={act.attachStickers} missing={c.loose.concat(c.groups.flatMap((g) => g.slots)).filter((x) => !x.art && !x.is_free).length} groups={c.groups.map((g) => ({ id: g.id, name: g.name }))} />}
-      <div className={`gcards${split ? ' split' : ''}${c.layout.pyramid ? ' pyramid' : ''}`}>{keys.map(renderCard)}</div>
+      {c.pyramid ? (
+        <>
+          <h3 className="pyrhead">Pyramid</h3>
+          {pyramidRows}
+          {(c.loose.length > 0 || editing) && (
+            <section className="bcard gcard extras" style={{ ['--gc' as string]: c.color }} aria-label="Extra prompts">
+              <header className="ghead"><h2 className="gname" style={{ background: c.color, color: readableOn(c.color) }}>Extra prompts</h2></header>
+              {slotList(c.loose, null)}
+            </section>
+          )}
+        </>
+      ) : <div className={`gcards${split ? ' split' : ''}`}>{keys.map(renderCard)}</div>}
       {c.total === 0 && !editing && <p className="muted">This challenge has no prompts yet. Choose Edit to add some.</p>}
       {picking && <ReadPicker prompt={picking.label} search={act.search} noteLabel={(picking.askNote ?? c.askNote) && act.note ? c.noteLabel : undefined} onClose={() => setPicking(null)} onPick={(readId, note) => { act.fill(picking.id, readId, note); setPicking(null); }} />}
     </div>

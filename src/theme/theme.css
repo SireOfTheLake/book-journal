@@ -600,9 +600,7 @@ a.librow:hover { background: var(--panel2); }
 .gcards > .gcard { --cell: 118px; --gap: 14px; --pad: 14px; flex: 0 1 auto; min-width: 0; box-sizing: border-box; max-width: 100%;
   width: calc(var(--cols, 1) * var(--cell) + (var(--cols, 1) - 1) * var(--gap) + 2 * var(--pad) + 2px); }
 .gcards > .gcard.full { width: 100%; }
-.gcards.pyramid { flex-direction: column; align-items: center; gap: 6px; }
-.gcards.pyramid > .gcard { flex: 0 0 auto; border-radius: 4px; border-top-width: 3px; }
-.gcards.pyramid > .gcard .gslots { gap: 6px; }
+
 .gcards > .gcard.stickercard { --cell: 132px; }
 .gcards .gslots, .gcards .stickersheet { grid-template-columns: repeat(auto-fill, minmax(var(--cell), 1fr)); gap: var(--gap); }
 .stickersheet { list-style: none; margin: 0; padding: 0; display: grid; }
@@ -1517,3 +1515,10 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .seasonlist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .seasonlist li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .seasonlist progress { flex: 1 1 120px; }
+
+.pyrhead { margin: 4px 0 0; font-size: 1rem; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.pyramid { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.pyramid > .pyrow { width: fit-content; max-width: 100%; box-sizing: border-box; border-radius: 6px; }
+.gslots.pyr { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+.gslots.pyr > .gslot { width: 118px; }
+.extras { margin-top: 6px; }

@@ -236,17 +236,6 @@ describe('arranging: order and size', () => {
     await ch.setActiveWindow(db, id, null, null);
     expect(await ch.listInSeason(db, '2026-10-20')).toEqual([]);
   });
-  it('pyramid layout sizes each card to its prompt count and can be turned off', async () => {
-    const id = await make();
-    const c0 = (await ch.getChallenge(db, id))!;
-    expect(c0.layout.pyramid).toBeUndefined();
-    await ch.setPyramid(db, id, true);
-    const c1 = (await ch.getChallenge(db, id))!;
-    expect(c1.layout.pyramid).toBe(true);
-    for (const g of c1.groups) if (g.slots.length) expect(c1.layout.cols[g.id]).toBe(g.slots.length);
-    await ch.setPyramid(db, id, false);
-    expect((await ch.getChallenge(db, id))!.layout.pyramid).toBeUndefined();
-  });
   it('moves and shuffles cards, and a new or deleted sub-category does not break the order', async () => {
     const id = await make();
     let c = (await ch.getChallenge(db, id))!;

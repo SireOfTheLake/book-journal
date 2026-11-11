@@ -4,7 +4,7 @@ import { ACCENTS, accentAt, splitPrompts } from '../domain/challenges';
 import { hslToRgb, rgbToHex } from '../domain/colorConv';
 import ColorField from '../ui/ColorField';
 import type { BankSummary } from '../repo/bingo';
-import type { ChallengeSummary, NewGrid, NewSticker, StickerImage } from '../repo/challenges';
+import type { ChallengeSummary, NewGrid, NewPyramid, NewSticker, StickerImage } from '../repo/challenges';
 import type { NewWordBuilder } from '../repo/words';
 import type { NewMap as NewUsMap } from '../repo/usmap';
 import { MAPS, MAP_IDS, canSplitUk, hasBonusPlaces, mapPlaces, type BonusMode, type MapId } from '../domain/maps';
@@ -15,7 +15,7 @@ import TrackerBar from './challenges/TrackerBar';
 
 const KIND: Record<string, string> = { grid: 'Grid', sticker: 'Sticker', bingo: 'Bingo' };
 // What a new challenge is called until you type your own name.
-const DEFAULT_NAME = { grid: 'Reading Challenge', sticker: 'Sticker Challenge', word: 'Word Builder', bingo: 'Bingo' } as const;
+const DEFAULT_NAME = { grid: 'Reading Challenge', sticker: 'Sticker Challenge', pyramid: 'Pyramid', word: 'Word Builder', bingo: 'Bingo' } as const;
 
 // A color for a new challenge: chosen at random, from the ones no other challenge this year has when there are any left.
 export function randomAccent(used: (string | null)[], rng: () => number = Math.random): string {
@@ -32,7 +32,8 @@ export function randomAccent(used: (string | null)[], rng: () => number = Math.r
 export interface NewBingoForm { year: number; name: string; bankId: string | null; newBankPrompts: string[]; preferUnused: boolean; freeText: string; goal?: number | null }
 export type NewWordForm = NewWordBuilder & { word: true };
 export type NewMapForm = NewUsMap & { usMap: true };
-export type CreateInput = NewGrid | NewSticker | NewBingoForm | NewWordForm | NewMapForm;
+export type NewPyramidForm = NewPyramid & { pyramid: true };
+export type CreateInput = NewGrid | NewSticker | NewPyramidForm | NewBingoForm | NewWordForm | NewMapForm;
 
 function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: { year: number; banks: BankSummary[]; used: (string | null)[]; onCreate(input: CreateInput, description?: string): Promise<void>; onCancel(): void }) {
   const [name, setName] = useState<string>(DEFAULT_NAME.grid);
@@ -42,6 +43,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   const [target, setTarget] = useState('');
   const [letters, setLetters] = useState<Record<string, StickerImage>>({});
   const [main, setMain] = useState('');
+  const [pyrRows, setPyrRows] = useState('');
   const [groups, setGroups] = useState<{ name: string; text: string }[]>([]);
   const [mapId, setMapId] = useState<MapId>('us');
   const [bonus, setBonus] = useState<BonusMode>('off');
@@ -52,13 +54,13 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   const [limited, setLimited] = useState(false);
   const [limit, setLimit] = useState('25');
   const pickMap = (id: MapId) => { setMapId(id); setBonus(id === 'us' ? 'off' : 'optional'); setTerritories('off'); setLimit(String(MAPS[id].defaultLimit)); if (!name.trim() || MAP_IDS.some((m) => MAPS[m].defaultName === name)) setName(MAPS[id].defaultName); };
-  const [kind, setKind] = useState<'grid' | 'sticker' | 'word' | 'map' | 'bingo'>('grid');
+  const [kind, setKind] = useState<'grid' | 'sticker' | 'pyramid' | 'word' | 'map' | 'bingo'>('grid');
   const [goal, setGoal] = useState('blackout'); // Bingo: a full blackout or a number of bingos
   const [reqOn, setReqOn] = useState(false); // a limited challenge needs only some of its prompts
   const [reqText, setReqText] = useState('');
   const [reqBonus, setReqBonus] = useState(false);
   const isDefaultName = (n: string) => !n.trim() || Object.values(DEFAULT_NAME).includes(n as never) || MAP_IDS.some((m) => MAPS[m].defaultName === n);
-  const pickKind = (k: 'grid' | 'sticker' | 'word' | 'bingo') => { setKind(k); if (isDefaultName(name)) setName(DEFAULT_NAME[k]); };
+  const pickKind = (k: 'grid' | 'sticker' | 'pyramid' | 'word' | 'bingo') => { setKind(k); if (isDefaultName(name)) setName(DEFAULT_NAME[k]); };
   const [bankId, setBankId] = useState<string>(banks[0]?.id ?? 'new');
   const [bankText, setBankText] = useState('');
   const [prefer, setPrefer] = useState(true);
@@ -79,6 +81,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
       if (kind === 'bingo') { await onCreate({ year, name, bankId: bank ? bank.id : null, newBankPrompts: bank ? [] : splitPrompts(bankText), preferUnused: bank?.lastYear ? prefer : false, freeText, goal: goal === 'blackout' ? null : Number(goal) }); return; }
       if (kind === 'map') { await onCreate({ usMap: true, year, name, color, region: mapId, bonus: hasBonusPlaces(mapId) ? bonus : mapId === 'us' ? 'off' : 'optional', territories: mapId === 'us' ? territories : undefined, australia, ukSplit, extras: limited && extras, limit: limited ? Number(limit) : null }); return; }
       if (kind === 'word') { await onCreate({ word: true, year, name, color, theme, target: target.trim() ? Number(target) : null, letters }); return; }
+      if (kind === 'pyramid') { await onCreate({ ...limitInput, pyramid: true, year, name, color, rows: splitPrompts(pyrRows), extras: splitPrompts(main) }); return; }
       if (kind === 'sticker') { await onCreate({ ...limitInput, year, name, color, groups: stickerGroups.map((g, i) => ({ name: g, color: accentAt(i + 1) })), stickers: [...staged.map((s) => ({ prompt: s.prompt, image: s.image, group: s.group })), ...splitPrompts(laterList).map((prompt) => ({ prompt, image: null }))] }); return; }
       await onCreate({ ...limitInput, year, name, color, prompts: splitPrompts(main), groups: groups.map((g, i) => ({ name: g.name, color: accentAt(i + 1), prompts: splitPrompts(g.text) })) });
     } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
@@ -88,6 +91,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
       <div className="stack"><span className="lbl2">Kind</span>
         <div className="seg" role="group" aria-label="Kind">
           <button type="button" className={kind === 'grid' ? 'on' : ''} aria-pressed={kind === 'grid'} onClick={() => pickKind('grid')}>Grid</button>
+          <button type="button" className={kind === 'pyramid' ? 'on' : ''} aria-pressed={kind === 'pyramid'} onClick={() => pickKind('pyramid')}>Pyramid</button>
           <button type="button" className={kind === 'sticker' ? 'on' : ''} aria-pressed={kind === 'sticker'} onClick={() => pickKind('sticker')}>Sticker</button>
           <button type="button" className={kind === 'word' ? 'on' : ''} aria-pressed={kind === 'word'} onClick={() => pickKind('word')}>Word builder</button>
           <button type="button" className={kind === 'map' ? 'on' : ''} aria-pressed={kind === 'map'} onClick={() => { setKind('map'); if (isDefaultName(name)) setName(MAPS[mapId].defaultName); }}>Map</button>
@@ -150,6 +154,14 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
               onSet={async (l, f) => { try { const img = await fileToDataUrl(f, 300); setLetters((x) => ({ ...x, [l]: img })); } catch { setError('That picture could not be read.'); } }}
               onRemove={(l) => setLetters((x) => { const n = { ...x }; delete n[l]; return n; })} /></div>
         </>
+      ) : kind === 'pyramid' ? (
+        <>
+          <label className="stack"><span className="lbl2">Pyramid rows, one title per line, top to bottom</span>
+            <textarea className="field" rows={6} aria-label="Pyramid rows" placeholder={'Standalone\nDuology\nTrilogy'} value={pyrRows} onChange={(e) => setPyrRows(e.target.value)} /></label>
+          <span className="muted small">{`Row 1 gets 1 prompt, row 2 gets 2, and so on. The second book of a row called Duology is "Duology slot 2". That is ${(() => { const n = splitPrompts(pyrRows).length; return (n * (n + 1)) / 2; })()} prompts.`}</span>
+          <label className="stack"><span className="lbl2">Extra prompts, one per line (you can make any of them optional later)</span>
+            <textarea className="field" rows={5} aria-label="Extra prompts" value={main} onChange={(e) => setMain(e.target.value)} /></label>
+        </>
       ) : kind === 'sticker' ? (
         <>
           <div className="stack"><span className="lbl2">Sub-categories (optional)</span>
@@ -172,10 +184,10 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
         </div>
       ))}
       <button type="button" className="mini" onClick={() => setGroups((g) => [...g, { name: '', text: '' }])}>+ Add a sub-category</button></>}
-      {(kind === 'grid' || kind === 'sticker') && (
+      {(kind === 'grid' || kind === 'sticker' || kind === 'pyramid') && (
         <div className="notesettings">
           <div className="toggleline">
-            <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={reqOn} onChange={(e) => { setReqOn(e.target.checked); if (!reqText) setReqText(String(Math.max(1, kind === 'sticker' ? staged.length + splitPrompts(laterList).length : splitPrompts(main).length))); if (!e.target.checked) setReqBonus(false); }} /><span>Limited Challenge</span></label>
+            <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={reqOn} onChange={(e) => { setReqOn(e.target.checked); if (!reqText) setReqText(String(Math.max(1, kind === 'pyramid' ? (() => { const n = splitPrompts(pyrRows).length; return (n * (n + 1)) / 2 + splitPrompts(main).length; })() : kind === 'sticker' ? staged.length + splitPrompts(laterList).length : splitPrompts(main).length))); if (!e.target.checked) setReqBonus(false); }} /><span>Limited Challenge</span></label>
             {reqOn && <input className="field tiny" type="number" min={1} aria-label="Prompts needed" value={reqText} onChange={(e) => setReqText(e.target.value)} />}
           </div>
           {reqOn && <label className="inline"><input type="checkbox" role="switch" className="toggle" checked={reqBonus} onChange={(e) => setReqBonus(e.target.checked)} /><span>Bonus prompts</span></label>}
@@ -200,7 +212,7 @@ export default function ChallengesView({ year, list, banks, onCreate, onNewBank,
           <div key={c.id} className="chalwrap">
             <Link to={`/journal/challenges/${c.id}`} className="bcard chalcard" style={{ ['--gc' as string]: c.color ?? accentAt(0) }}>
               <span className="gname-sm">{c.name}</span>
-              <span className="muted small">{c.usMap ? 'Map' : c.word ? 'Word builder' : KIND[c.kind]}{c.published ? '' : ' · Draft'}</span>
+              <span className="muted small">{c.usMap ? 'Map' : c.word ? 'Word builder' : c.pyramid ? 'Pyramid' : KIND[c.kind]}{c.published ? '' : ' · Draft'}</span>
               <TrackerBar t={c} color={c.color ?? undefined} bonus={c.bonus} />
             </Link>
             {onDelete && (confirm === c.id

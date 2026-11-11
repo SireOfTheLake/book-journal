@@ -14,7 +14,7 @@ const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 export type ChallengeKind = 'grid' | 'sticker' | 'bingo';
 
 export interface Bonus { done: number; total: number } // bonus places on a map: how many you have read, and how many there are
-export interface ChallengeSummary extends Tracker { id: string; name: string; kind: ChallengeKind; color: string | null; published: boolean; word: boolean; usMap: boolean; bonus: Bonus | null; limited: boolean } // usMap = a US map challenge (a Grid of the 50 states); word = a Word Builder (a kind of Sticker challenge)
+export interface ChallengeSummary extends Tracker { id: string; name: string; kind: ChallengeKind; color: string | null; published: boolean; word: boolean; pyramid?: boolean; usMap: boolean; bonus: Bonus | null; limited: boolean } // usMap = a US map challenge (a Grid of the 50 states); word = a Word Builder (a kind of Sticker challenge)
 export interface SlotFill { read_id: string; book_id: string; title: string; authors: string | null; status: string }
 export interface Slot { id: string; is_bonus: boolean; is_optional: boolean; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: boolean; bank_prompt_id: string | null; fill: SlotFill | null; askNote: boolean | null; note: string | null } // askNote: true / false = this prompt decides, null = follows the challenge; note = what you wrote for the book on it
 // ---------- date window (a seasonal board shows on Home while it is in season) ----------
@@ -41,7 +41,7 @@ export interface BingoInfo { published: boolean; palette: string[]; bankId: stri
 export const countsTowardTracker = (_s: { is_free: boolean; label: string; art: string | null }) => true;
 export interface Group { id: string; name: string; color: string; slots: Slot[] }
 export interface Challenge extends Tracker {
-  id: string; name: string; kind: ChallengeKind; color: string; year: number; activeFrom: string | null; activeUntil: string | null;
+  id: string; name: string; kind: ChallengeKind; color: string; year: number; activeFrom: string | null; activeUntil: string | null; pyramid: boolean;
   bingo: BingoInfo | null; layout: Layout; groups: Group[]; loose: Slot[]; // loose = prompts that belong to the main category only
   usMap: boolean; mapRegion: MapId | null; bonusMode: BonusMode; territoryMode: BonusMode; mapLimit: number | null; australia: boolean; ukSplit: boolean; extras: boolean; bonus: Bonus | null; // usMap = any map challenge; mapLimit: "complete after N" with N boxes
   description: string | null; askNote: boolean; noteLabel: string; // askNote: every prompt asks for a short note; noteLabel: what it is called
@@ -55,18 +55,18 @@ export const parsePalette = (text: string | null): string[] => {
 };
 
 export async function listChallenges(db: Db, year: number): Promise<ChallengeSummary[]> {
-  const rows = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; published: number; word: number; usMap: number; total: number; done: number; limit: number | null; bonusTotal: number; bonusDone: number }>(
-    `SELECT c.us_map AS usMap, c.map_limit AS "limit", ${BONUS_TOTAL_SQL} AS bonusTotal, ${BONUS_DONE_SQL} AS bonusDone, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.published AS published, c.word_builder AS word,
+  const rows = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; published: number; word: number; pyramid: number; usMap: number; total: number; done: number; limit: number | null; bonusTotal: number; bonusDone: number }>(
+    `SELECT c.us_map AS usMap, c.map_limit AS "limit", ${BONUS_TOTAL_SQL} AS bonusTotal, ${BONUS_DONE_SQL} AS bonusDone, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.published AS published, c.pyramid AS pyramid, c.word_builder AS word,
        ${TOTAL_SQL} AS total,
        ${DONE_SQL} AS done
      FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
      WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY c.sort_order, c.created_at, c.rowid`, [year]);
-  return rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, color: r.color, published: !!r.published, word: !!r.word, usMap: !!r.usMap, limited: r.limit !== null, bonus: r.bonusTotal > 0 ? { done: r.bonusDone, total: r.bonusTotal } : null, ...tracker(r.done, r.total) }));
+  return rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, color: r.color, published: !!r.published, word: !!r.word, pyramid: !!r.pyramid, usMap: !!r.usMap, limited: r.limit !== null, bonus: r.bonusTotal > 0 ? { done: r.bonusDone, total: r.bonusTotal } : null, ...tracker(r.done, r.total) }));
 }
 
 export async function getChallenge(db: Db, id: string): Promise<Challenge | null> {
-  const c = await first<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; layout: string | null; published: number; palette: string | null; bank_id: string | null; bank_name: string | null; prefer_unused: number; word: number; usMap: number; map_region: string | null; bonus_mode: string; territory_mode: string | null; map_limit: number | null; map_australia: number; description: string | null; ask_note: number; note_label: string | null; theme: string | null; target: number | null; required_count: number | null; allow_bonus: number; bonus_limit: number | null; bingo_goal: number | null; stickers_revealed: number; active_from: string | null; active_until: string | null }>(
-    db, `SELECT c.active_from AS active_from, c.active_until AS active_until, c.required_count AS required_count, c.allow_bonus AS allow_bonus, c.bonus_limit AS bonus_limit, c.bingo_goal AS bingo_goal, c.stickers_revealed AS stickers_revealed, c.us_map AS usMap, c.map_region AS map_region, c.bonus_mode AS bonus_mode, c.territory_mode AS territory_mode, c.map_limit AS map_limit, c.map_australia AS map_australia, c.description AS description, c.ask_note AS ask_note, c.note_label AS note_label, c.word_builder AS word, c.word_theme AS theme, c.word_target AS target, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.layout AS layout, c.published AS published, c.palette AS palette, c.bank_id AS bank_id, c.prefer_unused AS prefer_unused,
+  const c = await first<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; layout: string | null; published: number; palette: string | null; bank_id: string | null; bank_name: string | null; prefer_unused: number; word: number; usMap: number; map_region: string | null; bonus_mode: string; territory_mode: string | null; map_limit: number | null; map_australia: number; description: string | null; ask_note: number; note_label: string | null; theme: string | null; target: number | null; required_count: number | null; allow_bonus: number; bonus_limit: number | null; bingo_goal: number | null; stickers_revealed: number; active_from: string | null; active_until: string | null; pyramid: number }>(
+    db, `SELECT c.pyramid AS pyramid, c.active_from AS active_from, c.active_until AS active_until, c.required_count AS required_count, c.allow_bonus AS allow_bonus, c.bonus_limit AS bonus_limit, c.bingo_goal AS bingo_goal, c.stickers_revealed AS stickers_revealed, c.us_map AS usMap, c.map_region AS map_region, c.bonus_mode AS bonus_mode, c.territory_mode AS territory_mode, c.map_limit AS map_limit, c.map_australia AS map_australia, c.description AS description, c.ask_note AS ask_note, c.note_label AS note_label, c.word_builder AS word, c.word_theme AS theme, c.word_target AS target, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.layout AS layout, c.published AS published, c.palette AS palette, c.bank_id AS bank_id, c.prefer_unused AS prefer_unused,
        (SELECT b.name FROM bingo_bank b WHERE b.id = c.bank_id AND b.deleted_at IS NULL) AS bank_name, y.year AS year FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id WHERE c.id = ? AND c.deleted_at IS NULL`, [id]);
   if (!c) return null;
   if (c.usMap && c.map_limit !== null && (c.map_australia & 4)) await syncBonusBoxes(db, id); // keeps the one empty extra box in step
@@ -105,7 +105,7 @@ export async function getChallenge(db: Db, id: string): Promise<Challenge | null
   const bingoGoalSet = c.kind === 'bingo' && c.bingo_goal !== null;
   const canReveal = generic && c.kind === 'sticker' && !c.stickers_revealed && !allowBonus && !hasOptional && counted.length > c.required_count! && done >= c.required_count!;
   return {
-    id: c.id, activeFrom: c.active_from, activeUntil: c.active_until, name: c.name, kind: c.kind, color: c.color && isHexColor(c.color) ? c.color : accentAt(0), year: c.year, layout: resolveLayout(c.kind, groups.map((g) => g.id), c.layout),
+    id: c.id, pyramid: !!c.pyramid, activeFrom: c.active_from, activeUntil: c.active_until, name: c.name, kind: c.kind, color: c.color && isHexColor(c.color) ? c.color : accentAt(0), year: c.year, layout: resolveLayout(c.kind, groups.map((g) => g.id), c.layout),
     groups: groups.map((g, i) => ({ id: g.id, name: g.name, color: g.color && isHexColor(g.color) ? g.color : accentAt(i + 1), slots: slots.filter((s) => s.group_id === g.id) })),
     loose: slots.filter((s) => !s.group_id || !groups.some((g) => g.id === s.group_id)),
     bingo: c.kind === 'bingo' ? { published: !!c.published, palette: parsePalette(c.palette), bankId: c.bank_id, bankName: c.bank_name, preferUnused: !!c.prefer_unused } : null,
@@ -300,16 +300,76 @@ export async function deleteChallenge(db: Db, id: string) {
   ]) await db.execute(sql, [id]);
 }
 
+// ---------- pyramid: rows are sub-categories, and row N has N prompts called "<row> slot 1" to "<row> slot N" ----------
+const isPyramid = async (db: Db, challengeId: string) => (await first<{ p: number }>(db, 'SELECT pyramid AS p FROM challenge WHERE id = ? AND deleted_at IS NULL', [challengeId]))?.p === 1;
+async function refusePyramidSlot(db: Db, challengeId: string, groupId: string | null) {
+  if (groupId && await isPyramid(db, challengeId)) throw new Error('A pyramid row grows by itself. Add or remove a row instead.');
+}
+// Brings every row to its size (row 1 has 1 prompt, row 2 has 2, ...) and names each prompt after its row.
+export async function syncPyramid(db: Db, challengeId: string) {
+  const rows = await db.select<{ id: string; name: string }>('SELECT id, name FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [challengeId]);
+  let pos = (await first<{ n: number | null }>(db, 'SELECT max(position) AS n FROM challenge_slot WHERE challenge_id = ?', [challengeId]))?.n ?? 0;
+  for (const [i, r] of rows.entries()) {
+    const slots = await db.select<{ id: string; label: string }>('SELECT id, label FROM challenge_slot WHERE group_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [r.id]);
+    for (let j = 0; j <= i; j++) {
+      const label = `${r.name} slot ${j + 1}`;
+      if (slots[j]) { if (slots[j].label !== label) await db.execute('UPDATE challenge_slot SET label = ? WHERE id = ?', [label, slots[j].id]); }
+      else await db.execute('INSERT INTO challenge_slot (id, challenge_id, label, group_id, position) VALUES (?, ?, ?, ?, ?)', [newId(), challengeId, label, r.id, ++pos]);
+    }
+    for (const extra of slots.slice(i + 1)) {
+      await db.execute(`UPDATE challenge_completion SET deleted_at = ${NOW} WHERE slot_id = ? AND deleted_at IS NULL`, [extra.id]);
+      await db.execute(`UPDATE challenge_slot SET deleted_at = ${NOW} WHERE id = ?`, [extra.id]);
+    }
+  }
+  await syncCount(db, challengeId);
+}
+// Moves a row up (-1) or down (+1) in the pyramid; the rows then resize to their new places.
+export async function moveRow(db: Db, groupId: string, delta: -1 | 1) {
+  const g = await first<{ challenge_id: string }>(db, 'SELECT challenge_id FROM challenge_group WHERE id = ? AND deleted_at IS NULL', [groupId]);
+  if (!g) throw new Error('That row no longer exists.');
+  const rows = await db.select<{ id: string }>('SELECT id FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position, created_at, rowid', [g.challenge_id]);
+  const at = rows.findIndex((r) => r.id === groupId); const to = at + delta;
+  if (to < 0 || to >= rows.length) return;
+  const ids = rows.map((r) => r.id); [ids[at], ids[to]] = [ids[to], ids[at]];
+  for (const [i, id] of ids.entries()) await db.execute('UPDATE challenge_group SET position = ? WHERE id = ?', [i, id]);
+  if (await isPyramid(db, g.challenge_id)) await syncPyramid(db, g.challenge_id);
+}
+export interface NewPyramid { required?: number | null; allowBonus?: boolean; year: number; name: string; color?: string; rows: string[]; extras?: string[] }
+export async function createPyramid(db: Db, input: NewPyramid): Promise<string> {
+  const name = input.name.trim();
+  if (!name) throw new Error('Give the challenge a name.');
+  const rows = input.rows.map((r) => r.trim()).filter(Boolean);
+  if (!rows.length) throw new Error('Add at least one row.');
+  if (new Set(rows.map((r) => r.toLowerCase())).size !== rows.length) throw new Error('Each row needs its own title.');
+  const extras = (input.extras ?? []).map((x) => x.trim()).filter(Boolean);
+  const total = (rows.length * (rows.length + 1)) / 2 + extras.length;
+  checkRequired(input.required, total);
+  const yearId = await ensureJournalYear(db, input.year);
+  const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
+  const id = newId();
+  await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order, pyramid) VALUES (?, ?, ?, ?, 'grid', 'grid', ?, ?, 1)`,
+    [id, yearId, name, isHexColor(input.color) ? input.color.toLowerCase() : accentAt(order + 1), total, order + 1]);
+  for (const [i, r] of rows.entries()) await db.execute('INSERT INTO challenge_group (id, challenge_id, name, color, position) VALUES (?, ?, ?, ?, ?)', [newId(), id, r, accentAt(i + 1), i]);
+  await syncPyramid(db, id);
+  let pos = (await first<{ n: number | null }>(db, 'SELECT max(position) AS n FROM challenge_slot WHERE challenge_id = ?', [id]))?.n ?? 0;
+  for (const label of extras) await db.execute('INSERT INTO challenge_slot (id, challenge_id, label, position) VALUES (?, ?, ?, ?)', [newId(), id, label, ++pos]);
+  if (input.required != null) await setLimit(db, id, { required: input.required, allowBonus: !!input.allowBonus });
+  return id;
+}
+
 export async function addGroup(db: Db, challengeId: string, name: string): Promise<string> {
   if (!name.trim()) throw new Error('Give the sub-category a name.');
   const n = (await first<{ n: number | null }>(db, 'SELECT max(position) AS n FROM challenge_group WHERE challenge_id = ? AND deleted_at IS NULL', [challengeId]))?.n ?? -1;
   const id = newId();
   await db.execute('INSERT INTO challenge_group (id, challenge_id, name, color, position) VALUES (?, ?, ?, ?, ?)', [id, challengeId, name.trim(), accentAt(n + 2), n + 1]);
+  if (await isPyramid(db, challengeId)) await syncPyramid(db, challengeId);
   return id;
 }
 export async function renameGroup(db: Db, id: string, name: string) {
   if (!name.trim()) throw new Error('Give the sub-category a name.');
   await db.execute('UPDATE challenge_group SET name = ? WHERE id = ?', [name.trim(), id]);
+  const g = await first<{ challenge_id: string }>(db, 'SELECT challenge_id FROM challenge_group WHERE id = ?', [id]);
+  if (g && await isPyramid(db, g.challenge_id)) await syncPyramid(db, g.challenge_id);
 }
 export async function setGroupColor(db: Db, id: string, color: string) {
   if (!isHexColor(color)) throw new Error('That is not a color.');
@@ -324,9 +384,11 @@ export async function deleteGroup(db: Db, id: string) {
   await db.execute(`UPDATE challenge_slot SET deleted_at = ${NOW} WHERE group_id = ? AND deleted_at IS NULL`, [id]);
   await db.execute(`UPDATE challenge_group SET deleted_at = ${NOW} WHERE id = ?`, [id]);
   await syncCount(db, g.challenge_id);
+  if (await isPyramid(db, g.challenge_id)) await syncPyramid(db, g.challenge_id);
 }
 
 export async function addPrompt(db: Db, challengeId: string, groupId: string | null, label: string): Promise<string> {
+  await refusePyramidSlot(db, challengeId, groupId);
   if (!label.trim()) throw new Error('Write the prompt first.');
   const n = (await first<{ n: number | null }>(db, 'SELECT max(position) AS n FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL', [challengeId]))?.n ?? 0;
   const id = newId();
@@ -336,6 +398,8 @@ export async function addPrompt(db: Db, challengeId: string, groupId: string | n
 }
 export async function renamePrompt(db: Db, slotId: string, label: string) {
   if (!label.trim()) throw new Error('A prompt cannot be empty.');
+  const own = await first<{ challenge_id: string; group_id: string | null }>(db, 'SELECT challenge_id, group_id FROM challenge_slot WHERE id = ?', [slotId]);
+  if (own) await refusePyramidSlot(db, own.challenge_id, own.group_id);
   await db.execute('UPDATE challenge_slot SET label = ? WHERE id = ?', [label.trim(), slotId]);
 }
 // The first `target` words are the challenge; any words past it are bonus words (when bonus words are allowed).
@@ -349,8 +413,9 @@ export async function refreshBonusWords(db: Db, challengeId: string) {
 }
 
 export async function deletePrompt(db: Db, slotId: string) {
-  const s = await first<{ challenge_id: string }>(db, 'SELECT challenge_id FROM challenge_slot WHERE id = ? AND deleted_at IS NULL', [slotId]);
+  const s = await first<{ challenge_id: string; group_id: string | null }>(db, 'SELECT challenge_id, group_id FROM challenge_slot WHERE id = ? AND deleted_at IS NULL', [slotId]);
   if (!s) return;
+  await refusePyramidSlot(db, s.challenge_id, s.group_id);
   await db.execute(`UPDATE challenge_completion SET deleted_at = ${NOW} WHERE slot_id = ? AND deleted_at IS NULL`, [slotId]);
   await db.execute(`UPDATE image SET deleted_at = ${NOW} WHERE deleted_at IS NULL AND id = (SELECT art_image_id FROM challenge_slot WHERE id = ?)`, [slotId]);
   await db.execute(`UPDATE challenge_slot SET deleted_at = ${NOW} WHERE id = ?`, [slotId]);
@@ -433,19 +498,6 @@ export async function moveCard(db: Db, challengeId: string, key: string, beforeK
   const l = await loadLayout(db, challengeId);
   await saveLayout(db, challengeId, { ...l, order: moveBefore(l.order, key, beforeKey) });
 }
-// Pyramid layout: the cards sit one per row, centered, top to bottom. Turning it on makes each card exactly as wide as its prompt count, so the rows widen like a pyramid.
-export async function setPyramid(db: Db, challengeId: string, on: boolean) {
-  const l = await loadLayout(db, challengeId);
-  if (!on) { const { pyramid: _p, ...rest } = l; await saveLayout(db, challengeId, rest); return; }
-  const rows = await db.select<{ group_id: string | null; n: number }>('SELECT group_id, COUNT(*) AS n FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL GROUP BY group_id', [challengeId]);
-  const cols = { ...l.cols };
-  for (const k of Object.keys(cols)) {
-    if (k === 'stickers') continue;
-    const n = rows.filter((r) => (k === 'main' ? !r.group_id || !(r.group_id in cols) : r.group_id === k)).reduce((a, r) => a + Number(r.n), 0);
-    if (n > 0) cols[k] = Math.min(MAX_COLS, n);
-  }
-  await saveLayout(db, challengeId, { ...l, cols, pyramid: true });
-}
 export async function shuffleCards(db: Db, challengeId: string, rng: () => number = Math.random) {
   const l = await loadLayout(db, challengeId);
   await saveLayout(db, challengeId, { ...l, order: shuffled(l.order, rng) });
@@ -461,8 +513,9 @@ const slotsInOrder = (db: Db, challengeId: string) => db.select<{ id: string; gr
 
 // Moves a prompt (with its sticker and book) before another prompt, or to the end of a sub-category (groupId null = the main prompts).
 export async function movePrompt(db: Db, slotId: string, groupId: string | null, beforeSlotId: string | null) {
-  const s = await first<{ challenge_id: string }>(db, 'SELECT challenge_id FROM challenge_slot WHERE id = ? AND deleted_at IS NULL', [slotId]);
+  const s = await first<{ challenge_id: string; group_id: string | null }>(db, 'SELECT challenge_id, group_id FROM challenge_slot WHERE id = ? AND deleted_at IS NULL', [slotId]);
   if (!s) throw new Error('That prompt no longer exists.');
+  if (await isPyramid(db, s.challenge_id) && (s.group_id || groupId)) throw new Error('Prompts in a pyramid row cannot be moved.');
   if (groupId && !(await first(db, 'SELECT id FROM challenge_group WHERE id = ? AND challenge_id = ? AND deleted_at IS NULL', [groupId, s.challenge_id]))) throw new Error('That sub-category no longer exists.');
   const all = await slotsInOrder(db, s.challenge_id);
   let ids = all.map((x) => x.id);

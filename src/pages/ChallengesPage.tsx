@@ -2,7 +2,7 @@ import { createMap } from '../repo/usmap';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDb } from '../db/DbContext';
-import { deleteChallenge, createGrid, createSticker, setChallengeDescription, listChallenges, type ChallengeSummary } from '../repo/challenges';
+import { deleteChallenge, createGrid, createSticker, createPyramid, setChallengeDescription, listChallenges, type ChallengeSummary } from '../repo/challenges';
 import { createWordBuilder } from '../repo/words';
 import { useJournalYear } from '../ui/Shell';
 import { createBank, createBingo, deleteBank, listBanks, type BankSummary } from '../repo/bingo';
@@ -67,6 +67,7 @@ export default function ChallengesPage() {
             try { id = await createBingo(db, { year: f.year, name: f.name, bankId, preferUnused: f.preferUnused, freeText: f.freeText, goal: f.goal }); } catch (e) { if (!f.bankId) await deleteBank(db, bankId); throw e; }
           } else if ('usMap' in input) id = await createMap(db, input);
           else if ('word' in input) id = await createWordBuilder(db, input);
+          else if ('pyramid' in input) id = await createPyramid(db, input);
           else id = 'stickers' in input ? await createSticker(db, input) : await createGrid(db, input);
           if (description) await setChallengeDescription(db, id, description);
           nav(`/journal/challenges/${id}`);

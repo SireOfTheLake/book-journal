@@ -221,6 +221,12 @@ pub fn run() {
         description: "challenges can have a date window",
         sql: include_str!("../migrations/0038_challenge_window.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 39,
+        description: "pyramid challenges",
+        sql: include_str!("../migrations/0039_pyramid.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

@@ -13,8 +13,11 @@ it('the custom color box opens in HEX and follows the palette color being change
   const id = await bg.createBingo(db, { year: 2027, name: 'Board', bankId: bank, palette: ['#112233', '#445566'] });
   render(<DbContext.Provider value={db}><MemoryRouter initialEntries={[`/journal/challenges/${id}`]}><Routes><Route path="journal/challenges/:id" element={<ChallengePage />} /></Routes></MemoryRouter></DbContext.Provider>);
   fireEvent.click(await screen.findByRole('button', { name: 'Change color #112233' }));
+  const box = screen.getByRole('button', { name: 'Custom color' });
+  expect(box.textContent).toBe('#112233'); // the box shows the color being changed
+  fireEvent.click(box); // and opens the picker
   expect((screen.getByLabelText('Color code') as HTMLSelectElement).value).toBe('HEX');
   expect((screen.getByLabelText('HEX code') as HTMLInputElement).value.toLowerCase()).toBe('#112233');
   fireEvent.click(screen.getByRole('button', { name: 'Change color #445566' }));
-  expect((screen.getByLabelText('HEX code') as HTMLInputElement).value.toLowerCase()).toBe('#445566');
+  expect(screen.getByRole('button', { name: 'Custom color' }).textContent).toBe('#445566');
 });

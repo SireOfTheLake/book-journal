@@ -268,13 +268,21 @@ describe('bingo goals and colors', () => {
 import { contrast, inkOn, readableOn, tileVars } from '../src/domain/bingo';
 describe('bingo colours stay readable for any palette colour', () => {
   const colours = ['#ffffff', '#c0c0c0', '#d4af37', '#ffeb3b', '#000000', '#0b1a3a', '#c4683d', '#00ffff', '#ff00ff', '#808080'];
-  it('text and border pass contrast on the pale tile for every colour', () => {
+  it('the border is the colour, the inside is 30% of it, and the text reads on that inside on both themes', () => {
+    const mixed = (c: string, page: string) => { const f = parseInt(c.slice(1), 16), g = parseInt(page.slice(1), 16); return '#' + [16, 8, 0].map((sh) => Math.round(((f >> sh) & 255) * 0.3 + ((g >> sh) & 255) * 0.7).toString(16).padStart(2, '0')).join(''); };
     for (const c of colours) {
       const v = tileVars(c);
-      expect(contrast(v['--tx'], v['--tt'])).toBeGreaterThanOrEqual(4.5);
-      expect(contrast(v['--bd'], v['--tt'])).toBeGreaterThanOrEqual(3);
+      expect(v['--tc']).toBe(c);
+      expect(contrast(v['--tx-d'], mixed(c, '#1c1714'))).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(v['--tx-l'], mixed(c, '#f4efe6'))).toBeGreaterThanOrEqual(4.5);
       expect(contrast(inkOn(c), c)).toBeGreaterThanOrEqual(4.5);
     }
+  });
+  it('a very dark colour gets a thin light edge on the dark theme, a very light one a dark edge on the light theme', () => {
+    expect(tileVars('#141b3c')['--edge-d']).not.toBe('transparent');
+    expect(tileVars('#c4683d')['--edge-d']).toBe('transparent');
+    expect(tileVars('#f3ebdd')['--edge-l']).not.toBe('transparent');
+    expect(tileVars('#7a1f3d')['--edge-l']).toBe('transparent');
   });
   it('keeps a colour that already reads', () => { expect(readableOn('#0b1a3a', '#e7e9ef')).toBe('#0b1a3a'); });
 });

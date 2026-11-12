@@ -26,10 +26,23 @@ export function readableOn(hex: string, bg: string, min = 4.5): string {
 }
 // Black or white, whichever reads better on a solid colour.
 export const inkOn = (hex: string) => (contrast('#ffffff', hex) >= contrast('#111111', hex) ? '#ffffff' : '#111111');
-// The CSS variables for a square or letter of this colour.
+// What a square or letter looks like: the border (or outline) is the colour itself and the inside is the colour at 30% over the page background.
+export const FILL_OPACITY = 0.3;
+const PAGE_DARK = '#1c1714', PAGE_LIGHT = '#f4efe6';
+const mix = (hex: string, bg: string, a: number) => {
+  const f = parseInt(hex.slice(1), 16), g = parseInt(bg.slice(1), 16);
+  const ch = (sh: number) => Math.round(((f >> sh) & 255) * a + ((g >> sh) & 255) * (1 - a));
+  return '#' + [16, 8, 0].map((sh) => ch(sh).toString(16).padStart(2, '0')).join('');
+};
+// Text on the tinted inside: light or dark, whichever reads better (one for the dark theme, one for the light theme).
+const textOn = (hex: string, page: string) => inkOn(mix(hex, page, FILL_OPACITY));
+// A colour that nearly disappears into the page gets a thin edge (light on the dark theme, dark on the light theme).
+const edgeFor = (hex: string, page: string, edge: string) => (contrast(hex, page) < 1.8 ? edge : 'transparent');
 export function tileVars(hex: string): Record<string, string> {
-  const bg = tint(hex);
-  return { '--tc': hex, '--tt': bg, '--tx': readableOn(hex, bg), '--bd': readableOn(hex, bg, 3), '--ox': inkOn(hex) };
+  return {
+    '--tc': hex, '--tx-d': textOn(hex, PAGE_DARK), '--tx-l': textOn(hex, PAGE_LIGHT), '--ox': inkOn(hex),
+    '--edge-d': edgeFor(hex, PAGE_DARK, '#e0d6c6'), '--edge-l': edgeFor(hex, PAGE_LIGHT, '#3a3028'),
+  };
 }
 // How big a square is for each size step on the board's width control.
 export const squarePx = (step: number) => 60 + 20 * Math.max(1, Math.min(6, step));

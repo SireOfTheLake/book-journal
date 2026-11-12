@@ -1,11 +1,12 @@
 import { useRef, useState } from 'react';
-import { BINGO_COLOR_CHOICES, MAX_BINGO_GOAL, readableOn, squarePx, tint } from '../../domain/bingo';
+import { BINGO_COLOR_CHOICES, MAX_BINGO_GOAL, squarePx, tileVars } from '../../domain/bingo';
 import { countsTowardTracker, type Challenge, type Candidate, type Slot } from '../../repo/challenges';
 import BingoTile from './BingoTile';
 import ReadPicker from './ReadPicker';
 import SquareEditor, { type AvailablePrompt, type SquareActions } from './SquareEditor';
 import Blurb from './Blurb';
-import ColorPicker from '../../ui/ColorPicker';
+import ColorField from '../../ui/ColorField';
+import ActiveWindow, { windowText } from './ActiveWindow';
 import TrackerBar from './TrackerBar';
 
 export interface BingoActions extends SquareActions {
@@ -17,6 +18,7 @@ export interface BingoActions extends SquareActions {
   remove(): void;
   publish(): void;
   regenerate(): void;
+  setWindow(from: string | null, until: string | null): void;
   randomize(): void; // new random prompts for the squares that have no book yet
   replaceColor(from: string, to: string): void;
   setGoal(goal: number | null): void;
@@ -71,6 +73,7 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
           ? <button type="button" className="btn on" onClick={act.publish}>Publish board</button>
           : <button type="button" className={`btn${toggled ? ' on' : ''}`} aria-pressed={toggled} onClick={() => setToggled((e) => !e)}>{toggled ? 'Done editing' : 'Edit'}</button>}
       </div>
+      {windowText(c.activeFrom, c.activeUntil) && <p className="muted small activetext">Active on Home: {windowText(c.activeFrom, c.activeUntil)}</p>}
       <Blurb text={c.description} editing={editing} onSave={act.describe} />
       {draft && <div className="bcard"><span>This board is a draft. Click any square to change its words, picture or color, swap it for another prompt, or randomize every prompt from the bank. Publish it when you are happy, then click squares to add books.</span></div>}
       {editing && (
@@ -100,10 +103,11 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
             {pickColor && (
               <div className="palpop" role="group" aria-label={`Choose a new color for ${pickColor}`}>
                 <span className="swatches">{BINGO_COLOR_CHOICES.filter((a) => !info.palette.includes(a)).map((a) => <button key={a} type="button" className="swatch" style={{ background: a }} aria-label={`Use color ${a}`} onClick={() => choose(a)} />)}</span>
-                <ColorPicker key={pickKey} label="Custom color" value={pickColor} onChange={(h) => choose(h.toLowerCase(), true)} />
+                <span className="customcolor"><span className="lbl2">Custom color</span><ColorField key={pickKey} label="Custom color" value={pickColor} onPick={(h) => choose(h.toLowerCase(), true)} /></span>
               </div>
             )}
           </div>
+          <ActiveWindow from={c.activeFrom} until={c.activeUntil} onChange={act.setWindow} />
           <span className="muted small">{draft ? 'Drag one square onto another to trade places.' : 'Click a square to change it, or drag one onto another to trade places.'} Everything here can be changed again later.</span>
           {deleting
             ? <span className="movebtns"><button type="button" className="mini danger" onClick={act.remove}>Delete the whole challenge</button><button type="button" className="mini" onClick={() => setDeleting(false)}>Keep</button></span>
@@ -112,7 +116,7 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
       )}
       <div className="bingostage">
       <div className="bingoletters" aria-hidden="true" style={{ ['--sq' as string]: `${px}px` }}>
-        {[...'BINGO'].map((l, i) => <span key={i} className="bingoletter" style={{ ['--lc' as string]: readableOn(letterColors[i], tint(letterColors[i]), 3), ['--lt' as string]: tint(letterColors[i]) }}>{l}</span>)}
+        {[...'BINGO'].map((l, i) => <span key={i} className="bingoletter" style={tileVars(letterColors[i])}>{l}</span>)}
       </div>
       <div className="bingoboard" role="grid" aria-label={`${c.name} board`} style={{ ['--sq' as string]: `${px}px` }}>
         {c.loose.map((s, i) => {

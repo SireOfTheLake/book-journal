@@ -8,7 +8,6 @@ import { migrateNodeDb } from '../src/db/nodeDb';
 import { createBook } from '../src/repo/books';
 import { createRead } from '../src/repo/bookLog';
 import * as bg from '../src/repo/bingo';
-import { tint } from '../src/domain/bingo';
 import * as ch from '../src/repo/challenges';
 import BankPage from '../src/pages/BankPage';
 import ChallengePage from '../src/pages/ChallengePage';
@@ -183,6 +182,7 @@ describe('a published board', () => {
     fireEvent.click(palette.getByRole('button', { name: 'Use color #6c9a4f' }));
     await waitFor(async () => expect((await ch.getChallenge(db, id))!.bingo!.palette).toContain('#6c9a4f'));
     fireEvent.click(palette.getByRole('button', { name: 'Change color #6c9a4f' }));
+    fireEvent.click(palette.getByRole('button', { name: 'Custom color' }));
     const hexBox = palette.getByLabelText('HEX code');
     fireEvent.change(hexBox, { target: { value: '#112233' } });
     fireEvent.blur(hexBox);
@@ -248,12 +248,12 @@ describe('the BINGO letters', () => {
     const { id } = await board(true);
     ui(`/journal/challenges/${id}`);
     await screen.findByRole('grid');
-    const letters = () => [...document.querySelectorAll('.bingostage .bingoletter')].map((e) => [e.textContent, (e as HTMLElement).style.getPropertyValue('--lc')]);
+    const letters = () => [...document.querySelectorAll('.bingostage .bingoletter')].map((e) => [e.textContent, (e as HTMLElement).style.getPropertyValue('--tc')]);
     expect(letters().map((l) => l[0]).join('')).toBe('BINGO');
     expect(letters().every((l) => /^#[0-9a-f]{6}$/i.test(l[1] as string))).toBe(true);
     expect(document.querySelector('.bingostage .bingoboard')).toBeTruthy();
     const pal = (await ch.getChallenge(db, id))!.bingo!.palette; // the letters take the five colors in the order listed
-    expect([...document.querySelectorAll('.bingostage .bingoletter')].map((e) => (e as HTMLElement).style.getPropertyValue('--lt'))).toEqual(pal.map((c) => tint(c)));
+    expect([...document.querySelectorAll('.bingostage .bingoletter')].map((e) => (e as HTMLElement).style.getPropertyValue('--tc'))).toEqual(pal);
     const first = letters();
     cleanup(); ui(`/journal/challenges/${id}`); await screen.findByRole('grid');
     expect(letters()).toEqual(first);

@@ -14,7 +14,7 @@ const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 export type ChallengeKind = 'grid' | 'sticker' | 'bingo';
 
 export interface Bonus { done: number; total: number } // bonus places on a map: how many you have read, and how many there are
-export interface ChallengeSummary extends Tracker { id: string; name: string; kind: ChallengeKind; color: string | null; published: boolean; word: boolean; pyramid?: boolean; usMap: boolean; bonus: Bonus | null; limited: boolean } // usMap = a US map challenge (a Grid of the 50 states); word = a Word Builder (a kind of Sticker challenge)
+export interface ChallengeSummary extends Tracker { id: string; name: string; kind: ChallengeKind; color: string | null; published: boolean; word: boolean; pyramid?: boolean; usMap: boolean; bonus: Bonus | null; limited: boolean; activeFrom: string | null; activeUntil: string | null } // usMap = a US map challenge (a Grid of the 50 states); word = a Word Builder (a kind of Sticker challenge)
 export interface SlotFill { read_id: string; book_id: string; title: string; authors: string | null; status: string }
 export interface Slot { id: string; is_bonus: boolean; is_optional: boolean; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: boolean; bank_prompt_id: string | null; fill: SlotFill | null; askNote: boolean | null; note: string | null } // askNote: true / false = this prompt decides, null = follows the challenge; note = what you wrote for the book on it
 // ---------- date window (a seasonal board shows on Home while it is in season) ----------
@@ -55,13 +55,13 @@ export const parsePalette = (text: string | null): string[] => {
 };
 
 export async function listChallenges(db: Db, year: number): Promise<ChallengeSummary[]> {
-  const rows = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; published: number; word: number; pyramid: number; usMap: number; total: number; done: number; limit: number | null; bonusTotal: number; bonusDone: number }>(
-    `SELECT c.us_map AS usMap, c.map_limit AS "limit", ${BONUS_TOTAL_SQL} AS bonusTotal, ${BONUS_DONE_SQL} AS bonusDone, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.published AS published, c.pyramid AS pyramid, c.word_builder AS word,
+  const rows = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; published: number; word: number; pyramid: number; usMap: number; total: number; done: number; limit: number | null; bonusTotal: number; bonusDone: number; af: string | null; au: string | null }>(
+    `SELECT c.active_from AS af, c.active_until AS au, c.us_map AS usMap, c.map_limit AS "limit", ${BONUS_TOTAL_SQL} AS bonusTotal, ${BONUS_DONE_SQL} AS bonusDone, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.published AS published, c.pyramid AS pyramid, c.word_builder AS word,
        ${TOTAL_SQL} AS total,
        ${DONE_SQL} AS done
      FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
      WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY c.sort_order, c.created_at, c.rowid`, [year]);
-  return rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, color: r.color, published: !!r.published, word: !!r.word, pyramid: !!r.pyramid, usMap: !!r.usMap, limited: r.limit !== null, bonus: r.bonusTotal > 0 ? { done: r.bonusDone, total: r.bonusTotal } : null, ...tracker(r.done, r.total) }));
+  return rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, color: r.color, published: !!r.published, word: !!r.word, pyramid: !!r.pyramid, usMap: !!r.usMap, limited: r.limit !== null, activeFrom: r.af, activeUntil: r.au, bonus: r.bonusTotal > 0 ? { done: r.bonusDone, total: r.bonusTotal } : null, ...tracker(r.done, r.total) }));
 }
 
 export async function getChallenge(db: Db, id: string): Promise<Challenge | null> {

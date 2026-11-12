@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { windowText } from './challenges/ActiveWindow';
 import { Link } from 'react-router-dom';
 import { ACCENTS, accentAt, splitPrompts } from '../domain/challenges';
 import { hslToRgb, rgbToHex } from '../domain/colorConv';
@@ -220,6 +221,7 @@ export default function ChallengesView({ year, list, banks, onCreate, onNewBank,
             <Link to={`/journal/challenges/${c.id}`} className="bcard chalcard" style={{ ['--gc' as string]: c.color ?? accentAt(0) }}>
               <span className="gname-sm">{c.name}</span>
               <span className="muted small">{c.usMap ? 'Map' : c.word ? 'Word builder' : c.pyramid ? 'Pyramid' : KIND[c.kind]}{c.published ? '' : ' · Draft'}</span>
+              {c.kind === 'bingo' && windowText(c.activeFrom, c.activeUntil) && <span className="muted small">Active {windowText(c.activeFrom, c.activeUntil)}</span>}
               <TrackerBar t={c} color={c.color ?? undefined} bonus={c.bonus} />
             </Link>
             <div className="chalbar">

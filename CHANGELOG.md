@@ -2,7 +2,18 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 r076 -->
+
+## 0.5.13 — 2026-11-12
+
+### New
+- [Desktop] Bingo cards on the Challenges page show their Active on Home dates.
+
+### Improved
+- [Desktop] Bingo squares now have a border in the color you picked and an inside at 30% of that color, with light or dark text chosen so it is always readable.
+- [Desktop] The BINGO letters keep the typewriter look: outlined in the palette color with a 30% fill. Very dark colors get a thin light edge (and very light colors a thin dark edge on the light theme) so they never disappear into the page.
+- [Desktop] Active on Home dates now show as plain text under the tracker, above the description, and are edited in the Bingo edit menu. Only Bingo challenges have these dates; every other challenge runs all year.
+- [Desktop] The Custom color in the Bingo editor is a box showing the color being changed; clicking it opens the color picker, set to HEX like the normal challenge color.
 
 ## 0.5.12 — 2026-11-12
 

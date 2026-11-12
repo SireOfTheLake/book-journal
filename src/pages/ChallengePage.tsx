@@ -12,6 +12,7 @@ import WordView, { type WordActions } from './challenges/WordView';
 import * as words from '../repo/words';
 import * as usmap from '../repo/usmap';
 import MapView, { type MapActions } from './challenges/MapView';
+import ActiveWindow from './challenges/ActiveWindow';
 import GridView, { type GridActions } from './challenges/GridView';
 
 export default function ChallengePage() {
@@ -60,7 +61,7 @@ export default function ChallengePage() {
       publish: () => run(() => bingo.publishBingo(db, id)), regenerate: () => run(() => bingo.regenerateBoard(db, id)),
       setText: (s, t) => run(() => bingo.setSquareText(db, s, t)), setImage: (s, f) => run(async () => bingo.setSquareImage(db, s, f ? await fileToSquare(f) : null)),
       setColor: (s, h) => run(() => bingo.setSquareColor(db, s, h)), setPalette: (cols) => run(() => bingo.setPalette(db, id, cols)), replaceColor: (from, to) => run(() => bingo.replacePaletteColor(db, id, from, to)), setGoal: (n) => run(() => bingo.setBingoGoal(db, id, n)),
-      setWindow: (f, u) => run(() => repo.setActiveWindow(db, id, f, u)), rerollColors: () => run(() => bingo.rerollColors(db, id)), swapForAnother: (s) => run(() => bingo.swapForAnother(db, s)),
+      randomize: () => run(() => bingo.randomizeEmptySquares(db, id)), rerollColors: () => run(() => bingo.rerollColors(db, id)), swapForAnother: (s) => run(() => bingo.swapForAnother(db, s)),
       pickBankPrompt: (s, p) => run(() => bingo.pickBankPrompt(db, s, p)), swapSquares: (a, b) => run(() => bingo.swapSquares(db, a, b)),
       shuffleBoard: () => run(() => bingo.shuffleBoard(db, id)), size: (n) => run(() => repo.setCardCols(db, id, 'board', n)),
     };
@@ -98,6 +99,7 @@ export default function ChallengePage() {
     <section>
       <p className="small"><Link className="l inline" to="/journal/challenges">&larr; All challenges</Link></p>
       {error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}
+      {c && <ActiveWindow from={c.activeFrom} until={c.activeUntil} onChange={(f, u) => { repo.setActiveWindow(db, id, f, u).then(reload, (e) => setError(String(e))); }} />}
       {c === undefined ? <p className="muted">Loading...</p> : c === null ? <p className="muted">That challenge no longer exists.</p> : c.usMap ? <MapView challenge={c} covers={covers} act={mact} /> : c.word ? <WordView challenge={c} covers={covers} act={wact} /> : c.kind === 'bingo' ? <BingoView challenge={c} covers={covers} available={available} act={bact} /> : <GridView challenge={c} covers={covers} act={act} />}
     </section>
   );

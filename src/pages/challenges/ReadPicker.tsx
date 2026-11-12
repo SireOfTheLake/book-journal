@@ -4,7 +4,8 @@ import type { Candidate } from '../../repo/challenges';
 const STATUS: Record<string, string> = { up_next: 'Up Next', reading: 'Reading', on_hold: 'Paused', finished: 'Finished', dnf: 'Did not finish' };
 
 // A window for choosing which book (and which read of it) goes on a prompt. In progress books come first; type to search the rest.
-export default function ReadPicker({ prompt, search, onPick, onClose, noteLabel }: {
+export default function ReadPicker({ prompt, search, onPick, onClose, noteLabel, onRandomize }: {
+  onRandomize?(): void; // the square comes from a prompt bank: offer a different random prompt
   prompt: string; search(query: string, seriesLen?: number | null): Promise<Candidate[]>; onPick(readId: string, note?: string): void; onClose(): void; noteLabel?: string; // noteLabel: the prompt asks for a short note (a character's name...), so there is a box for it
 }) {
   const [note, setNote] = useState('');
@@ -34,6 +35,7 @@ export default function ReadPicker({ prompt, search, onPick, onClose, noteLabel 
       <div className="dialog pickdlg" role="dialog" aria-modal="true" aria-label="Choose a book">
         <h2 className="pagetitle small2">CHOOSE A BOOK</h2>
         <div className="muted small">For: {prompt}</div>
+        {onRandomize && <div><button type="button" className="mini" onClick={onRandomize}>Pick a different random prompt</button></div>}
         {noteLabel && <input className="field" aria-label={`${noteLabel} (optional)`} placeholder={`${noteLabel} (optional)`} value={note} onChange={(e) => setNote(e.target.value)} onKeyDown={(e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowUp') e.preventDefault(); }} />}
         <input ref={box} className="field big" placeholder="Search by title, author or series" aria-label="Search books" aria-activedescendant={rows?.length ? `pick-${active}` : undefined} value={q} onChange={(e) => setQ(e.target.value)} />
         <label className="inline small">Series length <select className="field tiny" aria-label="Series length" value={len ?? ''} onChange={(e) => setLen(e.target.value ? Number(e.target.value) : null)}>

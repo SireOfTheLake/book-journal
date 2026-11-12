@@ -619,11 +619,11 @@ a.librow:hover { background: var(--panel2); }
 .bingoboard { display: grid; grid-template-columns: repeat(5, var(--sq, 120px)); gap: 8px; width: max-content; max-width: 100%; }
 .bcell { position: relative; width: var(--sq); height: var(--sq); } .bcell[draggable='true'] { cursor: grab; }
 .bbtn { all: unset; display: block; width: 100%; height: 100%; cursor: pointer; border-radius: 8px; } .bbtn:disabled { cursor: default; } .bbtn:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
-.btile { box-sizing: border-box; width: 100%; height: 100%; border: 3px solid var(--tc); border-radius: 8px; background: var(--tt); color: var(--tc); display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; padding: 6px; }
+.btile { box-sizing: border-box; width: 100%; height: 100%; border: 3px solid var(--bd, var(--tc)); border-radius: 8px; background: var(--tt); color: var(--tx, var(--tc)); display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden; padding: 6px; }
 .btile .btext { font-weight: 700; line-height: 1.15; font-size: max(11px, calc(var(--sq, 120px) * .115)); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
 .btile.free .btext { letter-spacing: .12em; font-family: var(--display); font-weight: 400; }
 .btile.pic, .btile.filled { padding: 0; background: var(--tc); } .btile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.btile.filled .btext { color: #fff; padding: 6px; }
+.btile.filled { border-color: var(--tc); } .btile.filled .btext { color: var(--ox, #fff); padding: 6px; }
 .xbtn.over { position: absolute; top: 4px; right: 4px; background: rgba(0, 0, 0, .55); color: #fff; border-radius: 50%; width: 22px; height: 22px; padding: 0; display: flex; align-items: center; justify-content: center; opacity: 0; } .bcell:hover .xbtn.over, .xbtn.over:focus-visible { opacity: 1; }
 .sqprev { width: 120px; height: 120px; }
 .palchip { display: inline-flex; align-items: center; gap: 5px; border: 2px solid; border-radius: 14px; padding: 1px 4px 1px 8px; font-size: 12px; } .palchip .dot { width: 10px; height: 10px; border-radius: 50%; }
@@ -854,6 +854,8 @@ button.lbtn { cursor: pointer; }
 .stcard .stateshape { align-self: center; }
 .dsticker.dstate { display: flex; align-items: center; justify-content: center; height: 78px; }
 .chalwrap { display: flex; flex-direction: column; gap: 6px; align-items: stretch; } .chalwrap > .mini, .chalwrap > .movebtns { align-self: flex-start; }
+.chalbar { display: flex; align-items: center; gap: 6px; } .chalbar .grow { flex: 1 1 auto; } .chalbar > .movebtns { align-self: auto; }
+.activewin { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
 
 /* ---- book menu and merge review ---- */
 .bl-head .bl-actions { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -1528,3 +1530,5 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .chalwrap { cursor: grab; } .chalwrap.dragging { opacity: .45; }
 .chalwrap.dropbefore { outline: 2px dashed var(--gc, var(--accent)); outline-offset: 3px; border-radius: 6px; }
 .chalwrap > .movebtns { align-self: flex-start; }
+
+.xbtn.subtle { background: none; border: 0; color: var(--muted); opacity: .55; font-size: 1.1em; line-height: 1; padding: 0 6px; cursor: pointer; margin-left: 2px; } .xbtn.subtle:hover, .xbtn.subtle:focus-visible { opacity: 1; color: var(--danger, var(--text)); }

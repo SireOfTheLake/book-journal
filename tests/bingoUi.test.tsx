@@ -131,7 +131,7 @@ describe('a draft board', () => {
     await screen.findByText(/This board is a draft/);
     const labels = () => screen.getAllByRole('gridcell').map((c) => within(c).getByRole('button').getAttribute('title'));
     const before = labels();
-    fireEvent.click(screen.getByRole('button', { name: 'Draw a whole new board' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Randomize the prompts' }));
     await waitFor(() => expect(labels()).not.toEqual(before));
     const now = labels();
     const cells = screen.getAllByRole('gridcell');
@@ -140,7 +140,7 @@ describe('a draft board', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Publish board' }));
     await waitFor(() => expect(screen.queryByText(/This board is a draft/)).toBeNull());
     expect(screen.getByRole('button', { name: 'Edit' })).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Draw a whole new board' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Randomize the prompts' })).toBeNull();
   });
 });
 
@@ -182,7 +182,9 @@ describe('a published board', () => {
     fireEvent.click(palette.getByRole('button', { name: 'Use color #6c9a4f' }));
     await waitFor(async () => expect((await ch.getChallenge(db, id))!.bingo!.palette).toContain('#6c9a4f'));
     fireEvent.click(palette.getByRole('button', { name: 'Change color #6c9a4f' }));
-    fireEvent.change(palette.getByLabelText('Pick a custom color'), { target: { value: '#112233' } });
+    const hexBox = palette.getByLabelText('HEX code');
+    fireEvent.change(hexBox, { target: { value: '#112233' } });
+    fireEvent.blur(hexBox);
     await waitFor(async () => expect((await ch.getChallenge(db, id))!.bingo!.palette).toContain('#112233'));
     fireEvent.change(screen.getByLabelText('Bingo goal'), { target: { value: '2' } });
     await screen.findByText('0/2');

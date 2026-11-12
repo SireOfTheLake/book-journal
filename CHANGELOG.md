@@ -2,7 +2,25 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 -->
+
+## 0.5.11 — 2026-11-12
+
+### New
+- [Desktop] Every challenge page now shows the dates it is active on Home right under the back link (Bingo boards and regular challenges alike), and you can set or change them there without opening Edit
+- [Desktop] Bingo: "Randomize the empty squares" on a published board (and "Randomize the prompts" on a draft) draws new prompts from the bank for every square without a book; squares with a book keep theirs
+- [Desktop] Bingo: when you click an empty square, the book picker has a "Pick a different random prompt" button that swaps it for a prompt from the bank that is not on the board yet
+
+### Improved
+- [Desktop] The Home dates use the same calendar picker as the book log's start and finish dates: the start cannot be after the end, the end cannot be before the start, each picker opens on the other date, and dates read like Oct 1, 2027
+- [Desktop] On the list of challenges, Delete now sits on the same row as the move arrows, at the right, while the arrows stay on the left
+- [Desktop] Deleting a prompt bank is now a subtle x beside the bank's name, in the Bingo prompt banks list and at the top of the bank page
+- [Desktop] A Bingo square that already has a book can no longer be swapped for another prompt until the book is taken off
+- [Desktop] The Bingo editor's custom color now uses the in-app color picker (wheel, brightness and a color code), which opens on HEX, instead of the system picker
+
+### Fixed
+- [Desktop] Bingo squares, the BINGO letters and filled squares now pick a readable text and border shade for any palette color, so light colors like silver, gold or white no longer wash out
+- [Desktop] In the Bingo editor, picking a different palette color now updates the custom color box to show that color
 
 ## 0.5.10 — 2026-11-12
 

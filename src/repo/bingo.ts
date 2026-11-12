@@ -158,6 +158,25 @@ export async function regenerateBoard(db: Db, challengeId: string, rng: Rng = Ma
     await db.execute('UPDATE challenge_slot SET label = ?, art_image_id = ?, bank_prompt_id = ? WHERE id = ?', [picked[i].text, await copyImage(db, picked[i].image_id), picked[i].id, slots[i].id]);
   }
 }
+// New random prompts for every square that has no book on it yet (squares with a book keep theirs). Works on a published board too.
+export async function randomizeEmptySquares(db: Db, challengeId: string, rng: Rng = Math.random): Promise<number> {
+  const b = await board(db, challengeId);
+  if (!b.bank_id) throw new Error('This board has no prompt bank.');
+  const slots = await db.select<{ id: string; art: string | null; bank_prompt_id: string | null; filled: number }>(
+    `SELECT s.id AS id, s.art_image_id AS art, s.bank_prompt_id AS bank_prompt_id,
+       (SELECT count(*) FROM challenge_completion WHERE slot_id = s.id AND deleted_at IS NULL) AS filled
+     FROM challenge_slot s WHERE s.challenge_id = ? AND s.deleted_at IS NULL AND s.is_free = 0 ORDER BY s.position`, [challengeId]);
+  const empty = slots.filter((x) => !x.filled);
+  if (!empty.length) return 0;
+  const keep = new Set(slots.filter((x) => x.filled && x.bank_prompt_id).map((x) => x.bank_prompt_id!));
+  const picked = await draw(db, b.bank_id, b.year, empty.length, !!b.prefer_unused, keep, rng);
+  if (picked.length < empty.length) throw new Error(`The bank has only ${picked.length} prompts that are not already on a filled square.`);
+  for (let i = 0; i < empty.length; i++) {
+    await dropImage(db, empty[i].art);
+    await db.execute('UPDATE challenge_slot SET label = ?, art_image_id = ?, bank_prompt_id = ? WHERE id = ?', [picked[i].text, await copyImage(db, picked[i].image_id), picked[i].id, empty[i].id]);
+  }
+  return empty.length;
+}
 // The bank's prompts that are not already on the board.
 export async function listAvailablePrompts(db: Db, challengeId: string): Promise<{ id: string; text: string; image: string | null }[]> {
   const b = await board(db, challengeId);
@@ -181,6 +200,8 @@ export async function pickBankPrompt(db: Db, slotId: string, bankPromptId: strin
 export async function swapForAnother(db: Db, slotId: string, rng: Rng = Math.random) {
   const s = await squareBoard(db, slotId);
   if (s.is_free) throw new Error('The free space does not come from the bank.');
+  const filled = await first<{ n: number }>(db, 'SELECT count(*) AS n FROM challenge_completion WHERE slot_id = ? AND deleted_at IS NULL', [slotId]);
+  if (filled?.n) throw new Error('This square already has a book. Take the book off before choosing a different prompt.');
   const b = await board(db, s.challenge_id);
   if (!b.bank_id) throw new Error('This board has no prompt bank.');
   const on = await db.select<{ id: string }>('SELECT bank_prompt_id AS id FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL AND bank_prompt_id IS NOT NULL', [s.challenge_id]);

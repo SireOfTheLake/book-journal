@@ -183,6 +183,22 @@ describe('changing a draft, publishing, and playing', () => {
     expect([...now].sort()).toEqual([...before].sort());
     expect(now).not.toEqual(before);
   });
+  it('randomizes only the empty squares of a published board and refuses to swap a square with a book', async () => {
+    const { id, c } = await setup();
+    const b = await createBook(db, { title: 'Pumpkin Book', authors: ['Au'] });
+    const r = await createRead(db, b, 'finished');
+    await bg.publishBingo(db, id);
+    await ch.fillSlot(db, c.loose[0].id, r);
+    const before = await labelsOf(id);
+    const n = await bg.randomizeEmptySquares(db, id, seq([0.2, 0.6, 0.9, 0.4]));
+    const after = await labelsOf(id);
+    expect(n).toBe(23);
+    expect(after[0]).toBe(before[0]); // the filled square keeps its prompt
+    expect(after.filter((l, k) => k !== 0 && l === before[0])).toHaveLength(0); // and its prompt is not drawn again
+    expect(new Set(after.filter((l) => l)).size).toBe(after.filter((l) => l).length); // no prompt twice
+    await expect(bg.swapForAnother(db, c.loose[0].id)).rejects.toThrow('already has a book');
+    await bg.swapForAnother(db, c.loose[1].id); // an empty square swaps to an unused prompt
+  });
   it('only lets books go on a published board, the free space included, and counts bingos', async () => {
     const { id, c } = await setup();
     const b = await createBook(db, { title: 'Pumpkin Book', authors: ['Au'] });
@@ -222,4 +238,18 @@ describe('bingo goals and colors', () => {
     expect(after.bingo!.palette[1]).toBe('#123456');
     expect(after.loose.map((s) => s.color)).toEqual(before.loose.map((s) => (s.color === from ? '#123456' : s.color)));
   });
+});
+
+import { contrast, inkOn, readableOn, tileVars } from '../src/domain/bingo';
+describe('bingo colours stay readable for any palette colour', () => {
+  const colours = ['#ffffff', '#c0c0c0', '#d4af37', '#ffeb3b', '#000000', '#0b1a3a', '#c4683d', '#00ffff', '#ff00ff', '#808080'];
+  it('text and border pass contrast on the pale tile for every colour', () => {
+    for (const c of colours) {
+      const v = tileVars(c);
+      expect(contrast(v['--tx'], v['--tt'])).toBeGreaterThanOrEqual(4.5);
+      expect(contrast(v['--bd'], v['--tt'])).toBeGreaterThanOrEqual(3);
+      expect(contrast(inkOn(c), c)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+  it('keeps a colour that already reads', () => { expect(readableOn('#0b1a3a', '#e7e9ef')).toBe('#0b1a3a'); });
 });

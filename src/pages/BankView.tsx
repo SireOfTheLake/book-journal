@@ -49,7 +49,7 @@ export default function BankView({ bank, act }: { bank: Bank; act: BankActions }
         </div>
         {deleting
           ? <span className="movebtns"><button type="button" className="mini danger" onClick={act.removeBank}>Delete the bank</button><button type="button" className="mini" onClick={() => setDeleting(false)}>Keep</button></span>
-          : <button type="button" className="mini" onClick={() => setDeleting(true)}>Delete this bank</button>}
+          : <button type="button" className="xbtn subtle" aria-label="Delete this bank" title="Delete this bank" onClick={() => setDeleting(true)}>&times;</button>}
       </div>
       <div className="bcard">
         <label className="stack"><span className="lbl2">Add prompts, one per line</span>

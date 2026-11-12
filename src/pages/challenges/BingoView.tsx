@@ -1,10 +1,11 @@
 import { useRef, useState } from 'react';
-import { BINGO_COLOR_CHOICES, MAX_BINGO_GOAL, MAX_PALETTE, squarePx, tint } from '../../domain/bingo';
+import { BINGO_COLOR_CHOICES, MAX_BINGO_GOAL, MAX_PALETTE, readableOn, squarePx, tint } from '../../domain/bingo';
 import { countsTowardTracker, type Challenge, type Candidate, type Slot } from '../../repo/challenges';
 import BingoTile from './BingoTile';
 import ReadPicker from './ReadPicker';
 import SquareEditor, { type AvailablePrompt, type SquareActions } from './SquareEditor';
 import Blurb from './Blurb';
+import ColorPicker from '../../ui/ColorPicker';
 import TrackerBar from './TrackerBar';
 
 export interface BingoActions extends SquareActions {
@@ -16,10 +17,10 @@ export interface BingoActions extends SquareActions {
   remove(): void;
   publish(): void;
   regenerate(): void;
+  randomize(): void; // new random prompts for the squares that have no book yet
   setPalette(colors: string[]): void;
   replaceColor(from: string, to: string): void;
   setGoal(goal: number | null): void;
-  setWindow?(from: string | null, until: string | null): void; // the dates the board shows on Home
   rerollColors(): void;
   swapSquares(a: string, b: string): void;
   shuffleBoard(): void;
@@ -39,6 +40,8 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
   const step = c.layout.cols.board || 3;
   const px = squarePx(step);
   const [pickColor, setPickColor] = useState<string | 'new' | null>(null); // which palette color is being changed
+  const [pickKey, setPickKey] = useState(0); // a new picker (showing the clicked color) each time a palette color or Add is clicked
+  const openPick = (v: string | 'new' | null) => { setPickColor(v); setPickKey((k) => k + 1); };
   // BINGO over the five columns: each letter gets a colour from the palette, chosen the same way every time for this board.
   const letterColors = (() => {
     let h = [...c.id].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
@@ -74,10 +77,12 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
           : <button type="button" className={`btn${toggled ? ' on' : ''}`} aria-pressed={toggled} onClick={() => setToggled((e) => !e)}>{toggled ? 'Done editing' : 'Edit'}</button>}
       </div>
       <Blurb text={c.description} editing={editing} onSave={act.describe} />
-      {draft && <div className="bcard"><span>This board is a draft. Click any square to change its words, picture or color, swap it for another prompt, or draw a fresh board. Publish it when you are happy, then click squares to add books.</span></div>}
+      {draft && <div className="bcard"><span>This board is a draft. Click any square to change its words, picture or color, swap it for another prompt, or randomize every prompt from the bank. Publish it when you are happy, then click squares to add books.</span></div>}
       {editing && (
         <div className="bcard gedit">
-          {draft && <button type="button" className="mini" onClick={act.regenerate}>Draw a whole new board</button>}
+          {draft
+            ? <button type="button" className="mini" onClick={act.regenerate}>Randomize the prompts</button>
+            : <button type="button" className="mini" title="Squares that already have a book keep their prompt" onClick={act.randomize}>Randomize the empty squares</button>}
           <button type="button" className="mini" onClick={act.shuffleBoard}>Shuffle the squares</button>
           <button type="button" className="mini" onClick={act.rerollColors}>Re-roll the colors</button>
           <span className="widthctl"><span className="lbl2">Square size</span>
@@ -88,30 +93,20 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
               <option value="blackout">Full blackout (all 25 squares)</option>
               {Array.from({ length: MAX_BINGO_GOAL }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} bingo{n === 1 ? '' : 's'}</option>)}
             </select></label>
-          {act.setWindow && (
-            <div className="stack"><span className="lbl2">Active on Home</span>
-              <span className="addrow">
-                <input className="field small" type="date" aria-label="Active from" value={c.activeFrom ?? ''} onChange={(e) => act.setWindow!(e.target.value || null, c.activeUntil)} />
-                <span className="muted small">to</span>
-                <input className="field small" type="date" aria-label="Active until" value={c.activeUntil ?? ''} onChange={(e) => act.setWindow!(c.activeFrom, e.target.value || null)} />
-                {(c.activeFrom || c.activeUntil) && <button type="button" className="mini" onClick={() => act.setWindow!(null, null)}>Clear dates</button>}
-              </span>
-              <span className="muted small">The board appears on Home between these dates.</span></div>
-          )}
           <div className="palette" role="group" aria-label="Palette">
             <span className="lbl2">Colors</span>
             {info.palette.map((col) => (
               <span key={col} className="palitem">
-                <button type="button" className={`palswatch${pickColor === col ? ' on' : ''}`} style={{ background: col }} aria-label={`Change color ${col}`} aria-expanded={pickColor === col} onClick={() => setPickColor(pickColor === col ? null : col)} />
+                <button type="button" className={`palswatch${pickColor === col ? ' on' : ''}`} style={{ background: col }} aria-label={`Change color ${col}`} aria-expanded={pickColor === col} onClick={() => openPick(pickColor === col ? null : col)} />
                 <span className="palhex">{col}</span>
                 {info.palette.length > 1 && <button type="button" className="xbtn" aria-label={`Remove color ${col}`} onClick={() => { setPickColor(null); act.setPalette(info.palette.filter((x) => x !== col)); }}>&times;</button>}
               </span>
             ))}
-            {info.palette.length < MAX_PALETTE && <button type="button" className="mini" aria-label="Add a color" aria-expanded={pickColor === 'new'} onClick={() => setPickColor(pickColor === 'new' ? null : 'new')}>+ Add a color</button>}
+            {info.palette.length < MAX_PALETTE && <button type="button" className="mini" aria-label="Add a color" aria-expanded={pickColor === 'new'} onClick={() => openPick(pickColor === 'new' ? null : 'new')}>+ Add a color</button>}
             {pickColor && (
               <div className="palpop" role="group" aria-label={pickColor === 'new' ? 'Choose a color to add' : `Choose a new color for ${pickColor}`}>
                 <span className="swatches">{BINGO_COLOR_CHOICES.filter((a) => !info.palette.includes(a)).map((a) => <button key={a} type="button" className="swatch" style={{ background: a }} aria-label={`Use color ${a}`} onClick={() => choose(a)} />)}</span>
-                <label className="inline"><span className="muted small">Custom</span> <input type="color" className="bingocolor" aria-label="Pick a custom color" defaultValue={pickColor === 'new' ? '#888888' : pickColor} onChange={(e) => choose(e.target.value.toLowerCase(), true)} /></label>
+                <ColorPicker key={pickKey} label="Custom color" value={pickColor === 'new' ? '#888888' : (pickColor ?? '#888888')} onChange={(h) => choose(h.toLowerCase(), true)} />
               </div>
             )}
           </div>
@@ -123,7 +118,7 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
       )}
       <div className="bingostage">
       <div className="bingoletters" aria-hidden="true" style={{ ['--sq' as string]: `${px}px` }}>
-        {[...'BINGO'].map((l, i) => <span key={i} className="bingoletter" style={{ ['--lc' as string]: letterColors[i], ['--lt' as string]: tint(letterColors[i]) }}>{l}</span>)}
+        {[...'BINGO'].map((l, i) => <span key={i} className="bingoletter" style={{ ['--lc' as string]: readableOn(letterColors[i], tint(letterColors[i]), 3), ['--lt' as string]: tint(letterColors[i]) }}>{l}</span>)}
       </div>
       <div className="bingoboard" role="grid" aria-label={`${c.name} board`} style={{ ['--sq' as string]: `${px}px` }}>
         {c.loose.map((s, i) => {
@@ -145,7 +140,7 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
         })}
       </div>
       </div>
-      {picking && <ReadPicker prompt={picking.label || 'Free space'} search={act.search} onClose={() => setPicking(null)} onPick={(readId) => { act.fill(picking.id, readId); setPicking(null); }} />}
+      {picking && <ReadPicker prompt={picking.label || 'Free space'} search={act.search} onRandomize={!picking.is_free && !picking.fill ? () => { act.swapForAnother(picking.id); setPicking(null); } : undefined} onClose={() => setPicking(null)} onPick={(readId) => { act.fill(picking.id, readId); setPicking(null); }} />}
       {changingSlot && <SquareEditor slot={changingSlot} palette={info.palette} available={available} act={act} onClose={() => setChanging(null)} />}
     </div>
   );

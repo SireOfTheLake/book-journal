@@ -222,13 +222,16 @@ export default function ChallengesView({ year, list, banks, onCreate, onNewBank,
               <span className="muted small">{c.usMap ? 'Map' : c.word ? 'Word builder' : c.pyramid ? 'Pyramid' : KIND[c.kind]}{c.published ? '' : ' · Draft'}</span>
               <TrackerBar t={c} color={c.color ?? undefined} bonus={c.bonus} />
             </Link>
-            {onMove && <span className="movebtns">
-              <button type="button" className="mini" aria-label={`Move ${c.name} earlier`} disabled={i === 0} onClick={() => void onMove(c.id, list[i - 1].id)}>&#9664;</button>
-              <button type="button" className="mini" aria-label={`Move ${c.name} later`} disabled={i === list.length - 1} onClick={() => void onMove(c.id, list[i + 2]?.id ?? null)}>&#9654;</button>
-            </span>}
-            {onDelete && (confirm === c.id
-              ? <span className="movebtns"><button type="button" className="mini danger" onClick={() => { setConfirm(null); void onDelete(c.id); }}>Delete {c.name}</button><button type="button" className="mini" onClick={() => setConfirm(null)}>Keep</button></span>
-              : <button type="button" className="mini" aria-label={`Delete challenge ${c.name}`} onClick={() => setConfirm(c.id)}>Delete</button>)}
+            <div className="chalbar">
+              {onMove && <span className="movebtns">
+                <button type="button" className="mini" aria-label={`Move ${c.name} earlier`} disabled={i === 0} onClick={() => void onMove(c.id, list[i - 1].id)}>&#9664;</button>
+                <button type="button" className="mini" aria-label={`Move ${c.name} later`} disabled={i === list.length - 1} onClick={() => void onMove(c.id, list[i + 2]?.id ?? null)}>&#9654;</button>
+              </span>}
+              <span className="grow" />
+              {onDelete && (confirm === c.id
+                ? <span className="movebtns"><button type="button" className="mini danger" onClick={() => { setConfirm(null); void onDelete(c.id); }}>Delete {c.name}</button><button type="button" className="mini" onClick={() => setConfirm(null)}>Keep</button></span>
+                : <button type="button" className="mini" aria-label={`Delete challenge ${c.name}`} onClick={() => setConfirm(c.id)}>Delete</button>)}
+            </div>
           </div>
         ))}
       </div>
@@ -248,9 +251,7 @@ function Banks({ banks, onNewBank, onDeleteBank }: { banks: BankSummary[]; onNew
     <section className="bcard" aria-label="Bingo prompt banks">
       <h2 className="gname-sm">Bingo prompt banks</h2>
       <span className="muted small">A bank is a big list of prompts. A Bingo board draws 24 of them at random, and next year's board can start with the ones you did not use.</span>
-      <ul className="banklinks">{banks.map((b) => <li key={b.id}><Link className="l inline" to={`/journal/challenges/banks/${b.id}`}>{b.name}</Link> <span className="muted small">{b.count} prompts</span>{onDeleteBank && (delId === b.id
-        ? <span className="movebtns"> <button type="button" className="mini danger" onClick={async () => { await onDeleteBank(b.id); setDelId(null); }}>Delete {b.name}</button><button type="button" className="mini" onClick={() => setDelId(null)}>Keep</button></span>
-        : <button type="button" className="mini" aria-label={`Delete bank ${b.name}`} onClick={() => setDelId(b.id)}>Delete</button>)}</li>)}</ul>
+      <ul className="banklinks">{banks.map((b) => <li key={b.id}><Link className="l inline" to={`/journal/challenges/banks/${b.id}`}>{b.name}</Link>{onDeleteBank && (delId !== b.id) && <button type="button" className="xbtn subtle" aria-label={`Delete bank ${b.name}`} title="Delete this bank" onClick={() => setDelId(b.id)}>&times;</button>} <span className="muted small">{b.count} prompts</span>{onDeleteBank && delId === b.id && <span className="movebtns"> <button type="button" className="mini danger" onClick={async () => { await onDeleteBank(b.id); setDelId(null); }}>Delete {b.name}</button><button type="button" className="mini" onClick={() => setDelId(null)}>Keep</button></span>}</li>)}</ul>
       <span className="muted small">Deleting a bank does not change boards already made from it; they keep their own copies of the prompts.</span>
       {banks.length === 0 && !adding && <span className="muted small">No banks yet. Making a Bingo challenge can create one for you.</span>}
       {adding ? (

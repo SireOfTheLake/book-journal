@@ -1,5 +1,5 @@
 import type { Db } from '../db/adapter';
-import { assignColors, DEFAULT_PALETTE, FREE_POSITION, MAX_PALETTE, PLAYABLE } from '../domain/bingo';
+import { assignColors, FREE_POSITION, normalizePalette, PLAYABLE } from '../domain/bingo';
 import { accentAt, isHexColor } from '../domain/challenges';
 import { shuffled } from '../domain/challengeLayout';
 import { newId } from '../domain/ids';
@@ -109,7 +109,7 @@ export async function createBingo(db: Db, input: NewBingo): Promise<string> {
   const prefer = input.preferUnused ?? true;
   const picked = await draw(db, input.bankId, input.year, PLAYABLE, prefer, new Set(), rng);
   if (picked.length < PLAYABLE) throw new Error(`A Bingo board needs ${PLAYABLE} prompts and this bank has ${picked.length}. Add more to the bank first.`);
-  const palette = input.palette?.length ? input.palette.filter(isHexColor).slice(0, MAX_PALETTE) : [...DEFAULT_PALETTE];
+  const palette = normalizePalette(input.palette?.filter(isHexColor));
   const yearId = await ensureJournalYear(db, input.year);
   const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
   const id = newId();
@@ -239,19 +239,6 @@ export async function rerollColors(db: Db, challengeId: string, rng: Rng = Math.
   const colors = assignColors(palette, slots.length, rng);
   for (let i = 0; i < slots.length; i++) await db.execute('UPDATE challenge_slot SET color = ? WHERE id = ?', [colors[i], slots[i].id]);
 }
-// The set of colours the squares are drawn from. Squares with a colour that is no longer in the set get a new one.
-export async function setPalette(db: Db, challengeId: string, colors: string[], rng: Rng = Math.random) {
-  const b = await board(db, challengeId);
-  const palette = [...new Set(colors.filter(isHexColor).map((c) => c.toLowerCase()))];
-  if (!palette.length) throw new Error('Keep at least one color.');
-  if (palette.length > MAX_PALETTE) throw new Error(`Use at most ${MAX_PALETTE} colors.`);
-  await db.execute('UPDATE challenge SET palette = ?, color = ? WHERE id = ?', [JSON.stringify(palette), palette[0], challengeId]);
-  const slots = await db.select<{ id: string; color: string | null }>('SELECT id, color FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position', [challengeId]);
-  const fresh = assignColors(palette, slots.length, rng);
-  for (let i = 0; i < slots.length; i++) if (!slots[i].color || !palette.includes(slots[i].color!.toLowerCase())) await db.execute('UPDATE challenge_slot SET color = ? WHERE id = ?', [fresh[i], slots[i].id]);
-  void b;
-}
-
 // Changes one color of the set; every square that had it takes the new one.
 export async function replacePaletteColor(db: Db, challengeId: string, from: string, to: string) {
   await board(db, challengeId);
@@ -262,7 +249,8 @@ export async function replacePaletteColor(db: Db, challengeId: string, from: str
   const at = palette.findIndex((c) => c.toLowerCase() === old);
   if (at < 0) throw new Error('That color is not in the set.');
   if (old === next) return;
-  const merged = palette.map((c, i) => (i === at ? next : c)).filter((c, i, all) => all.findIndex((x) => x.toLowerCase() === c.toLowerCase()) === i);
+  if (palette.some((c) => c.toLowerCase() === next)) throw new Error('That color is already one of the five.');
+  const merged = palette.map((c, i) => (i === at ? next : c));
   await db.execute('UPDATE challenge SET palette = ?, color = ? WHERE id = ?', [JSON.stringify(merged), merged[0], challengeId]);
   await db.execute('UPDATE challenge_slot SET color = ? WHERE challenge_id = ? AND deleted_at IS NULL AND lower(color) = ?', [next, challengeId, old]);
 }
@@ -301,4 +289,22 @@ export async function shuffleBoard(db: Db, challengeId: string, rng: Rng = Math.
   const mixed = shuffled(all.filter((x) => !x.is_free).map((x) => x.id), rng);
   let k = 0;
   await renumber(db, all.map((x) => (x.is_free ? x.id : mixed[k++])));
+}
+
+// One-time tidy-up for boards made before the five-colour rule: five colours (the first five of the old set, topped up from the defaults) and exactly
+// five squares of each. It uses a fixed shuffle for each board so every device that runs it reaches the same result.
+export async function healBingoColors(db: Db) {
+  const done = await first<{ value: string }>(db, "SELECT value FROM app_setting WHERE key = 'fix_bingo_five_colors'");
+  if (done) return;
+  const boards = await db.select<{ id: string; palette: string | null }>("SELECT id, palette FROM challenge WHERE kind = 'bingo' AND deleted_at IS NULL");
+  for (const b of boards) {
+    const palette = parsePalette(b.palette);
+    let h = [...b.id].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
+    const rng = () => { h = (h * 1664525 + 1013904223) >>> 0; return h / 4294967296; };
+    await db.execute('UPDATE challenge SET palette = ?, color = ? WHERE id = ?', [JSON.stringify(palette), palette[0], b.id]);
+    const slots = await db.select<{ id: string; color: string | null }>('SELECT id, color FROM challenge_slot WHERE challenge_id = ? AND deleted_at IS NULL ORDER BY position', [b.id]);
+    const colors = assignColors(palette, slots.length, rng);
+    for (let i = 0; i < slots.length; i++) if ((slots[i].color ?? '').toLowerCase() !== colors[i]) await db.execute('UPDATE challenge_slot SET color = ? WHERE id = ?', [colors[i], slots[i].id]);
+  }
+  await db.execute("INSERT INTO app_setting (key, value) VALUES ('fix_bingo_five_colors', '1') ON CONFLICT(key) DO NOTHING");
 }

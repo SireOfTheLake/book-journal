@@ -1532,3 +1532,4 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .chalwrap > .movebtns { align-self: flex-start; }
 
 .xbtn.subtle { background: none; border: 0; color: var(--muted); opacity: .55; font-size: 1.1em; line-height: 1; padding: 0 6px; cursor: pointer; margin-left: 2px; } .xbtn.subtle:hover, .xbtn.subtle:focus-visible { opacity: 1; color: var(--danger, var(--text)); }
+.palitem { position: relative; } .palletter { display: block; text-align: center; font-family: var(--display); font-size: 12px; color: var(--muted); }

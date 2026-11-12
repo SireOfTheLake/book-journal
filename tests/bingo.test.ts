@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../src/db/adapter';
 import { migrateNodeDb } from '../src/db/nodeDb';
-import { assignColors, bingoLines, DEFAULT_PALETTE, tint } from '../src/domain/bingo';
+import { assignColors, bingoLines, DEFAULT_PALETTE, normalizePalette, tint } from '../src/domain/bingo';
 import { createBook } from '../src/repo/books';
 import { createRead } from '../src/repo/bookLog';
 import * as bg from '../src/repo/bingo';
@@ -16,11 +16,19 @@ const bank = (n = 30) => bg.createBank(db, 'Fall', texts(n));
 const labelsOf = async (id: string) => (await ch.getChallenge(db, id))!.loose.map((s) => s.label);
 
 describe('bingo helpers', () => {
-  it('colours squares from the palette without matching a neighbour', () => {
-    const colors = assignColors(DEFAULT_PALETTE, 25, seq([0.1, 0.5, 0.9, 0.3, 0.7]));
-    expect(colors).toHaveLength(25);
-    colors.forEach((c, i) => { if (i % 5) expect(c).not.toBe(colors[i - 1]); if (i >= 5) expect(c).not.toBe(colors[i - 5]); });
-    expect(assignColors(['#112233'], 3)).toEqual(['#112233', '#112233', '#112233']);
+  it('gives every colour exactly five squares', () => {
+    for (const rng of [seq([0.1, 0.5, 0.9, 0.3, 0.7]), Math.random, Math.random]) {
+      const colors = assignColors(DEFAULT_PALETTE, 25, rng);
+      expect(colors).toHaveLength(25);
+      for (const c of DEFAULT_PALETTE) expect(colors.filter((x) => x === c)).toHaveLength(5);
+    }
+  });
+  it('always has five different colours, topped up from the defaults', () => {
+    expect(normalizePalette(['#AA0000', '#00aa00'])).toHaveLength(5);
+    expect(normalizePalette(['#aa0000', '#00aa00']).slice(0, 2)).toEqual(['#aa0000', '#00aa00']);
+    expect(new Set(normalizePalette(['#aa0000', '#AA0000', 'red'])).size).toBe(5);
+    const six = ['#111111', '#222222', '#333333', '#444444', '#555555', '#666666'];
+    expect(normalizePalette(six)).toEqual(six.slice(0, 5));
   });
   it('counts finished lines', () => {
     const f = Array(25).fill(false);
@@ -156,19 +164,36 @@ describe('changing a draft, publishing, and playing', () => {
     await bg.setSquareImage(db, c.loose[2].id, img('Y')); // text and picture both
     expect((await ch.getChallenge(db, id))!.loose[2].art).not.toBeNull();
   });
-  it('changes the palette and square colours', async () => {
+  it('keeps five colours with five squares each, and lets one square take any color', async () => {
     const { id, c } = await setup();
-    await bg.setSquareColor(db, c.loose[0].id, '#123456');
+    const count = async () => { const g = (await ch.getChallenge(db, id))!; const m = new Map<string, number>(); g.loose.forEach((x) => m.set(x.color!, (m.get(x.color!) ?? 0) + 1)); return { g, m }; };
+    let { g, m } = await count();
+    expect(g.bingo!.palette).toHaveLength(5);
+    expect([...m.values()]).toEqual([5, 5, 5, 5, 5]);
+    await bg.setSquareColor(db, c.loose[0].id, '#123456'); // a single square may break the rule
     await expect(bg.setSquareColor(db, c.loose[0].id, 'red')).rejects.toThrow('color');
-    await bg.setPalette(db, id, ['#aa0000', '#00aa00']);
-    let got = (await ch.getChallenge(db, id))!;
-    expect(got.bingo!.palette).toEqual(['#aa0000', '#00aa00']);
-    expect(got.loose.every((s) => ['#aa0000', '#00aa00'].includes(s.color!))).toBe(true);
-    await bg.rerollColors(db, id, seq([0, 0.9]));
-    got = (await ch.getChallenge(db, id))!;
-    expect(new Set(got.loose.map((s) => s.color))).toEqual(new Set(['#aa0000', '#00aa00']));
-    await expect(bg.setPalette(db, id, [])).rejects.toThrow('at least one');
-    await expect(bg.setPalette(db, id, Array.from({ length: 11 }, (_, i) => `#0000${(16 + i).toString(16)}`))).rejects.toThrow('at most');
+    const first = g.bingo!.palette[0];
+    await bg.replacePaletteColor(db, id, first, '#aa0000');
+    ({ g } = await count());
+    expect(g.bingo!.palette[0]).toBe('#aa0000');
+    expect(g.bingo!.palette).toHaveLength(5);
+    await expect(bg.replacePaletteColor(db, id, '#aa0000', g.bingo!.palette[1])).rejects.toThrow('already one of the five');
+    await bg.rerollColors(db, id);
+    ({ g, m } = await count());
+    expect([...m.values()]).toEqual([5, 5, 5, 5, 5]); // re-rolling puts the rule back
+  });
+  it('tidies old boards once: five colours, five squares each', async () => {
+    const { id } = await setup();
+    await db.execute("UPDATE challenge SET palette = ? WHERE id = ?", [JSON.stringify(['#aa0000', '#00aa00']), id]);
+    await db.execute("UPDATE challenge_slot SET color = '#aa0000' WHERE challenge_id = ?", [id]);
+    await bg.healBingoColors(db);
+    const g = (await ch.getChallenge(db, id))!;
+    expect(g.bingo!.palette.slice(0, 2)).toEqual(['#aa0000', '#00aa00']);
+    expect(g.bingo!.palette).toHaveLength(5);
+    for (const c of g.bingo!.palette) expect(g.loose.filter((x) => x.color === c)).toHaveLength(5);
+    await bg.setSquareColor(db, g.loose[0].id, '#123456');
+    await bg.healBingoColors(db); // already done: a custom color stays
+    expect((await ch.getChallenge(db, id))!.loose[0].color).toBe('#123456');
   });
   it('swaps and shuffles squares, keeping FREE in the middle', async () => {
     const { id, c } = await setup();

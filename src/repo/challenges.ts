@@ -1,7 +1,7 @@
 import type { Db } from '../db/adapter';
 import { accentAt, isHexColor, tracker, BONUS_DONE_SQL, BONUS_TOTAL_SQL, DONE_SQL, SHOWN_SQL, TOTAL_SQL, type Tracker } from '../domain/challenges';
 import { isMapId, isUsTerritory, type BonusMode, type MapId } from '../domain/maps';
-import { bingoLines, DEFAULT_PALETTE } from '../domain/bingo';
+import { bingoLines, normalizePalette } from '../domain/bingo';
 import { moveBefore, resolveLayout, serializeLayout, shuffled, MAX_COLS, type Layout } from '../domain/challengeLayout';
 import { newId } from '../domain/ids';
 import { pickMapColor } from '../domain/usMap';
@@ -50,8 +50,8 @@ export interface Challenge extends Tracker {
 }
 
 export const parsePalette = (text: string | null): string[] => {
-  try { const v = text ? JSON.parse(text) : null; const ok = Array.isArray(v) ? v.filter(isHexColor) : []; if (ok.length) return ok; } catch { /* default */ }
-  return [...DEFAULT_PALETTE];
+  try { const v = text ? JSON.parse(text) : null; return normalizePalette(Array.isArray(v) ? v.filter(isHexColor) : []); } catch { /* default */ }
+  return normalizePalette([]);
 };
 
 export async function listChallenges(db: Db, year: number): Promise<ChallengeSummary[]> {

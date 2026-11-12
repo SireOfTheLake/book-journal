@@ -4,7 +4,6 @@ export const DEFAULT_PALETTE = ['#c4683d', '#5b6e7e', '#7a6bb0', '#4f8a8b', '#c0
 export const SIDE = 5;
 export const FREE_POSITION = 13; // the centre square, counting 1 to 25 across then down
 export const PLAYABLE = 24;
-export const MAX_PALETTE = 10;
 
 // The light version of a square's colour, used behind its text.
 export const tint = (hex: string) => shade(hex, 0.86);
@@ -35,18 +34,29 @@ export function tileVars(hex: string): Record<string, string> {
 // How big a square is for each size step on the board's width control.
 export const squarePx = (step: number) => 60 + 20 * Math.max(1, Math.min(6, step));
 
-// A random colour for each of `count` squares laid out five across, avoiding the same colour beside or below another when the palette allows.
-export function assignColors(palette: string[], count: number, rng: () => number = Math.random): string[] {
+// A Bingo board always has exactly five colours (one for each letter of BINGO), and each colour goes on exactly five of the 25 squares.
+export const PALETTE_SIZE = 5;
+// The first five valid, different colours of `list`; if there are fewer, the gaps are filled from the default colours and then the standard choices.
+export function normalizePalette(list: readonly string[] | null | undefined): string[] {
   const out: string[] = [];
-  for (let i = 0; i < count; i++) {
-    const avoid = new Set<string>();
-    if (i % SIDE > 0) avoid.add(out[i - 1]);
-    if (i >= SIDE) avoid.add(out[i - SIDE]);
-    const free = palette.filter((c) => !avoid.has(c));
-    const from = free.length ? free : palette;
-    out.push(from[Math.min(from.length - 1, Math.floor(rng() * from.length))]);
-  }
+  const add = (c: string) => { const h = c.toLowerCase(); if (/^#[0-9a-f]{6}$/.test(h) && !out.includes(h) && out.length < PALETTE_SIZE) out.push(h); };
+  (list ?? []).forEach(add);
+  [...DEFAULT_PALETTE, ...BINGO_COLOR_CHOICES].forEach(add);
   return out;
+}
+// A colour for each of `count` squares laid out five across. Every colour is used the same number of times (five each for 25 squares and five colours),
+// shuffled, and of many shuffles the one with the fewest neighbours of the same colour is kept.
+export function assignColors(palette: string[], count: number, rng: () => number = Math.random): string[] {
+  const pool = Array.from({ length: count }, (_, i) => palette[i % palette.length]);
+  const clashes = (c: string[]) => c.reduce((n, v, i) => n + (i % SIDE > 0 && c[i - 1] === v ? 1 : 0) + (i >= SIDE && c[i - SIDE] === v ? 1 : 0), 0);
+  let best = pool; let bestScore = Infinity;
+  for (let t = 0; t < 200 && bestScore > 0; t++) {
+    const c = [...pool];
+    for (let i = c.length - 1; i > 0; i--) { const j = Math.min(i, Math.floor(rng() * (i + 1))); [c[i], c[j]] = [c[j], c[i]]; }
+    const score = clashes(c);
+    if (score < bestScore) { best = c; bestScore = score; }
+  }
+  return best;
 }
 
 // How many of the twelve lines (5 rows, 5 columns, 2 diagonals) are complete. `filled` is 25 flags in board order.

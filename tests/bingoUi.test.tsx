@@ -8,6 +8,7 @@ import { migrateNodeDb } from '../src/db/nodeDb';
 import { createBook } from '../src/repo/books';
 import { createRead } from '../src/repo/bookLog';
 import * as bg from '../src/repo/bingo';
+import { tint } from '../src/domain/bingo';
 import * as ch from '../src/repo/challenges';
 import BankPage from '../src/pages/BankPage';
 import ChallengePage from '../src/pages/ChallengePage';
@@ -196,9 +197,9 @@ describe('a published board', () => {
     ui(`/journal/challenges/${id}`);
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
     const palette = within(screen.getByRole('group', { name: 'Palette' }));
-    fireEvent.click(palette.getByRole('button', { name: 'Remove color #c0566b' }));
-    await waitFor(async () => expect((await ch.getChallenge(db, id))!.bingo!.palette).not.toContain('#c0566b'));
-    expect(palette.queryByText('#c0566b')).toBeNull();
+    expect(palette.queryByRole('button', { name: /Remove color/ })).toBeNull(); // there are always five colors
+    expect(palette.queryByRole('button', { name: 'Add a color' })).toBeNull();
+    expect(palette.getAllByRole('button', { name: /Change color/ })).toHaveLength(5);
     fireEvent.click(screen.getByRole('button', { name: 'Make the squares bigger' }));
     await waitFor(async () => expect((await ch.getChallenge(db, id))!.layout.cols.board).toBe(4));
     expect((screen.getByRole('grid') as HTMLElement).style.getPropertyValue('--sq')).toBe('140px');
@@ -251,6 +252,8 @@ describe('the BINGO letters', () => {
     expect(letters().map((l) => l[0]).join('')).toBe('BINGO');
     expect(letters().every((l) => /^#[0-9a-f]{6}$/i.test(l[1] as string))).toBe(true);
     expect(document.querySelector('.bingostage .bingoboard')).toBeTruthy();
+    const pal = (await ch.getChallenge(db, id))!.bingo!.palette; // the letters take the five colors in the order listed
+    expect([...document.querySelectorAll('.bingostage .bingoletter')].map((e) => (e as HTMLElement).style.getPropertyValue('--lt'))).toEqual(pal.map((c) => tint(c)));
     const first = letters();
     cleanup(); ui(`/journal/challenges/${id}`); await screen.findByRole('grid');
     expect(letters()).toEqual(first);

@@ -60,7 +60,7 @@ export default function ChallengePage() {
       remove: () => { repo.deleteChallenge(db, id).then(() => nav('/journal/challenges'), (e) => setError(String(e))); },
       publish: () => run(() => bingo.publishBingo(db, id)), regenerate: () => run(() => bingo.regenerateBoard(db, id)),
       setText: (s, t) => run(() => bingo.setSquareText(db, s, t)), setImage: (s, f) => run(async () => bingo.setSquareImage(db, s, f ? await fileToSquare(f) : null)),
-      setColor: (s, h) => run(() => bingo.setSquareColor(db, s, h)), setPalette: (cols) => run(() => bingo.setPalette(db, id, cols)), replaceColor: (from, to) => run(() => bingo.replacePaletteColor(db, id, from, to)), setGoal: (n) => run(() => bingo.setBingoGoal(db, id, n)),
+      setColor: (s, h) => run(() => bingo.setSquareColor(db, s, h)), replaceColor: (from, to) => run(() => bingo.replacePaletteColor(db, id, from, to)), setGoal: (n) => run(() => bingo.setBingoGoal(db, id, n)),
       randomize: () => run(() => bingo.randomizeEmptySquares(db, id)), rerollColors: () => run(() => bingo.rerollColors(db, id)), swapForAnother: (s) => run(() => bingo.swapForAnother(db, s)),
       pickBankPrompt: (s, p) => run(() => bingo.pickBankPrompt(db, s, p)), swapSquares: (a, b) => run(() => bingo.swapSquares(db, a, b)),
       shuffleBoard: () => run(() => bingo.shuffleBoard(db, id)), size: (n) => run(() => repo.setCardCols(db, id, 'board', n)),

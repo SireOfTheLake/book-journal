@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Db } from './adapter';
 import { normalizePlaces } from '../repo/places';
+import { healBingoColors } from '../repo/bingo';
 import { isTauri, openTauriDb } from './tauriDb';
 
 export const DbContext = createContext<Db | null>(null);
@@ -53,6 +54,7 @@ export function DbProvider({ children }: { children: ReactNode }) {
     setError(null);
     openTauriDb().then(async (d) => {
       try { await normalizePlaces(d); } catch { /* a location that cannot be sorted stays as it is */ }
+      try { await healBingoColors(d); } catch { /* boards keep their colors; it is tried again next time */ }
       if (live) setDb(d);
     }, (e) => {
       if (!live) return;

@@ -2,7 +2,16 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 -->
+
+## 0.5.12 — 2026-11-12
+
+### Improved
+- [Desktop] A Bingo board now always has exactly five colors, and the letters B I N G O take them in the order they are listed in the Colors row (the letters are no longer random). The add and remove color buttons are gone; you can still change any of the five.
+- [Desktop] A new board, and Re-roll the colors, give each of the five colors to exactly five of the 25 squares. A single square can still be set to any color by hand.
+
+### Fixed
+- [Desktop] Existing Bingo boards are tidied once when the app opens: a board with fewer or more than five colors is brought to five (keeping the first of its colors and adding from the defaults), and its squares are re-colored five each.
 
 ## 0.5.11 — 2026-11-12
 

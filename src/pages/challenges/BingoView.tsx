@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { BINGO_COLOR_CHOICES, MAX_BINGO_GOAL, MAX_PALETTE, readableOn, squarePx, tint } from '../../domain/bingo';
+import { BINGO_COLOR_CHOICES, MAX_BINGO_GOAL, readableOn, squarePx, tint } from '../../domain/bingo';
 import { countsTowardTracker, type Challenge, type Candidate, type Slot } from '../../repo/challenges';
 import BingoTile from './BingoTile';
 import ReadPicker from './ReadPicker';
@@ -18,7 +18,6 @@ export interface BingoActions extends SquareActions {
   publish(): void;
   regenerate(): void;
   randomize(): void; // new random prompts for the squares that have no book yet
-  setPalette(colors: string[]): void;
   replaceColor(from: string, to: string): void;
   setGoal(goal: number | null): void;
   rerollColors(): void;
@@ -39,26 +38,22 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
   const dragId = useRef<string | null>(null);
   const step = c.layout.cols.board || 3;
   const px = squarePx(step);
-  const [pickColor, setPickColor] = useState<string | 'new' | null>(null); // which palette color is being changed
-  const [pickKey, setPickKey] = useState(0); // a new picker (showing the clicked color) each time a palette color or Add is clicked
-  const openPick = (v: string | 'new' | null) => { setPickColor(v); setPickKey((k) => k + 1); };
-  // BINGO over the five columns: each letter gets a colour from the palette, chosen the same way every time for this board.
-  const letterColors = (() => {
-    let h = [...c.id].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) >>> 0, 7);
-    const pal = info.palette.length ? info.palette : ['#c4683d'];
-    return [0, 1, 2, 3, 4].map(() => { h = (h * 1664525 + 1013904223) >>> 0; return pal[h % pal.length]; });
-  })();
+  const [pickColor, setPickColor] = useState<string | null>(null); // which of the five palette colors is being changed
+  const [pickKey, setPickKey] = useState(0); // a new picker (showing the clicked color) each time a palette color is clicked
+  const openPick = (v: string | null) => { setPickColor(v); setPickKey((k) => k + 1); };
+  // The letters of BINGO take the five palette colors in the order they are listed.
+  const letterColors = info.palette;
   const changingSlot = changing ? c.loose.find((s) => s.id === changing) ?? null : null;
 
   const click = (s: Slot) => {
     if (editing) { setChanging(s.id); return; }
     if (countsTowardTracker(s)) setPicking(s);
   };
-  // A color picked from the set or the color wheel replaces the one that was clicked, or is added to the set.
+  // A color picked from the set or the color wheel replaces the one that was clicked. There are always exactly five.
   const choose = (hex: string, keepOpen = false) => {
-    if (info.palette.includes(hex)) return;
-    if (pickColor === 'new') { if (info.palette.length < MAX_PALETTE) act.setPalette([...info.palette, hex]); } else if (pickColor) act.replaceColor(pickColor, hex);
-    if (!keepOpen) setPickColor(null); else setPickColor(hex);
+    if (info.palette.includes(hex) || !pickColor) return;
+    act.replaceColor(pickColor, hex);
+    setPickColor(keepOpen ? hex : null);
   };
 
   return (
@@ -94,19 +89,18 @@ export default function BingoView({ challenge: c, covers, available, act }: { ch
               {Array.from({ length: MAX_BINGO_GOAL }, (_, i) => i + 1).map((n) => <option key={n} value={n}>{n} bingo{n === 1 ? '' : 's'}</option>)}
             </select></label>
           <div className="palette" role="group" aria-label="Palette">
-            <span className="lbl2">Colors</span>
-            {info.palette.map((col) => (
+            <span className="lbl2">The five colors, in the order of the letters B I N G O</span>
+            {info.palette.map((col, i) => (
               <span key={col} className="palitem">
+                <span className="palletter" aria-hidden="true">{'BINGO'[i]}</span>
                 <button type="button" className={`palswatch${pickColor === col ? ' on' : ''}`} style={{ background: col }} aria-label={`Change color ${col}`} aria-expanded={pickColor === col} onClick={() => openPick(pickColor === col ? null : col)} />
                 <span className="palhex">{col}</span>
-                {info.palette.length > 1 && <button type="button" className="xbtn" aria-label={`Remove color ${col}`} onClick={() => { setPickColor(null); act.setPalette(info.palette.filter((x) => x !== col)); }}>&times;</button>}
               </span>
             ))}
-            {info.palette.length < MAX_PALETTE && <button type="button" className="mini" aria-label="Add a color" aria-expanded={pickColor === 'new'} onClick={() => openPick(pickColor === 'new' ? null : 'new')}>+ Add a color</button>}
             {pickColor && (
-              <div className="palpop" role="group" aria-label={pickColor === 'new' ? 'Choose a color to add' : `Choose a new color for ${pickColor}`}>
+              <div className="palpop" role="group" aria-label={`Choose a new color for ${pickColor}`}>
                 <span className="swatches">{BINGO_COLOR_CHOICES.filter((a) => !info.palette.includes(a)).map((a) => <button key={a} type="button" className="swatch" style={{ background: a }} aria-label={`Use color ${a}`} onClick={() => choose(a)} />)}</span>
-                <ColorPicker key={pickKey} label="Custom color" value={pickColor === 'new' ? '#888888' : (pickColor ?? '#888888')} onChange={(h) => choose(h.toLowerCase(), true)} />
+                <ColorPicker key={pickKey} label="Custom color" value={pickColor} onChange={(h) => choose(h.toLowerCase(), true)} />
               </div>
             )}
           </div>

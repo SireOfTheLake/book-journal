@@ -47,6 +47,9 @@ export default function BankView({ bank, act }: { bank: Bank; act: BankActions }
           <input className="field big" aria-label="Bank name" value={name} onChange={(e) => setName(e.target.value)} onBlur={() => (name.trim() && name.trim() !== bank.name ? act.rename(name.trim()) : setName(bank.name))} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
           <span className="muted small">{bank.prompts.length} prompts{short ? ` · a board needs ${PLAYABLE}, add ${PLAYABLE - bank.prompts.length} more` : ''}</span>
         </div>
+        {deleting
+          ? <span className="movebtns"><button type="button" className="mini danger" onClick={act.removeBank}>Delete the bank</button><button type="button" className="mini" onClick={() => setDeleting(false)}>Keep</button></span>
+          : <button type="button" className="mini" onClick={() => setDeleting(true)}>Delete this bank</button>}
       </div>
       <div className="bcard">
         <label className="stack"><span className="lbl2">Add prompts, one per line</span>
@@ -57,12 +60,6 @@ export default function BankView({ bank, act }: { bank: Bank; act: BankActions }
         <input className="field small" aria-label="Search prompts" placeholder="Search prompts" value={q} onChange={(e) => setQ(e.target.value)} />
         <ul className="banklist">{shown.map((p) => <Row key={`${p.id}:${p.text}:${p.image ? 1 : 0}`} p={p} act={act} />)}</ul>
         {shown.length === 0 && <p className="muted small">{bank.prompts.length ? 'No prompt matches that.' : 'No prompts yet.'}</p>}
-      </div>
-      <div className="gedit">
-        {deleting
-          ? <span className="movebtns"><button type="button" className="mini danger" onClick={act.removeBank}>Delete the bank</button><button type="button" className="mini" onClick={() => setDeleting(false)}>Keep</button></span>
-          : <button type="button" className="mini" onClick={() => setDeleting(true)}>Delete this bank</button>}
-        <span className="muted small">Boards already made from a bank keep their own copies of the prompts.</span>
       </div>
     </div>
   );

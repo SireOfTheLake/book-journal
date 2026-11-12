@@ -199,7 +199,7 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   );
 }
 
-export default function ChallengesView({ year, list, banks, onCreate, onNewBank, onDelete, onMove }: { onMove?(id: string, beforeId: string | null): Promise<void>; year: number; list: ChallengeSummary[]; banks: BankSummary[]; onCreate(input: CreateInput, description?: string): Promise<void>; onNewBank(name: string, prompts: string[]): Promise<void>; onDelete?(id: string): Promise<void> }) {
+export default function ChallengesView({ year, list, banks, onCreate, onNewBank, onDeleteBank, onDelete, onMove }: { onDeleteBank?(id: string): Promise<void>; onMove?(id: string, beforeId: string | null): Promise<void>; year: number; list: ChallengeSummary[]; banks: BankSummary[]; onCreate(input: CreateInput, description?: string): Promise<void>; onNewBank(name: string, prompts: string[]): Promise<void>; onDelete?(id: string): Promise<void> }) {
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -232,13 +232,14 @@ export default function ChallengesView({ year, list, banks, onCreate, onNewBank,
           </div>
         ))}
       </div>
-      <Banks banks={banks} onNewBank={onNewBank} />
+      <Banks banks={banks} onNewBank={onNewBank} onDeleteBank={onDeleteBank} />
     </div>
   );
 }
 
-function Banks({ banks, onNewBank }: { banks: BankSummary[]; onNewBank(name: string, prompts: string[]): Promise<void> }) {
+function Banks({ banks, onNewBank, onDeleteBank }: { banks: BankSummary[]; onNewBank(name: string, prompts: string[]): Promise<void>; onDeleteBank?(id: string): Promise<void> }) {
   const [adding, setAdding] = useState(false);
+  const [delId, setDelId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -247,7 +248,10 @@ function Banks({ banks, onNewBank }: { banks: BankSummary[]; onNewBank(name: str
     <section className="bcard" aria-label="Bingo prompt banks">
       <h2 className="gname-sm">Bingo prompt banks</h2>
       <span className="muted small">A bank is a big list of prompts. A Bingo board draws 24 of them at random, and next year's board can start with the ones you did not use.</span>
-      <ul className="banklinks">{banks.map((b) => <li key={b.id}><Link className="l inline" to={`/journal/challenges/banks/${b.id}`}>{b.name}</Link> <span className="muted small">{b.count} prompts</span></li>)}</ul>
+      <ul className="banklinks">{banks.map((b) => <li key={b.id}><Link className="l inline" to={`/journal/challenges/banks/${b.id}`}>{b.name}</Link> <span className="muted small">{b.count} prompts</span>{onDeleteBank && (delId === b.id
+        ? <span className="movebtns"> <button type="button" className="mini danger" onClick={async () => { await onDeleteBank(b.id); setDelId(null); }}>Delete {b.name}</button><button type="button" className="mini" onClick={() => setDelId(null)}>Keep</button></span>
+        : <button type="button" className="mini" aria-label={`Delete bank ${b.name}`} onClick={() => setDelId(b.id)}>Delete</button>)}</li>)}</ul>
+      <span className="muted small">Deleting a bank does not change boards already made from it; they keep their own copies of the prompts.</span>
       {banks.length === 0 && !adding && <span className="muted small">No banks yet. Making a Bingo challenge can create one for you.</span>}
       {adding ? (
         <div className="stack">

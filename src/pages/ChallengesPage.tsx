@@ -59,6 +59,7 @@ export default function ChallengesPage() {
       {error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}
       {list ? <ChallengesView year={year} list={list} banks={banks} onDelete={async (id) => { try { await deleteChallenge(db, id); await reload(); } catch (e) { setError(String(e)); } }}
         onNewBank={async (name, prompts) => { await createBank(db, name, prompts); await reload(); }}
+        onDeleteBank={async (bid) => { await deleteBank(db, bid); await reload(); }}
         onMove={async (id, before) => { try { await moveChallenge(db, id, before); await reload(); } catch (e) { setError(String(e)); } }}
         onCreate={async (input: CreateInput, description?: string) => {
           let id: string;

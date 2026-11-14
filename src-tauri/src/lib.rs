@@ -227,6 +227,12 @@ pub fn run() {
         description: "pyramid challenges",
         sql: include_str!("../migrations/0039_pyramid.sql"),
         kind: MigrationKind::Up,
+    },
+    Migration {
+        version: 40,
+        description: "challenge categories",
+        sql: include_str!("../migrations/0040_challenge_categories.sql"),
+        kind: MigrationKind::Up,
     }];
 
     let context = tauri::generate_context!();

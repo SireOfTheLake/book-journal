@@ -2,7 +2,20 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 r076 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 r076 r077 r078 -->
+
+## 0.5.14 — 2026-11-14
+
+### New
+- [Desktop] Home shows a "Starting soon" notice for a Bingo that starts within the next week, and reminds you if it is still a draft.
+- [Desktop] Challenge categories: on the Challenges page, add named categories (like Maps, Bingo or Tropes) and drag challenges into them to group them visually. Drag a challenge onto a category to put it in, or onto a card to place it before that card.
+- [Desktop] Categories can be dragged to reorder them, or moved with earlier/later buttons, and challenges that are not in a category can sit before, between or after them. Categories can be renamed, and are kept separately for each journal year.
+- [Database] Challenge categories are stored in a new table (database version 40) and sync to your other devices. Run the Supabase setup script again to add it.
+
+### Improved
+- [Desktop] The in-season Bingo trackers on Home are all the same length; they shrink together to fit the longest title.
+- [Desktop] A timed Bingo board only feeds the Prompt Randomizer and the Board Game while today is inside its dates (a board with no dates is always included).
+- [Desktop] Deleting a category keeps its challenges: they move out to the page, in the place the category was.
 
 ## 0.5.13 — 2026-11-12
 

@@ -1,3 +1,4 @@
+import { maxSortOrder } from './challengeOrder';
 import type { Db } from '../db/adapter';
 import { accentAt, isHexColor } from '../domain/challenges';
 import { newId } from '../domain/ids';
@@ -17,7 +18,7 @@ export async function createWordBuilder(db: Db, input: NewWordBuilder): Promise<
   const target = input.target ?? null;
   if (target !== null && (!Number.isInteger(target) || target < 1)) throw new Error('The limit must be a whole number above zero, or empty for no limit.');
   const yearId = await ensureJournalYear(db, input.year);
-  const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
+  const order = await maxSortOrder(db, yearId);
   const id = newId();
   await db.execute(
     `INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order, word_builder, word_theme, word_target) VALUES (?, ?, ?, ?, 'open', 'sticker', 0, ?, 1, ?, ?)`,

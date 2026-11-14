@@ -1,3 +1,4 @@
+import { maxSortOrder } from './challengeOrder';
 import type { Db } from '../db/adapter';
 import { assignColors, FREE_POSITION, normalizePalette, PLAYABLE } from '../domain/bingo';
 import { accentAt, isHexColor } from '../domain/challenges';
@@ -111,7 +112,7 @@ export async function createBingo(db: Db, input: NewBingo): Promise<string> {
   if (picked.length < PLAYABLE) throw new Error(`A Bingo board needs ${PLAYABLE} prompts and this bank has ${picked.length}. Add more to the bank first.`);
   const palette = normalizePalette(input.palette?.filter(isHexColor));
   const yearId = await ensureJournalYear(db, input.year);
-  const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
+  const order = await maxSortOrder(db, yearId);
   const id = newId();
   await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order, published, palette, bank_id, prefer_unused, bingo_goal)
     VALUES (?, ?, ?, ?, 'grid', 'bingo', ?, ?, 0, ?, ?, ?, ?)`, [id, yearId, name, palette[0] ?? accentAt(0), PLAYABLE, order + 1, JSON.stringify(palette), input.bankId, prefer ? 1 : 0, input.goal ?? null]);

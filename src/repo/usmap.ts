@@ -1,3 +1,4 @@
+import { maxSortOrder } from './challengeOrder';
 import type { Db } from '../db/adapter';
 import { accentAt, isHexColor } from '../domain/challenges';
 import { newId } from '../domain/ids';
@@ -35,7 +36,7 @@ export async function createMap(db: Db, input: NewMap): Promise<string> {
   const places = mapPlaces(region, bonus, australia, ukSplit, territories);
   const base = places.filter((p) => !p.bonus).length;
   const yearId = await ensureJournalYear(db, input.year);
-  const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
+  const order = await maxSortOrder(db, yearId);
   const id = newId();
   const goal = limit ?? base + places.filter((p) => p.bonus && (isUsTerritory(region, p.name) ? territories : bonus) === 'required').length;
   await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order, us_map, map_region, bonus_mode, territory_mode, map_limit, map_australia) VALUES (?, ?, ?, ?, 'grid', 'grid', ?, ?, 1, ?, ?, ?, ?, ?)`,

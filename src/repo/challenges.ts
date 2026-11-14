@@ -1,3 +1,6 @@
+import { maxSortOrder } from './challengeOrder';
+import { placeChallenge } from './challengeCategories';
+import { daysUntil } from '../domain/releases';
 import type { Db } from '../db/adapter';
 import { accentAt, isHexColor, tracker, BONUS_DONE_SQL, BONUS_TOTAL_SQL, DONE_SQL, SHOWN_SQL, TOTAL_SQL, type Tracker } from '../domain/challenges';
 import { isMapId, isUsTerritory, type BonusMode, type MapId } from '../domain/maps';
@@ -14,7 +17,7 @@ const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ','now')";
 export type ChallengeKind = 'grid' | 'sticker' | 'bingo';
 
 export interface Bonus { done: number; total: number } // bonus places on a map: how many you have read, and how many there are
-export interface ChallengeSummary extends Tracker { id: string; name: string; kind: ChallengeKind; color: string | null; published: boolean; word: boolean; pyramid?: boolean; usMap: boolean; bonus: Bonus | null; limited: boolean; activeFrom: string | null; activeUntil: string | null } // usMap = a US map challenge (a Grid of the 50 states); word = a Word Builder (a kind of Sticker challenge)
+export interface ChallengeSummary extends Tracker { id: string; name: string; kind: ChallengeKind; color: string | null; published: boolean; word: boolean; pyramid?: boolean; usMap: boolean; bonus: Bonus | null; limited: boolean; activeFrom: string | null; activeUntil: string | null; categoryId: string | null } // usMap = a US map challenge (a Grid of the 50 states); word = a Word Builder (a kind of Sticker challenge)
 export interface SlotFill { read_id: string; book_id: string; title: string; authors: string | null; status: string }
 export interface Slot { id: string; is_bonus: boolean; is_optional: boolean; label: string; position: number; group_id: string | null; art: string | null; color: string | null; is_free: boolean; bank_prompt_id: string | null; fill: SlotFill | null; askNote: boolean | null; note: string | null } // askNote: true / false = this prompt decides, null = follows the challenge; note = what you wrote for the book on it
 // ---------- date window (a seasonal board shows on Home while it is in season) ----------
@@ -36,6 +39,17 @@ export async function listInSeason(db: Db, today: string): Promise<InSeason[]> {
   const all = new Map((await Promise.all([...new Set(rows.map((r) => r.year))].map((y) => listChallenges(db, y)))).flat().map((c) => [c.id, c]));
   return rows.flatMap((r) => { const c = all.get(r.id); return c ? [{ id: r.id, name: c.name, kind: c.kind, color: c.color, year: r.year, from: r.from, until: r.until, done: c.done, total: c.total }] : []; });
 }
+export interface StartingSoon { id: string; name: string; from: string; days: number; published: boolean }
+// Bingo boards that start within the next `withinDays` days (a draft counts too: it is a reminder to publish it).
+export async function listStartingSoon(db: Db, today: string, withinDays = 7): Promise<StartingSoon[]> {
+  const rows = await db.select<{ id: string; name: string; from: string; published: number }>(
+    `SELECT c.id AS id, c.name AS name, c.active_from AS "from", c.published AS published FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
+     WHERE c.deleted_at IS NULL AND y.deleted_at IS NULL AND c.kind = 'bingo' AND c.active_from IS NOT NULL AND c.active_from > ? ORDER BY c.active_from, c.sort_order, c.rowid`, [today]);
+  return rows.map((r) => ({ id: r.id, name: r.name, from: r.from, published: !!r.published, days: daysUntil(today, r.from) })).filter((r) => r.days >= 1 && r.days <= withinDays);
+}
+// A timed Bingo board only feeds the Prompt Randomizer and the Board Game while today is inside its dates. A board with no dates is always in.
+export const BINGO_OUT_OF_WINDOW_SQL = `(c.kind = 'bingo' AND ((c.active_from IS NOT NULL AND c.active_from > ?) OR (c.active_until IS NOT NULL AND c.active_until < ?)))`;
+
 export interface BingoInfo { published: boolean; palette: string[]; bankId: string | null; bankName: string | null; preferUnused: boolean }
 // Every square counts, the free space of a Bingo board too: it is a square where any book goes.
 export const countsTowardTracker = (_s: { is_free: boolean; label: string; art: string | null }) => true;
@@ -55,13 +69,13 @@ export const parsePalette = (text: string | null): string[] => {
 };
 
 export async function listChallenges(db: Db, year: number): Promise<ChallengeSummary[]> {
-  const rows = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; published: number; word: number; pyramid: number; usMap: number; total: number; done: number; limit: number | null; bonusTotal: number; bonusDone: number; af: string | null; au: string | null }>(
-    `SELECT c.active_from AS af, c.active_until AS au, c.us_map AS usMap, c.map_limit AS "limit", ${BONUS_TOTAL_SQL} AS bonusTotal, ${BONUS_DONE_SQL} AS bonusDone, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.published AS published, c.pyramid AS pyramid, c.word_builder AS word,
+  const rows = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; published: number; word: number; pyramid: number; usMap: number; total: number; done: number; limit: number | null; bonusTotal: number; bonusDone: number; af: string | null; au: string | null; categoryId: string | null }>(
+    `SELECT c.category_id AS categoryId, c.active_from AS af, c.active_until AS au, c.us_map AS usMap, c.map_limit AS "limit", ${BONUS_TOTAL_SQL} AS bonusTotal, ${BONUS_DONE_SQL} AS bonusDone, c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, c.published AS published, c.pyramid AS pyramid, c.word_builder AS word,
        ${TOTAL_SQL} AS total,
        ${DONE_SQL} AS done
      FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
      WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL ORDER BY c.sort_order, c.created_at, c.rowid`, [year]);
-  return rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, color: r.color, published: !!r.published, word: !!r.word, pyramid: !!r.pyramid, usMap: !!r.usMap, limited: r.limit !== null, activeFrom: r.af, activeUntil: r.au, bonus: r.bonusTotal > 0 ? { done: r.bonusDone, total: r.bonusTotal } : null, ...tracker(r.done, r.total) }));
+  return rows.map((r) => ({ id: r.id, name: r.name, kind: r.kind, color: r.color, published: !!r.published, word: !!r.word, pyramid: !!r.pyramid, usMap: !!r.usMap, limited: r.limit !== null, activeFrom: r.af, activeUntil: r.au, categoryId: r.categoryId, bonus: r.bonusTotal > 0 ? { done: r.bonusDone, total: r.bonusTotal } : null, ...tracker(r.done, r.total) }));
 }
 
 export async function getChallenge(db: Db, id: string): Promise<Challenge | null> {
@@ -138,7 +152,7 @@ export async function createGrid(db: Db, input: NewGrid): Promise<string> {
   checkRequired(input.required, total);
   if (groups.some((g) => !g.name.trim())) throw new Error('Every sub-category needs a name.');
   const yearId = await ensureJournalYear(db, input.year);
-  const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
+  const order = await maxSortOrder(db, yearId);
   const id = newId();
   await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order) VALUES (?, ?, ?, ?, 'grid', 'grid', ?, ?)`,
     [id, yearId, name, isHexColor(input.color) ? input.color.toLowerCase() : accentAt(order + 1), total, order + 1]);
@@ -172,7 +186,7 @@ export async function createSticker(db: Db, input: NewSticker): Promise<string> 
   checkRequired(input.required, input.stickers.length);
   if (input.stickers.some((s) => !s.prompt.trim())) throw new Error('Every sticker needs a prompt.');
   const yearId = await ensureJournalYear(db, input.year);
-  const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
+  const order = await maxSortOrder(db, yearId);
   const id = newId();
   await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order) VALUES (?, ?, ?, ?, 'numbered', 'sticker', ?, ?)`,
     [id, yearId, name, isHexColor(input.color) ? input.color.toLowerCase() : accentAt(order + 1), input.stickers.length, order + 1]);
@@ -288,16 +302,14 @@ export async function setChallengeColor(db: Db, id: string, color: string) {
   if (!isHexColor(color)) throw new Error('That is not a color.');
   await db.execute('UPDATE challenge SET color = ? WHERE id = ?', [color.toLowerCase(), id]);
 }
-// Puts a challenge before another one in its year (beforeId null = last). The year's challenges are renumbered 0, 1, 2 ...
+// Puts a challenge before another one in its year (beforeId null = last in its own place). It lands in the same category as the one it goes before.
 export async function moveChallenge(db: Db, id: string, beforeId: string | null) {
-  const me = await first<{ journal_year_id: string }>(db, 'SELECT journal_year_id FROM challenge WHERE id = ? AND deleted_at IS NULL', [id]);
+  const me = await first<{ journal_year_id: string; category_id: string | null }>(db, 'SELECT journal_year_id, category_id FROM challenge WHERE id = ? AND deleted_at IS NULL', [id]);
   if (!me) throw new Error('That challenge no longer exists.');
-  const rows = await db.select<{ id: string }>('SELECT id FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL ORDER BY sort_order, created_at, rowid', [me.journal_year_id]);
-  const ids = rows.map((r) => r.id).filter((x) => x !== id);
-  const at = beforeId ? ids.indexOf(beforeId) : -1;
-  if (beforeId && at < 0) throw new Error('That challenge is in another year.');
-  ids.splice(at < 0 ? ids.length : at, 0, id);
-  for (const [i, cid] of ids.entries()) await db.execute('UPDATE challenge SET sort_order = ? WHERE id = ? AND sort_order IS NOT ?', [i, cid, i]);
+  if (!beforeId) return placeChallenge(db, id, me.category_id, null);
+  const target = await first<{ journal_year_id: string; category_id: string | null }>(db, 'SELECT journal_year_id, category_id FROM challenge WHERE id = ? AND deleted_at IS NULL', [beforeId]);
+  if (!target || target.journal_year_id !== me.journal_year_id) throw new Error('That challenge is in another year.');
+  await placeChallenge(db, id, target.category_id, beforeId);
 }
 export async function deleteChallenge(db: Db, id: string) {
   for (const sql of [
@@ -356,7 +368,7 @@ export async function createPyramid(db: Db, input: NewPyramid): Promise<string> 
   const total = (rows.length * (rows.length + 1)) / 2 + extras.length;
   checkRequired(input.required, total);
   const yearId = await ensureJournalYear(db, input.year);
-  const order = (await first<{ n: number | null }>(db, 'SELECT max(sort_order) AS n FROM challenge WHERE journal_year_id = ? AND deleted_at IS NULL', [yearId]))?.n ?? -1;
+  const order = await maxSortOrder(db, yearId);
   const id = newId();
   await db.execute(`INSERT INTO challenge (id, journal_year_id, name, color, slot_kind, kind, goal_count, sort_order, pyramid) VALUES (?, ?, ?, ?, 'grid', 'grid', ?, ?, 1)`,
     [id, yearId, name, isHexColor(input.color) ? input.color.toLowerCase() : accentAt(order + 1), total, order + 1]);
@@ -578,11 +590,11 @@ export interface ChoicePlace { name: string; bonus: boolean }
 export interface ChallengeChoice { places: ChoicePlace[] | null; id: string; name: string; kind: ChallengeKind; color: string | null; year: number; current_slot_id: string | null; slots: ChoiceSlot[]; word: boolean; theme: string | null; letters: Record<string, string>; limit: number | null; used: number; wordBonus: { allow: boolean; used: number; limit: number | null } | null }
 
 // Every published challenge in the given years with its prompts, saying which prompt this read is on and which prompts already hold another book.
-export async function listChallengeChoices(db: Db, readId: string, years: number[]): Promise<ChallengeChoice[]> {
+export async function listChallengeChoices(db: Db, readId: string, years: number[], today?: string): Promise<ChallengeChoice[]> {
   if (!years.length) return [];
   const cs = await db.select<{ id: string; name: string; kind: ChallengeKind; color: string | null; year: number; word: number; theme: string | null; limit: number | null; limit_map: number | null; req: number | null; allow: number; bonus_limit: number | null; kind2: string }>(
     `SELECT c.required_count AS req, c.allow_bonus AS allow, c.bonus_limit AS bonus_limit, c.kind AS kind2, c.map_limit AS limit_map, c.word_builder AS word, c.word_theme AS theme, c.word_target AS "limit", c.id AS id, c.name AS name, c.kind AS kind, c.color AS color, y.year AS year FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
-     WHERE c.deleted_at IS NULL AND y.deleted_at IS NULL AND c.published = 1 AND y.year IN (${years.map(() => '?').join(',')}) ORDER BY y.year DESC, c.sort_order, c.created_at, c.rowid`, years);
+     WHERE c.deleted_at IS NULL AND y.deleted_at IS NULL AND c.published = 1 AND y.year IN (${years.map(() => '?').join(',')})${today ? ` AND NOT ${BINGO_OUT_OF_WINDOW_SQL}` : ''} ORDER BY y.year DESC, c.sort_order, c.created_at, c.rowid`, today ? [...years, today, today] : years);
   const out: ChallengeChoice[] = [];
   for (const c of cs) {
     const map = c.limit_map !== null ? await loadMap(db, c.id) : null;

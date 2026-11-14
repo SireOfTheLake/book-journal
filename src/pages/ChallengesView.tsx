@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { windowText } from './challenges/ActiveWindow';
 import { Link } from 'react-router-dom';
+import type { LayoutItem } from '../repo/challengeCategories';
 import { ACCENTS, accentAt, splitPrompts } from '../domain/challenges';
 import { hslToRgb, rgbToHex } from '../domain/colorConv';
 import ColorField from '../ui/ColorField';
@@ -200,43 +201,139 @@ function NewChallenge({ year, banks, used, onCreate: onCreateWith, onCancel }: {
   );
 }
 
-export default function ChallengesView({ year, list, banks, onCreate, onNewBank, onDeleteBank, onDelete, onMove }: { onDeleteBank?(id: string): Promise<void>; onMove?(id: string, beforeId: string | null): Promise<void>; year: number; list: ChallengeSummary[]; banks: BankSummary[]; onCreate(input: CreateInput, description?: string): Promise<void>; onNewBank(name: string, prompts: string[]): Promise<void>; onDelete?(id: string): Promise<void> }) {
+export interface CategoryActions {
+  layout: LayoutItem[];
+  onPlace(id: string, categoryId: string | null, beforeId: string | null): Promise<void>;
+  onMoveCategory(id: string, beforeId: string | null): Promise<void>;
+  onAddCategory(name: string): Promise<void>;
+  onRenameCategory(id: string, name: string): Promise<void>;
+  onDeleteCategory(id: string): Promise<void>;
+}
+type Drag = { kind: 'challenge' | 'category'; id: string } | null;
+
+export default function ChallengesView({ year, list, banks, onCreate, onNewBank, onDeleteBank, onDelete, onMove, categories }: { onDeleteBank?(id: string): Promise<void>; onMove?(id: string, beforeId: string | null): Promise<void>; categories?: CategoryActions; year: number; list: ChallengeSummary[]; banks: BankSummary[]; onCreate(input: CreateInput, description?: string): Promise<void>; onNewBank(name: string, prompts: string[]): Promise<void>; onDelete?(id: string): Promise<void> }) {
   const [adding, setAdding] = useState(false);
   const [confirm, setConfirm] = useState<string | null>(null);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
-  const endDrag = () => { setDragId(null); setOverId(null); };
+  const [drag, setDrag] = useState<Drag>(null);
+  const [over, setOver] = useState<string | null>(null); // 'c:<id>' a challenge card, 'g:<id>' a category, 'end' the end of the page
+  const [addingCat, setAddingCat] = useState(false);
+  const [catName, setCatName] = useState('');
+  const [catError, setCatError] = useState<string | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [confirmCat, setConfirmCat] = useState<string | null>(null);
+  const endDrag = () => { setDrag(null); setOver(null); };
+  const byId = new Map(list.map((c) => [c.id, c]));
+  // Without categories the page is one flat list, exactly as before.
+  const layout: LayoutItem[] = categories?.layout ?? list.map((c) => ({ kind: 'challenge' as const, id: c.id }));
+  const top = layout.map((i) => i.id);
+  const place = (id: string, cat: string | null, before: string | null) => categories ? categories.onPlace(id, cat, before) : onMove?.(id, before);
+  const canDrag = !!(categories || onMove);
+  const guard = (fn: () => Promise<void> | undefined) => { void Promise.resolve(fn()).catch((e) => setCatError(e instanceof Error ? e.message : String(e))); };
+
+  const dropChallengeOnCard = (targetId: string, cat: string | null) => {
+    const d = drag; endDrag();
+    if (!d || d.id === targetId) return;
+    if (d.kind === 'challenge') guard(() => place(d.id, cat, targetId));
+    else if (categories) guard(() => categories.onMoveCategory(d.id, cat ?? targetId)); // a category goes before the loose card, or before the category the card is in
+  };
+  const dropOnCategory = (catId: string) => {
+    const d = drag; endDrag();
+    if (!d || !categories) return;
+    if (d.kind === 'challenge') guard(() => place(d.id, catId, null));
+    else if (d.id !== catId) guard(() => categories.onMoveCategory(d.id, catId));
+  };
+  const dropAtEnd = () => {
+    const d = drag; endDrag();
+    if (!d) return;
+    if (d.kind === 'challenge') guard(() => place(d.id, null, null));
+    else if (categories) guard(() => categories.onMoveCategory(d.id, null));
+  };
+  const startDrag = (e: React.DragEvent, d: NonNullable<Drag>) => { e.stopPropagation(); setDrag(d); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', d.id); };
+
+  // One challenge card. `cat` is the category it is in (null when it is loose); `siblings` are the ids it can move among.
+  const card = (c: ChallengeSummary, cat: string | null, siblings: string[]) => {
+    const i = siblings.indexOf(c.id);
+    return (
+      <div key={c.id} className={`chalwrap${drag?.id === c.id ? ' dragging' : ''}${over === `c:${c.id}` && drag?.id !== c.id ? ' dropbefore' : ''}`}
+        draggable={canDrag} onDragStart={(e) => startDrag(e, { kind: 'challenge', id: c.id })}
+        onDragOver={(e) => { if (drag) { e.preventDefault(); e.stopPropagation(); setOver(`c:${c.id}`); } }}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dropChallengeOnCard(c.id, cat); }}
+        onDragEnd={endDrag}>
+        <Link to={`/journal/challenges/${c.id}`} className="bcard chalcard" style={{ ['--gc' as string]: c.color ?? accentAt(0) }}>
+          <span className="gname-sm">{c.name}</span>
+          <span className="muted small">{c.usMap ? 'Map' : c.word ? 'Word builder' : c.pyramid ? 'Pyramid' : KIND[c.kind]}{c.published ? '' : ' · Draft'}</span>
+          {c.kind === 'bingo' && windowText(c.activeFrom, c.activeUntil) && <span className="muted small">Active {windowText(c.activeFrom, c.activeUntil)}</span>}
+          <TrackerBar t={c} color={c.color ?? undefined} bonus={c.bonus} />
+        </Link>
+        <div className="chalbar">
+          {canDrag && <span className="movebtns">
+            <button type="button" className="mini" aria-label={`Move ${c.name} earlier`} disabled={i === 0} onClick={() => guard(() => place(c.id, cat, siblings[i - 1]))}>&#9664;</button>
+            <button type="button" className="mini" aria-label={`Move ${c.name} later`} disabled={i === siblings.length - 1} onClick={() => guard(() => place(c.id, cat, siblings[i + 2] ?? null))}>&#9654;</button>
+          </span>}
+          <span className="grow" />
+          {onDelete && (confirm === c.id
+            ? <span className="movebtns"><button type="button" className="mini danger" onClick={() => { setConfirm(null); void onDelete(c.id); }}>Delete {c.name}</button><button type="button" className="mini" onClick={() => setConfirm(null)}>Keep</button></span>
+            : <button type="button" className="mini" aria-label={`Delete challenge ${c.name}`} onClick={() => setConfirm(c.id)}>Delete</button>)}
+        </div>
+      </div>
+    );
+  };
+
+  // The page: runs of loose cards sit in a grid, and each category is a labelled section.
+  const blocks: React.ReactNode[] = [];
+  let run: React.ReactNode[] = [];
+  const flush = () => { if (run.length) { blocks.push(<div key={`run${blocks.length}`} className="chalgrid">{run}</div>); run = []; } };
+  layout.forEach((item, idx) => {
+    if (item.kind === 'challenge') {
+      const c = byId.get(item.id);
+      if (c) run.push(card(c, null, top));
+      return;
+    }
+    flush();
+    const members = item.members.map((m) => byId.get(m)).filter((x): x is ChallengeSummary => !!x);
+    const looseTop = top;
+    blocks.push(
+      <section key={item.id} className={`chalcat${drag?.id === item.id ? ' dragging' : ''}${over === `g:${item.id}` && drag?.id !== item.id ? ' dropon' : ''}`} aria-label={`Category ${item.name}`}
+        onDragOver={(e) => { if (drag) { e.preventDefault(); e.stopPropagation(); setOver(`g:${item.id}`); } }}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dropOnCategory(item.id); }}>
+        <header className="chalcathead" draggable={canDrag} onDragStart={(e) => startDrag(e, { kind: 'category', id: item.id })} onDragEnd={endDrag}>
+          {renaming?.id === item.id ? (
+            <form className="addrow" onSubmit={(e) => { e.preventDefault(); const r = renaming; guard(async () => { await categories!.onRenameCategory(r.id, r.name); setRenaming(null); }); }}>
+              <input className="field small" aria-label="Category name" autoFocus value={renaming.name} onChange={(e) => setRenaming({ id: item.id, name: e.target.value })} />
+              <button type="submit" className="mini">Save</button><button type="button" className="mini" onClick={() => setRenaming(null)}>Cancel</button>
+            </form>
+          ) : <h2 className="chalcatname">{item.name} <span className="muted small">{members.length} challenge{members.length === 1 ? '' : 's'}</span></h2>}
+          <span className="grow" />
+          {canDrag && categories && renaming?.id !== item.id && <span className="movebtns">
+            <button type="button" className="mini" aria-label={`Move category ${item.name} earlier`} disabled={idx === 0} onClick={() => guard(() => categories.onMoveCategory(item.id, looseTop[idx - 1]))}>&#9664;</button>
+            <button type="button" className="mini" aria-label={`Move category ${item.name} later`} disabled={idx === looseTop.length - 1} onClick={() => guard(() => categories.onMoveCategory(item.id, looseTop[idx + 2] ?? null))}>&#9654;</button>
+            <button type="button" className="mini" aria-label={`Rename category ${item.name}`} onClick={() => setRenaming({ id: item.id, name: item.name })}>Rename</button>
+            {confirmCat === item.id
+              ? <><button type="button" className="mini danger" onClick={() => { setConfirmCat(null); guard(() => categories.onDeleteCategory(item.id)); }}>Delete category {item.name}</button><button type="button" className="mini" onClick={() => setConfirmCat(null)}>Keep</button></>
+              : <button type="button" className="xbtn subtle" aria-label={`Delete category ${item.name}`} onClick={() => setConfirmCat(item.id)}>&times;</button>}
+          </span>}
+        </header>
+        {confirmCat === item.id && <span className="muted small">{members.length ? `Its ${members.length} challenge${members.length === 1 ? ' stays' : 's stay'} on the page, no longer in a category.` : 'It is empty.'}</span>}
+        {members.length > 0
+          ? <div className="chalgrid">{members.map((c) => card(c, item.id, item.members))}</div>
+          : <p className="muted small chalempty">Drag challenges here.</p>}
+      </section>);
+  });
+  flush();
   return (
     <div className="chalpage">
-      {!adding && <div><button type="button" className="btn on" onClick={() => setAdding(true)}>+ New challenge</button></div>}
+      {!adding && <div className="actions"><button type="button" className="btn on" onClick={() => setAdding(true)}>+ New challenge</button>
+        {categories && !addingCat && <button type="button" className="btn" onClick={() => { setAddingCat(true); setCatError(null); }}>+ New category</button>}</div>}
+      {categories && addingCat && (
+        <form className="bcard addrow" onSubmit={(e) => { e.preventDefault(); guard(async () => { await categories.onAddCategory(catName); setCatName(''); setAddingCat(false); setCatError(null); }); }}>
+          <input className="field small" aria-label="New category name" placeholder="Maps" autoFocus value={catName} onChange={(e) => setCatName(e.target.value)} />
+          <button type="submit" className="mini">Add category</button><button type="button" className="mini" onClick={() => { setAddingCat(false); setCatName(''); setCatError(null); }}>Cancel</button>
+        </form>)}
+      {catError && <div className="muted" role="alert">{catError} <button type="button" className="mini" onClick={() => setCatError(null)}>Dismiss</button></div>}
       {adding && <NewChallenge year={year} banks={banks} used={list.map((c) => c.color)} onCancel={() => setAdding(false)} onCreate={async (i, description) => { await onCreate(i, description); setAdding(false); }} />}
       {list.length === 0 && !adding && <p className="muted">No challenges for {year} yet. Create one to start placing books on prompts.</p>}
-      <div className="chalgrid">
-        {list.map((c, i) => (
-          <div key={c.id} className={`chalwrap${dragId === c.id ? ' dragging' : ''}${overId === c.id && dragId !== c.id ? ' dropbefore' : ''}`}
-            draggable={!!onMove} onDragStart={(e) => { setDragId(c.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', c.id); }}
-            onDragOver={(e) => { if (dragId) { e.preventDefault(); setOverId(c.id); } }}
-            onDrop={(e) => { e.preventDefault(); const id = dragId; endDrag(); if (id && id !== c.id && onMove) void onMove(id, c.id); }}
-            onDragEnd={endDrag}>
-            <Link to={`/journal/challenges/${c.id}`} className="bcard chalcard" style={{ ['--gc' as string]: c.color ?? accentAt(0) }}>
-              <span className="gname-sm">{c.name}</span>
-              <span className="muted small">{c.usMap ? 'Map' : c.word ? 'Word builder' : c.pyramid ? 'Pyramid' : KIND[c.kind]}{c.published ? '' : ' · Draft'}</span>
-              {c.kind === 'bingo' && windowText(c.activeFrom, c.activeUntil) && <span className="muted small">Active {windowText(c.activeFrom, c.activeUntil)}</span>}
-              <TrackerBar t={c} color={c.color ?? undefined} bonus={c.bonus} />
-            </Link>
-            <div className="chalbar">
-              {onMove && <span className="movebtns">
-                <button type="button" className="mini" aria-label={`Move ${c.name} earlier`} disabled={i === 0} onClick={() => void onMove(c.id, list[i - 1].id)}>&#9664;</button>
-                <button type="button" className="mini" aria-label={`Move ${c.name} later`} disabled={i === list.length - 1} onClick={() => void onMove(c.id, list[i + 2]?.id ?? null)}>&#9654;</button>
-              </span>}
-              <span className="grow" />
-              {onDelete && (confirm === c.id
-                ? <span className="movebtns"><button type="button" className="mini danger" onClick={() => { setConfirm(null); void onDelete(c.id); }}>Delete {c.name}</button><button type="button" className="mini" onClick={() => setConfirm(null)}>Keep</button></span>
-                : <button type="button" className="mini" aria-label={`Delete challenge ${c.name}`} onClick={() => setConfirm(c.id)}>Delete</button>)}
-            </div>
-          </div>
-        ))}
-      </div>
+      {blocks}
+      {drag && <div className={`chaldropend${over === 'end' ? ' dropon' : ''}`} onDragOver={(e) => { e.preventDefault(); setOver('end'); }} onDrop={(e) => { e.preventDefault(); dropAtEnd(); }}>Drop here to put it last{drag.kind === 'challenge' ? ', outside any category' : ''}</div>}
       <Banks banks={banks} onNewBank={onNewBank} onDeleteBank={onDeleteBank} />
     </div>
   );

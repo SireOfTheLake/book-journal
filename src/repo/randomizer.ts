@@ -32,8 +32,9 @@ export async function addPrompt(db: Db, kind: PromptKind, text: string): Promise
 }
 export const removePrompt = (db: Db, id: string) => db.execute(`UPDATE randomizer_prompt SET deleted_at = ${NOW} WHERE id = ?`, [id]);
 
+const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 export async function loadRandomizer(db: Db, year: number): Promise<RandomizerData> {
-  const [trick, treat, challenges] = await Promise.all([listPrompts(db, 'trick'), listPrompts(db, 'treat'), listChallengeChoices(db, '', [year])]);
+  const [trick, treat, challenges] = await Promise.all([listPrompts(db, 'trick'), listPrompts(db, 'treat'), listChallengeChoices(db, '', [year], localToday())]);
   const unused = async (kind: PromptKind, have: SavedPrompt[]) => {
     const used = new Set(have.map((p) => p.text.toLowerCase()));
     return (await promptSuggestions(db, kind, null, 50)).filter((t) => !used.has(t.toLowerCase())).slice(0, 8);

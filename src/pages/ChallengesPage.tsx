@@ -6,6 +6,7 @@ import { deleteChallenge, createGrid, createSticker, createPyramid, moveChalleng
 import { createWordBuilder } from '../repo/words';
 import { useJournalYear } from '../ui/Shell';
 import { createBank, createBingo, deleteBank, listBanks, type BankSummary } from '../repo/bingo';
+import { createCategory, deleteCategory, listLayout, moveCategory, placeChallenge, renameCategory, type LayoutItem } from '../repo/challengeCategories';
 import { exportChallenges } from '../repo/challengeExport';
 import { useBackupEnv } from '../backup/context';
 import { isTauri } from '../db/tauriDb';
@@ -50,8 +51,9 @@ export default function ChallengesPage() {
   const year = useJournalYear();
   const [list, setList] = useState<ChallengeSummary[] | null>(null);
   const [banks, setBanks] = useState<BankSummary[]>([]);
+  const [layout, setLayout] = useState<LayoutItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const reload = useCallback(async () => { setList(await listChallenges(db, year)); setBanks(await listBanks(db, year)); }, [db, year]);
+  const reload = useCallback(async () => { setLayout(await listLayout(db, year)); setList(await listChallenges(db, year)); setBanks(await listBanks(db, year)); }, [db, year]);
   useEffect(() => { setList(null); reload().catch((e) => setError(String(e))); }, [reload]);
   return (
     <section>
@@ -61,6 +63,12 @@ export default function ChallengesPage() {
         onNewBank={async (name, prompts) => { await createBank(db, name, prompts); await reload(); }}
         onDeleteBank={async (bid) => { await deleteBank(db, bid); await reload(); }}
         onMove={async (id, before) => { try { await moveChallenge(db, id, before); await reload(); } catch (e) { setError(String(e)); } }}
+        categories={{ layout,
+          onPlace: async (id, cat, before) => { await placeChallenge(db, id, cat, before); await reload(); },
+          onMoveCategory: async (id, before) => { await moveCategory(db, id, before); await reload(); },
+          onAddCategory: async (name) => { await createCategory(db, year, name); await reload(); },
+          onRenameCategory: async (id, name) => { await renameCategory(db, id, name); await reload(); },
+          onDeleteCategory: async (id) => { await deleteCategory(db, id); await reload(); } }}
         onCreate={async (input: CreateInput, description?: string) => {
           let id: string;
           if ('preferUnused' in input) {

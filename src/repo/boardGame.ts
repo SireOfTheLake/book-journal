@@ -1,4 +1,5 @@
 import type { Db } from '../db/adapter';
+import { BINGO_OUT_OF_WINDOW_SQL } from './challenges';
 import type { Extras } from '../domain/boardGame/prompts';
 import type { Board, Pick, Pools } from '../domain/boardGame/board';
 
@@ -17,6 +18,7 @@ export async function listBoards(db: Db): Promise<Board[]> {
 }
 export const deleteBoard = (db: Db, id: string) => db.execute('DELETE FROM app_setting WHERE key = ?', [PREFIX + id]);
 
+const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 /** The things in your own journal that boards draw on: tags, jobs and places you use, unfinished challenge prompts, and the prompts you saved. */
 export async function loadExtras(db: Db, year: number): Promise<Extras> {
   const names = async (sql: string, params: (string | number)[] = []) => (await db.select<{ n: string }>(sql, params)).map((r) => r.n);
@@ -27,8 +29,8 @@ export async function loadExtras(db: Db, year: number): Promise<Extras> {
     names('SELECT text AS n FROM randomizer_prompt WHERE deleted_at IS NULL'),
     db.select<{ challenge: string; label: string; kind: string }>(
       `SELECT c.name AS challenge, s.label AS label, c.kind AS kind FROM challenge_slot s JOIN challenge c ON c.id = s.challenge_id JOIN journal_year y ON y.id = c.journal_year_id
-       WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL AND s.deleted_at IS NULL AND lower(s.label) NOT LIKE 'bonus%'
-         AND NOT EXISTS (SELECT 1 FROM challenge_completion cc WHERE cc.slot_id = s.id AND cc.deleted_at IS NULL)`, [year]),
+       WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL AND s.deleted_at IS NULL AND lower(s.label) NOT LIKE 'bonus%' AND NOT ${BINGO_OUT_OF_WINDOW_SQL}
+         AND NOT EXISTS (SELECT 1 FROM challenge_completion cc WHERE cc.slot_id = s.id AND cc.deleted_at IS NULL)`, [year, localToday(), localToday()]),
   ]);
   return { occupations, tropes, places, yours, challenge: slots.map((s) => ({ challenge: s.challenge, label: s.label })) };
 }

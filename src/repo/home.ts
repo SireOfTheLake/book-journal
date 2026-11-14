@@ -3,7 +3,7 @@ import type { Db } from '../db/adapter';
 import { daysBetween, progressOf } from '../domain/progress';
 import { getMonthChart } from './monthChart';
 import { listSeriesLedger } from './series';
-import { listInSeason, type InSeason } from './challenges';
+import { listInSeason, listStartingSoon, type InSeason, type StartingSoon } from './challenges';
 
 export interface CurrentRead {
   read_id: string; book_id: string; title: string; authors: string | null; series: string | null; position: number | null; status: 'reading' | 'on_hold';
@@ -18,6 +18,7 @@ export interface HomeData {
   recent: RecentRead[];
   upcoming: { book_id: string; title: string; authors: string | null; format: string; status: 'dated' | 'tba'; release_date: string | null }[];
   year: { year: number; finished: number; thisMonth: number; avgStars: number | null; ratedBooks: number; pages: number; audioSeconds: number };
+  startingSoon?: StartingSoon[]; // Bingo boards that start within a week
   inSeason?: InSeason[]; // boards whose date window includes today
   goals: GoalProgress[]; // the goals chosen to show on Home
   tidy: { noCover: number; unassignedCharacters: number; locations: number; caughtUp: { id: string; title: string }[]; backup: { lastAt: string | null; days: number | null } };
@@ -85,6 +86,7 @@ export async function getHome(db: Db, today: string): Promise<HomeData> {
     reading: current.filter((c) => c.status === 'reading'), paused: current.filter((c) => c.status === 'on_hold'),
     upNext, upNextCount: Number(upNextCount), recent, upcoming,
     year: { year, finished: Number(stats.finished), thisMonth: Number(stats.month ?? 0), avgStars: stats.avg, ratedBooks: Number(stats.rated), pages, audioSeconds: Number(stats.audio ?? 0) },
+    startingSoon: await listStartingSoon(db, today),
     inSeason: await listInSeason(db, today),
     goals: await listHomeGoals(db, today),
     tidy: { noCover: Number(noCover), unassignedCharacters: Number(unassigned), locations: await countPlacesNeedingUpdate(db), caughtUp, backup: { lastAt, days: backupDays } },

@@ -28,6 +28,11 @@ export function supabaseTransport(client: SupabaseClient): Transport {
       const cursor = rows.length ? (rows[rows.length - 1].synced_at as string) : after;
       return { rows: rows.map(({ user_id: _u, synced_at: _s, ...r }) => r as RemoteRow), cursor };
     },
+    async changeMark() {
+      const { data, error } = await client.from('sync_ping').select('at').limit(1);
+      if (error) return undefined; // an older cloud setup without the ping table: the app falls back to a full sync
+      return data?.length ? String((data[0] as { at: string }).at) : null;
+    },
     async push(table, rows) {
       const { error } = await client.from(table).upsert(rows, { onConflict: table === 'app_setting' ? 'key' : 'id' });
       fail(`Could not send ${table} to the cloud`, error);

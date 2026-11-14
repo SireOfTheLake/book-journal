@@ -33,7 +33,7 @@ describe('Settings: backup and export', () => {
   it('starts with no backups and says so', async () => {
     mount();
     await waitFor(() => expect(screen.getByText('No backups yet.')).toBeTruthy());
-    expect(screen.getByText(/You have not made a backup yet\./)).toBeTruthy();
+    expect(screen.getByText(/No backup of any kind yet\./)).toBeTruthy();
     expect(screen.getByText(/Kept in .*bj-ui-backups/)).toBeTruthy();
     expect(screen.getByText(/To restore a backup: close Book Journal/)).toBeTruthy();
   });
@@ -44,31 +44,31 @@ describe('Settings: backup and export', () => {
     await waitFor(() => expect(screen.getByText(/^Backed up as manual-\d{8}-\d{6}\.db\.$/)).toBeTruthy());
     expect(readdirSync(tmp!.dir)).toHaveLength(1);
     expect(screen.getByText('Backed up by you')).toBeTruthy();
-    expect(screen.getByText(/^Your last backup was /)).toBeTruthy();
-    expect(screen.queryByText(/You have not made a backup yet\./)).toBeNull();
+    expect(screen.getByText(/^The last backup of any kind was /)).toBeTruthy();
+    expect(screen.queryByText(/No backup of any kind yet\./)).toBeNull();
     expect(screen.queryByText('No backups yet.')).toBeNull();
   });
   it('saves a copy to the place you choose', async () => {
     mount();
-    await waitFor(() => expect(screen.getByText('Save a copy somewhere else...')).toBeTruthy());
-    fireEvent.click(screen.getByText('Save a copy somewhere else...'));
-    await waitFor(() => expect(screen.getByText(/A copy was saved to .*book-journal-backup-\d{4}-\d{2}-\d{2}\.db/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Full backup...')).toBeTruthy());
+    fireEvent.click(screen.getByText('Full backup...'));
+    await waitFor(() => expect(screen.getByText(/Full backup saved to .*book-journal-backup-\d{4}-\d{2}-\d{2}\.db/)).toBeTruthy());
     expect(readdirSync(tmp!.elsewhere)).toHaveLength(1);
   });
   it('does nothing, and says nothing, if you cancel the Save dialog', async () => {
     mount({ pick: () => null });
-    await waitFor(() => expect(screen.getByText('Save a copy somewhere else...')).toBeTruthy());
-    fireEvent.click(screen.getByText('Save a copy somewhere else...'));
-    await waitFor(() => expect((screen.getByText('Save a copy somewhere else...') as HTMLButtonElement).disabled).toBe(false));
+    await waitFor(() => expect(screen.getByText('Full backup...')).toBeTruthy());
+    fireEvent.click(screen.getByText('Full backup...'));
+    await waitFor(() => expect((screen.getByText('Full backup...') as HTMLButtonElement).disabled).toBe(false));
     expect(screen.queryByRole('status')).toBeNull();
     expect(readdirSync(tmp!.dir)).toEqual([]);
   });
   it('shows what went wrong, and lets you try again', async () => {
     mount({ failCopy: true });
-    await waitFor(() => expect(screen.getByText('Save a copy somewhere else...')).toBeTruthy());
-    fireEvent.click(screen.getByText('Save a copy somewhere else...'));
+    await waitFor(() => expect(screen.getByText('Full backup...')).toBeTruthy());
+    fireEvent.click(screen.getByText('Full backup...'));
     await waitFor(() => expect(screen.getByRole('alert').textContent).toBe('The drive is full.'));
-    expect((screen.getByText('Save a copy somewhere else...') as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByText('Full backup...') as HTMLButtonElement).disabled).toBe(false);
   });
   it('exports your data as JSON, without pictures unless you tick the box', async () => {
     const [{ id }] = await db.select<{ id: string }>("SELECT id FROM book WHERE title = 'Hush'");
@@ -88,7 +88,7 @@ describe('Settings: backup and export', () => {
   it('says backups need the app window when they are not available, and turns the buttons off', async () => {
     mount({}, false); // no backup environment, as in a plain browser
     await waitFor(() => expect(screen.getByText(/Backups can only be made inside the app window/)).toBeTruthy());
-    for (const b of ['Back up now', 'Save a copy somewhere else...', 'Export all data (JSON)...']) expect((screen.getByText(b) as HTMLButtonElement).disabled).toBe(true);
+    for (const b of ['Back up now', 'Full backup...', 'Export all data (JSON)...']) expect((screen.getByText(b) as HTMLButtonElement).disabled).toBe(true);
   });
 });
 

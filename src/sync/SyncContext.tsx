@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { useDb } from '../db/DbContext';
 import { onLocalWrite, rawDb } from '../db/notify';
-import { syncOnce, SyncVersionError } from './engine';
+import { syncSmart, SyncVersionError, type SyncMemory } from './engine';
+import { BEAT_MS, watchActivity } from './activity';
 import { makeClient, supabaseTransport, watchPings, type CloudConfig } from './supabaseTransport';
 
 export type SyncState = 'off' | 'signed_out' | 'idle' | 'syncing' | 'problem';
@@ -37,6 +38,8 @@ export function SyncProvider({ children, skipPull, afterSync }: { children: Reac
   const running = useRef(false);
   const again = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const memory = useRef<SyncMemory>({ mark: undefined }); // what the last sync saw in the cloud
+  const forceNext = useRef(true); // true unless every request waiting is a cheap "anything new?" check
 
   useEffect(() => {
     (async () => {
@@ -60,9 +63,11 @@ export function SyncProvider({ children, skipPull, afterSync }: { children: Reac
     if (running.current) { again.current = true; return; }
     const { data } = await client.auth.getSession();
     if (!data.session) return;
-    running.current = true; setState('syncing'); setMessage(null);
+    const force = forceNext.current; forceNext.current = false;
+    running.current = true; setMessage(null); if (force) setState('syncing');
     try {
-      const r = await syncOnce(db, supabaseTransport(client), { skipPull });
+      const r = await syncSmart(db, supabaseTransport(client), memory.current, { skipPull, force });
+      if (!r) return; // nothing had changed: no screen flicker and no status change
       const extra = afterSync ? await afterSync(client).catch(() => 0) : 0;
       const now = new Date();
       await put(db, 'sync_last_at', now.toISOString());
@@ -78,7 +83,9 @@ export function SyncProvider({ children, skipPull, afterSync }: { children: Reac
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, db, skipPull, afterSync]);
 
-  const schedule = useCallback((ms: number) => {
+  // `check` = only look whether anything changed (1 request); everything else is a full sync.
+  const schedule = useCallback((ms: number, check = false) => {
+    if (!check) forceNext.current = true;
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => { void run(); }, ms);
   }, [run]);
@@ -89,10 +96,12 @@ export function SyncProvider({ children, skipPull, afterSync }: { children: Reac
     schedule(300);
     const offWrite = onLocalWrite(() => schedule(1500));
     const stopPing = watchPings(client, () => schedule(200));
-    const beat = setInterval(() => schedule(0), 60_000);
+    // The safety net only runs while the app is in use, and only asks whether anything changed. When you come back to it, it checks at once.
+    const watch = watchActivity(() => schedule(0, true));
+    const beat = setInterval(() => { if (!watch.isIdle()) schedule(0, true); }, BEAT_MS);
     const online = () => schedule(500);
     window.addEventListener('online', online);
-    return () => { offWrite(); stopPing(); clearInterval(beat); window.removeEventListener('online', online); };
+    return () => { offWrite(); stopPing(); clearInterval(beat); watch.stop(); window.removeEventListener('online', online); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, state === 'signed_out' || state === 'off', schedule]);
 
@@ -105,7 +114,7 @@ export function SyncProvider({ children, skipPull, afterSync }: { children: Reac
       if (error) throw new Error(error.message);
     },
     async signOut() { await client?.auth.signOut(); },
-    async syncNow() { await run(); },
+    async syncNow() { forceNext.current = true; await run(); },
   }), [state, message, lastSyncedAt, email, config, dataVersion, client, db, run]);
 
   return <SyncCtx.Provider value={value}>{children}</SyncCtx.Provider>;

@@ -8,14 +8,19 @@ export class FakeCloud {
   private seq = 0;
   tables = new Map<string, Map<string, RemoteRow & { _seq: number }>>();
   pushes = 0;
+  requests = 0; // every call the app makes to this pretend cloud
+  marks = 0;
   transport(): Transport {
     return {
-      schemaVersion: async () => this.version,
+      schemaVersion: async () => { this.requests++; return this.version; },
+      changeMark: async () => { this.requests++; this.marks++; return String(this.seq); },
       pull: async (table, after, limit) => {
+        this.requests++;
         const rows = [...(this.tables.get(table)?.values() ?? [])].filter((r) => r._seq > Number(after ?? 0)).sort((a, b) => a._seq - b._seq).slice(0, limit);
         return { rows: rows.map(({ _seq, ...r }) => r), cursor: rows.length ? String(rows[rows.length - 1]._seq) : after };
       },
       push: async (table, rows) => {
+        this.requests++;
         this.pushes += rows.length;
         const t = this.tables.get(table) ?? new Map();
         this.tables.set(table, t);

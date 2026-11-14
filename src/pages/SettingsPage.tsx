@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
+import { shrinkExistingCovers } from '../ui/shrinkCover';
 import { useBackupEnv } from '../backup/context';
 import PrintPage from './PrintPage';
 import { exportWrapup } from '../backup/wrapup';
 import { MONTHS } from '../domain/printPlan';
-import { exportJson, lastBackupAt, listBackups, makeBackup, saveCopy, type BackupFile, type BackupKind } from '../backup/backup';
+import { exportJson, lastBackupAt, lastFullBackupAt, listBackups, makeBackup, saveCopy, type BackupFile, type BackupKind } from '../backup/backup';
 import { useDb } from '../db/DbContext';
 import AppearanceCard from './settings/AppearanceCard';
 import TagColorsCard from './settings/TagColorsCard';
@@ -23,6 +24,7 @@ export default function SettingsPage() {
   const [files, setFiles] = useState<BackupFile[]>([]);
   const [dir, setDir] = useState<string | null>(null);
   const [last, setLast] = useState<Date | null>(null);
+  const [lastFull, setLastFull] = useState<Date | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [pictures, setPictures] = useState(false);
@@ -32,6 +34,7 @@ export default function SettingsPage() {
 
   const load = useCallback(async () => {
     setLast(await lastBackupAt(db));
+    setLastFull(await lastFullBackupAt(db));
     dataSize(db).then(setSize, () => undefined);
     try { const env = await getEnv(); setDir(await env.backupsDir()); setFiles(await listBackups(env)); setUnavailable(null); }
     catch (e) { setUnavailable(`Backups can only be made inside the app window. (${e instanceof Error ? e.message : String(e)})`); }
@@ -73,13 +76,25 @@ export default function SettingsPage() {
 
       {tab === 'backup' && <div role="tabpanel" id="panel-backup" aria-labelledby="tab-backup" className="tabpanel">
       <div className="bcard">
-        <span className="lbl2">Backup and export</span>
-        <p className="muted">{last ? `Your last backup was ${last.toLocaleString()}.` : 'You have not made a backup yet.'} A backup is a complete copy of your journal, including every picture. A copy is also made automatically before each import and before each upgrade.</p>
+        <span className="lbl2">Full backup</span>
+        <p className="muted">{lastFull ? `Your last full backup was ${lastFull.toLocaleString()}.` : 'You have not made a full backup yet.'} A full backup is one file holding everything: all your records, covers, stickers and pictures. You choose where it is saved (a USB drive or a cloud folder is best, so it survives if this computer does not). Home reminds you every 30 days.</p>
         <div className="pictools">
-          <button type="button" className="btn on" disabled={busy !== null || unavailable !== null} onClick={() => run('backup', async () => { const m = await makeBackup(db, await getEnv(), 'manual'); return `Backed up as ${m.name}.`; })}>{busy === 'backup' ? 'Backing up...' : 'Back up now'}</button>
-          <button type="button" className="btn" disabled={busy !== null || unavailable !== null} onClick={() => run('copy', async () => { const r = await saveCopy(db, await getEnv()); return r ? `A copy was saved to ${r.path}.` : null; })}>{busy === 'copy' ? 'Saving...' : 'Save a copy somewhere else...'}</button>
+          <button type="button" className="btn on" disabled={busy !== null || unavailable !== null} onClick={() => run('copy', async () => { const r = await saveCopy(db, await getEnv()); return r ? `Full backup saved to ${r.path}.` : null; })}>{busy === 'copy' ? 'Saving...' : 'Full backup...'}</button>
         </div>
-        <span className="muted small">"Save a copy somewhere else" is for a USB drive or a cloud folder, so a backup survives if this computer does not.</span>
+
+        <hr className="rule" />
+        <span className="lbl2">Quick backup</span>
+        <p className="muted">{last ? `The last backup of any kind was ${last.toLocaleString()}.` : 'No backup of any kind yet.'} A quick backup stays in this app's own folder on this computer. One is also made automatically before each import and before each upgrade.</p>
+        <div className="pictools">
+          <button type="button" className="btn" disabled={busy !== null || unavailable !== null} onClick={() => run('backup', async () => { const m = await makeBackup(db, await getEnv(), 'manual'); return `Backed up as ${m.name}.`; })}>{busy === 'backup' ? 'Backing up...' : 'Back up now'}</button>
+        </div>
+
+        <hr className="rule" />
+        <span className="lbl2">Shrink covers</span>
+        <p className="muted">Covers are only ever shown small, so large ones waste space in your journal and in the cloud. This makes the big ones smaller (the picture looks the same on screen). Sticker pictures are never touched. New covers are shrunk automatically.</p>
+        <div className="pictools">
+          <button type="button" className="btn" disabled={busy !== null} onClick={() => run('shrink', async () => { const r = await shrinkExistingCovers(db); return r.shrunk ? `Made ${r.shrunk} ${r.shrunk === 1 ? 'cover' : 'covers'} smaller, saving about ${(r.savedBytes / 1_048_576 * 0.75).toFixed(0)} MB.` : 'Your covers are already small.'; })}>{busy === 'shrink' ? 'Shrinking...' : 'Shrink my covers'}</button>
+        </div>
 
         <hr className="rule" />
         <span className="lbl2">Export your data</span>

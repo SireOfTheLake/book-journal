@@ -54,14 +54,18 @@ describe('Home: covers', () => {
 });
 
 describe('Home: backup reminder', () => {
-  it('reminds you when you have never backed up, or it has been two weeks', async () => {
+  it('reminds you when you have never made a full backup, or it has been 30 days', async () => {
     const data = await homeData();
     render(<MemoryRouter><HomeView data={data} act={act} /></MemoryRouter>);
-    expect(screen.getByText('You have not made a backup yet').getAttribute('href')).toBe('/settings');
+    expect(screen.getByText('Time for a full backup: you have not made one yet').getAttribute('href')).toBe('/settings');
+    cleanup();
+    data.tidy.backup = { lastAt: '2026-09-12T10:00:00Z', days: 31 };
+    render(<MemoryRouter><HomeView data={data} act={act} /></MemoryRouter>);
+    expect(screen.getByText('Time for a full backup: your last one was 31 days ago')).toBeTruthy();
     cleanup();
     data.tidy.backup = { lastAt: '2026-09-20T10:00:00Z', days: 23 };
     render(<MemoryRouter><HomeView data={data} act={act} /></MemoryRouter>);
-    expect(screen.getByText('Your last backup was 23 days ago')).toBeTruthy();
+    expect(screen.queryByText(/full backup/)).toBeNull(); // under 30 days: no reminder
     cleanup();
     data.tidy.backup = { lastAt: '2026-10-12T10:00:00Z', days: 1 };
     render(<MemoryRouter><HomeView data={data} act={act} /></MemoryRouter>);

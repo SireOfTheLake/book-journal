@@ -60,12 +60,14 @@ function Shelf({ books, render }: { books: HomeBook[]; render: (b: HomeBook) => 
   return <div className="homeshelf">{books.map((b) => <div className="shelfitem" key={b.id}>{render(b)}</div>)}</div>;
 }
 
+const BACKUP_REMINDER_DAYS = 30;
+
 export default function HomeView({ data, act }: { data: HomeData; act: HomeActions }) {
   const y = data.year;
   const t = data.tidy;
   const b = t.backup;
   const tidyItems = [
-    (b.days === null || b.days >= 14) && <li key="b"><Link className="l inlinelink" to="/settings">{b.days === null ? 'You have not made a backup yet' : `Your last backup was ${b.days} days ago`}</Link></li>,
+    (b.days === null || b.days >= BACKUP_REMINDER_DAYS) && <li key="b"><Link className="l inlinelink" to="/settings">{b.days === null ? 'Time for a full backup: you have not made one yet' : `Time for a full backup: your last one was ${b.days} days ago`}</Link></li>,
     t.noCover > 0 && <li key="c"><Link className="l" to="/import?tab=covers">{`${t.noCover} ${t.noCover === 1 ? 'book has' : 'books have'} no cover`}</Link></li>,
     t.unassignedCharacters > 0 && <li key="ch"><Link className="l" to="/characters">{`${t.unassignedCharacters} ${t.unassignedCharacters === 1 ? 'character is' : 'characters are'} not in a book yet`}</Link></li>,
     t.locations > 0 && <li key="l"><Link className="l" to="/locations?needs=1">{`${t.locations} ${t.locations === 1 ? 'location needs' : 'locations need'} updating`}</Link></li>,

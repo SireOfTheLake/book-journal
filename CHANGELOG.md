@@ -2,7 +2,20 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 r076 r077 r078 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 r076 r077 r078 r079 r080 -->
+
+## 0.5.16 — 2026-11-14
+
+### New
+- [Desktop] Shrink my covers (Settings, Backup and Export) makes the big covers already in your journal smaller. Sticker pictures are never touched.
+- [Desktop] Full backup (Settings, Backup and Export) saves everything (records, covers, stickers and pictures) as one file in a place you choose, such as a USB drive or cloud folder. Home now reminds you every 30 days when you have not made one.
+
+### Improved
+- [Other] Syncing no longer asks the cloud about every table each minute. When the app is open it now checks once every 5 minutes with a single request, and only does a full sync when something actually changed (here or on another device). This cuts the cloud's request logs and data use by a very large amount.
+- [Other] The background check pauses when the app is hidden, another window has the focus, or nothing has been touched for 10 minutes, and it checks straight away when you come back to it. Changes you make, changes from other devices and the Sync now button still sync at once.
+- [Database] Sticker pictures (challenge stickers, word letters and Bingo prompt art) now stay on the computer they were made on. Their details still sync, but the large picture data is no longer sent to the cloud or downloaded to your phone. This is what was using most of the cloud storage and data.
+- [Database] New covers are saved at a smaller size (about 420 pixels tall at most), which is plenty for how they are shown and keeps the cloud copy small.
+- [Desktop] The earlier "Back up now" button is now called a quick backup and stays in the app's own folder.
 
 ## 0.5.14 — 2026-11-14
 

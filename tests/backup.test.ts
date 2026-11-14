@@ -3,7 +3,7 @@ import { copyFileSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSyn
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { buildExport, exportJson, KEEP_AUTOMATIC, lastBackupAt, listBackups, makeBackup, parseBackupName, saveCopy, stampOf, type BackupEnv } from '../src/backup/backup';
+import { buildExport, exportJson, KEEP_AUTOMATIC, lastBackupAt, listBackups, makeBackup, parseBackupName, saveCopy, stampOf, lastFullBackupAt, type BackupEnv } from '../src/backup/backup';
 import type { Db } from '../src/db/adapter';
 import { migrateNodeDb } from '../src/db/nodeDb';
 import { applyNotionPlan } from '../src/import/apply';
@@ -119,8 +119,15 @@ describe('saving a copy somewhere else', () => {
     copy.close();
     expect((await listBackups(env())).map((f) => f.kind)).toEqual(['manual']); // and one stays in the app's folder too
   });
+  it('remembers the full backup separately from quick backups, which the Home reminder goes by', async () => {
+    await makeBackup(db, env(), 'manual');
+    expect(await lastFullBackupAt(db)).toBeNull(); // a quick backup is not a full one
+    await saveCopy(db, env());
+    expect(await lastFullBackupAt(db)).not.toBeNull();
+  });
   it('does nothing if you cancel the Save dialog', async () => {
     expect(await saveCopy(db, env({ pick: null }))).toBeNull();
+    expect(await lastFullBackupAt(db)).toBeNull();
     expect(nameCount(dir)).toBe(0);
     expect(await lastBackupAt(db)).toBeNull();
   });

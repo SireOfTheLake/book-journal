@@ -10,6 +10,7 @@ export const DEVICE_SETTINGS = [
   'theme',          // the look can differ between a desktop and a phone
   'journal_year',   // which year this device is showing
   'last_backup_at', // when this device last made a backup
+  'last_full_backup_at', // when this device last saved a full backup to a place you chose
   'fix_bingo_five_colors', // this device has tidied the Bingo board colors (a fixed shuffle, so every device gets the same result)
 ];
 

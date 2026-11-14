@@ -77,7 +77,7 @@ export async function getHome(db: Db, today: string): Promise<HomeData> {
     `SELECT count(*) AS n FROM book b WHERE b.deleted_at IS NULL AND b.placeholder_permanent = 0 AND NOT EXISTS (SELECT 1 FROM image i WHERE i.id = b.cover_image_id AND i.deleted_at IS NULL)`);
   const [{ n: unassigned }] = await db.select<{ n: number }>(
     `SELECT count(*) AS n FROM character c WHERE c.deleted_at IS NULL AND NOT EXISTS (SELECT 1 FROM book_character bc WHERE bc.character_id = c.id AND bc.deleted_at IS NULL)`);
-  const [last] = await db.select<{ value: string }>("SELECT value FROM app_setting WHERE key = 'last_backup_at'");
+  const [last] = await db.select<{ value: string }>("SELECT value FROM app_setting WHERE key = 'last_full_backup_at'");
   const lastAt = last?.value ?? null;
   const backupDays = lastAt ? Math.max(0, daysBetween(lastAt.slice(0, 10), today)) : null;
   const caughtUp = (await listSeriesLedger(db)).filter((s) => s.status === 'caught_up').map((s) => ({ id: s.id, title: s.title }));

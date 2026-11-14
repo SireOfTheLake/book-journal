@@ -40,8 +40,14 @@ export async function lastBackupAt(db: Db): Promise<Date | null> {
   return row ? new Date(row.value) : null;
 }
 
-async function remember(db: Db, when: Date) {
-  await db.execute("INSERT INTO app_setting (key, value) VALUES ('last_backup_at', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')", [when.toISOString()]);
+// A full backup is the one saved to a place you chose (a USB drive, a cloud folder). The reminder on Home goes by this one.
+export async function lastFullBackupAt(db: Db): Promise<Date | null> {
+  const [row] = await db.select<{ value: string }>("SELECT value FROM app_setting WHERE key = 'last_full_backup_at'");
+  return row ? new Date(row.value) : null;
+}
+
+async function remember(db: Db, when: Date, key = 'last_backup_at') {
+  await db.execute("INSERT INTO app_setting (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')", [key, when.toISOString()]);
 }
 
 // Makes a complete copy of the database (including every picture, which lives inside it) in the backups folder.
@@ -65,13 +71,14 @@ async function pruneAutomatic(env: BackupEnv) {
   for (const f of old) await env.remove(env.join(dir, f.name));
 }
 
-// A fresh backup, then a copy of it wherever you choose (a USB drive, a cloud folder...). Null if you cancel.
+// A full backup: a fresh complete copy (every record, cover, sticker and picture) saved wherever you choose (a USB drive, a cloud folder...). Null if you cancel.
 export async function saveCopy(db: Db, env: BackupEnv): Promise<{ path: string } | null> {
   const stamp = stampOf(env.now());
   const target = await env.pickSavePath(`book-journal-backup-${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}.db`, 'Book Journal backup', 'db');
   if (!target) return null;
   const made = await makeBackup(db, env, 'manual');
   await env.copy(made.path, target);
+  await remember(db, env.now(), 'last_full_backup_at');
   return { path: target };
 }
 

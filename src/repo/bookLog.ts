@@ -1,4 +1,5 @@
 import { findOrCreatePlace } from './places';
+import { shrinkCover } from '../ui/shrinkCover';
 import type { Db, SqlValue } from '../db/adapter';
 import { newId } from '../domain/ids';
 import { voicesOf } from './voicing';
@@ -397,7 +398,8 @@ export async function removeNarratorFromRead(db: Db, readNarratorId: string): Pr
 }
 
 // ---------- covers ----------
-export async function setBookCover(db: Db, bookId: string, img: { dataUrl: string; width?: number; height?: number; mime?: string }): Promise<void> {
+export async function setBookCover(db: Db, bookId: string, picked: { dataUrl: string; width?: number; height?: number; mime?: string }): Promise<void> {
+  const img = await shrinkCover(picked);
   const imageId = newId();
   await db.execute('INSERT INTO image (id, file_path, mime_type, width, height) VALUES (?, ?, ?, ?, ?)', [imageId, img.dataUrl, img.mime ?? null, img.width ?? null, img.height ?? null]);
   await removeBookCover(db, bookId);

@@ -2,6 +2,7 @@ import type { Db, SqlValue } from '../db/adapter';
 import { isSharedSetting } from '../repo/settings';
 import { applyOrder, syncedTables, type RemoteRow, type TableInfo } from './schema';
 import { databaseVersion, compareVersions } from './version';
+import { pendingChanges } from './pending';
 
 // Keeps this device and the cloud copy in step. It asks the cloud for what is new, settles any clashes, then sends what changed here.
 
@@ -10,6 +11,8 @@ export interface Transport {
   /** Rows of a table that arrived in the cloud after `after`, oldest first. `cursor` is the arrival mark of the last row. */
   pull(table: string, after: string | null, limit: number): Promise<{ rows: RemoteRow[]; cursor: string | null }>;
   push(table: string, rows: RemoteRow[]): Promise<void>;
+  /** One cheap request: a mark that moves whenever any device changes anything in the cloud. undefined = this cloud cannot say. */
+  changeMark?(): Promise<string | null | undefined>;
 }
 
 export class SyncVersionError extends Error {
@@ -113,11 +116,16 @@ async function defaultedColumns(db: Db, table: string): Promise<Set<string>> {
   return set;
 }
 
-async function writeRow(ctx: Ctx, t: TableInfo, row: RemoteRow, echo = true): Promise<boolean> {
+async function writeRow(ctx: Ctx, t: TableInfo, incoming: RemoteRow, echo = true): Promise<boolean> {
   const db = ctx.db;
+  let row = incoming;
   const [local] = await db.select<{ updated_at: string }>(`SELECT updated_at FROM "${t.name}" WHERE id = ?`, [row.id as string]);
   if (local && local.updated_at >= (row.updated_at as string)) return false;
   const withDefault = await defaultedColumns(db, t.name);
+  if (t.name === 'image' && row.file_path === '' && local) { // a sticker's picture data stays where it was made
+    const [mine] = await db.select<{ file_path: string }>('SELECT file_path FROM image WHERE id = ?', [row.id as string]);
+    if (mine) row = { ...row, file_path: mine.file_path };
+  }
   const cols = t.columns.filter((c) => c in row && !(row[c] == null && withDefault.has(c)));
   await db.execute(
     `INSERT INTO "${t.name}" (${cols.map((c) => `"${c}"`).join(', ')}) VALUES (${cols.map(() => '?').join(', ')}) ON CONFLICT(id) DO UPDATE SET ${cols.filter((c) => c !== 'id').map((c) => `"${c}" = excluded."${c}"`).join(', ')}`,
@@ -163,11 +171,20 @@ async function pullTable(ctx: Ctx, t: TableInfo, transport: Transport): Promise<
   return count;
 }
 
+/** Sticker art (challenge slots, word letters, Bingo prompts) is large and only the desktop uses it, so its picture data never leaves this computer. */
+export const STICKER_IMAGE_IDS_SQL = `SELECT art_image_id AS id FROM challenge_slot WHERE art_image_id IS NOT NULL
+  UNION SELECT image_id FROM challenge_letter WHERE image_id IS NOT NULL
+  UNION SELECT image_id FROM bingo_prompt WHERE image_id IS NOT NULL`;
+
 async function pushTable(ctx: Ctx, t: TableInfo, transport: Transport): Promise<number> {
   const markKey = `sync_push:${t.name}`;
   const mark = (await keyOf(ctx.db, markKey)) ?? '';
   const rows = await ctx.db.select<RemoteRow>(`SELECT * FROM "${t.name}" WHERE updated_at > ? ORDER BY updated_at, id`, [mark]);
-  const send = rows.filter((r) => !ctx.fromCloud.has(`${t.name}:${r.id}:${r.updated_at}`));
+  let send = rows.filter((r) => !ctx.fromCloud.has(`${t.name}:${r.id}:${r.updated_at}`));
+  if (t.name === 'image' && send.length) {
+    const stickers = new Set((await ctx.db.select<{ id: string }>(STICKER_IMAGE_IDS_SQL)).map((r) => r.id));
+    send = send.map((r) => (stickers.has(r.id as string) ? { ...r, file_path: '' } : r)); // the row (size, caption) syncs; the picture data does not
+  }
   let batch: RemoteRow[] = []; let bytes = 0;
   const flush = async () => { if (batch.length) { await transport.push(t.name, batch); batch = []; bytes = 0; } };
   for (const r of send) {
@@ -199,6 +216,14 @@ async function syncSettings(ctx: Ctx, transport: Transport): Promise<{ pulled: n
   return { pulled, pushed: rows.length };
 }
 
+const STICKERS_DONE = 'sync_stickers_local_done';
+/** Once, after sticker pictures stopped syncing: marks this device's sticker pictures as changed so the cloud's big copies are replaced by empty ones. */
+async function blankCloudStickers(db: Db) {
+  if (await keyOf(db, STICKERS_DONE)) return;
+  await db.execute(`UPDATE image SET updated_at = ? WHERE file_path <> '' AND id IN (${STICKER_IMAGE_IDS_SQL})`, [NOW()]);
+  await setKey(db, STICKERS_DONE, NOW());
+}
+
 export interface SyncOptions {
   /** Tables this device does not bring in from the cloud (the phone leaves the pictures table to its own cover download). Anything made here is still sent. */
   skipPull?: string[];
@@ -219,7 +244,24 @@ export async function syncOnce(db: Db, transport: Transport, opts: SyncOptions =
   for (const t of order) if (!skip.has(t.name)) pulled += await pullTable(ctx, t, transport);
   const s = await syncSettings(ctx, transport);
   pulled += s.pulled;
+  await blankCloudStickers(db);
   for (const t of order) pushed += await pushTable(ctx, t, transport);
   pushed += s.pushed;
   return { pulled, pushed, merged: ctx.merged };
+}
+
+/** What the last sync saw, so the next one can tell when nothing has changed. */
+export interface SyncMemory { mark: string | null | undefined }
+
+/**
+ * A full sync asks the cloud about every table (over 70 requests). When nothing has changed that is wasted, so unless `force` is set this first
+ * asks for the cloud's change mark (1 request) and skips the sync, returning null, when the mark has not moved and nothing is waiting to be sent.
+ */
+export async function syncSmart(db: Db, transport: Transport, memory: SyncMemory, opts: SyncOptions & { force?: boolean } = {}): Promise<SyncReport | null> {
+  const before = transport.changeMark ? await transport.changeMark() : undefined;
+  if (!opts.force && before !== undefined && memory.mark !== undefined && before === memory.mark && (await pendingChanges(db)) === 0) return null;
+  const report = await syncOnce(db, transport, opts);
+  // Our own sending moves the mark, so look again after it; otherwise the mark from before the sync is the safe one to remember.
+  memory.mark = before === undefined ? undefined : report.pushed > 0 && transport.changeMark ? await transport.changeMark() : before;
+  return report;
 }

@@ -7,6 +7,7 @@ import { readableOn } from '../../theme/themes';
 import ReadPicker from './ReadPicker';
 import StickerStaging, { type Staged } from './StickerStaging';
 import Blurb from './Blurb';
+import { useAlignedRows } from './alignRows';
 import { ZoomImage } from '../bookLog/parts';
 import TrackerBar from './TrackerBar';
 import { splitPrompts } from '../../domain/challenges';
@@ -265,6 +266,8 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
   const sticker = c.kind === 'sticker';
   const stacked = sticker && c.groups.length > 0; // the sticker sits above the cover only when there are sub-categories
   const split = sticker && c.groups.length === 0; // otherwise the stickers have a card of their own
+  const cardsBox = useRef<HTMLDivElement>(null);
+  useAlignedRows(cardsBox, split); // each sticker sits level with the top of its book
 
   const dnd: Dnd & { cardDrop(e: React.DragEvent, key: string, groupId: string | null): void } = {
     start: (e, d) => { drag.current = d; try { e.dataTransfer?.setData('text/plain', d.id); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move'; } catch { /* some browsers refuse */ } },
@@ -382,7 +385,7 @@ export default function GridView({ challenge: c, covers, act }: { challenge: Cha
             </section>
           )}
         </>
-      ) : <div className={`gcards${split ? ' split' : ''}`}>{keys.map(renderCard)}</div>}
+      ) : <div ref={cardsBox} className={`gcards${split ? ' split' : ''}`}>{keys.map(renderCard)}</div>}
       {c.total === 0 && !editing && <p className="muted">This challenge has no prompts yet. Choose Edit to add some.</p>}
       {picking && <ReadPicker prompt={picking.label} search={act.search} noteLabel={(picking.askNote ?? c.askNote) && act.note ? c.noteLabel : undefined} onClose={() => setPicking(null)} onPick={(readId, note) => { act.fill(picking.id, readId, note); setPicking(null); }} />}
     </div>

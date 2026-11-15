@@ -1,4 +1,5 @@
 import { int, pick, shuffled, type Rng } from './rng';
+import type { SlotInfo } from './challengePrompts';
 
 // The prompt list. Every prompt is made from a family: some are written out, some are built from a template and a list (a trope, a job, a place...),
 // so the same board is never made twice. Fiction only. MM romance and queer male leads are the heart of it, with room to stretch.
@@ -112,30 +113,57 @@ const themed: Record<string, string[]> = {
   neon: ['Read a book set in a big city at night', 'Read a book with a celebrity', 'Read a book with a band', 'Read a book with a stage', 'Read a book with a fake relationship for the press', 'Read a book set in a club'],
   cozy: ['Read a book set in a small town', 'Read a book with a bakery, a bookshop, or a café', 'Read a book that happens over the holidays', 'Read a book with a sick day', 'Read a book with a stray pet', 'Read a book with a town festival'],
   stormy: ['Read a book with a crime', 'Read a book with a secret', 'Read a book where someone is not who they seem', 'Read a book with a storm', 'Read a book where the setting is almost a character', 'Read a book with a villain you love to hate'],
+  mic: ['Listen to an audiobook with a narrator who has an accent you do not usually hear', 'Listen to a book that has two narrators, one for each lead', 'Listen to an audiobook that is a full cast production', 'Listen to a book you already read, as a re-listen',
+    'Listen to an audiobook of 15 hours or more', 'Listen to a short audiobook under 6 hours', 'Listen to a book by a narrator you have never heard', 'Listen to the next book of a series with the same narrator', 'Listen to a book while you do chores or walk',
+    'Listen to an audiobook that is also on your shelf as an ebook', 'Listen to a book narrated by the author', 'Listen to a book on a subscription or a promo code'],
+  meet: ['Read a book where the couple meets in an elevator', 'Read a book that starts with a wrong number or a wrong text', 'Read a book where two people swap coffee orders', 'Read a book where the leads meet at a wedding', 'Read a book where the couple meets in a bookstore',
+    'Read a book where two people meet because of a pet', 'Read a book where the leads start as enemies on first sight', 'Read a book where the leads were friends as kids', 'Read a book that starts on a moving day', 'Read a book where the couple meets at the airport',
+    'Read a book where a blind date goes wrong', 'Read a book where the leads meet online first'],
+  time: ['Read a book set in the 1990s', 'Read a book set in the 1980s', 'Read a book set in the 1970s', 'Read a book set before 1950', 'Read a book set during a war', 'Read a book set in the near future', 'Read a book set in a time that is not our own', 'Read a book published in the last year',
+    'Read a book published before 2016', 'Read a book that jumps between two timelines', 'Read a book with time travel', 'Read a book with a flashback to a first love'],
+  spice: ['Read a closed-door romance', 'Read a book with a slow burn that earns its heat', 'Read a book rated hotter than you usually pick', 'Read a book with a first kiss that takes forever', 'Read a book where the tension is all in the glances', 'Read a book you would call a palate cleanser',
+    'Read a steamy book with a real plot', 'Read a book with a fade-to-black scene', 'Read a book that is sweet and has no steam at all', 'Read a book with a love scene you will remember', 'Read a book where the heat is the main event'],
+  motel: ['Read a book with a villain you cannot stop rooting for', 'Read a book with a stalker who is more than he seems', 'Read a book with a mafia heir', 'Read a book where one lead has a dark secret', 'Read a book with an enemy who is also a protector', 'Read a book where the lines of right and wrong blur',
+    'Read a book with a revenge plot that turns into love', 'Read a book with a forbidden pairing', 'Read a book with a morally gray lead', 'Read a book with a cat-and-mouse chase', 'Read a book set in a hotel or a motel at night'],
+  ever: ['Read a book with a wedding epilogue', 'Read a book that ends with a proposal', 'Read a book with a baby or adoption epilogue', 'Read a book with a happy-for-now ending', 'Read a book with a time-jump epilogue years later', 'Read a book that ends on a cliffhanger', 'Read a book with a holiday epilogue',
+    'Read a book that ends with the leads moving in together', 'Read a book with a bonus epilogue or a novella', 'Read a book with a bittersweet ending', 'Read a book with a letter or a text thread at the end'],
+  jobs: ['Read a book where the leads work together', 'Read a book where one lead is the boss', 'Read a book with a night shift', 'Read a book where one lead owns a small business', 'Read a book where the leads work in the same building but hate each other', 'Read a book where one lead just lost a job',
+    'Read a book set in a restaurant or a bar kitchen', 'Read a book where the leads meet on a work trip', 'Read a book with a workplace rival', 'Read a book where one lead changes careers', 'Read a book set at an office holiday party'],
   wild: ['Read a book that starts with a dare', 'Read a book where the lead breaks the rules', 'Read a book that surprises you in the first chapter', 'Read a book that is nothing like your last one', 'Read a book that your friend begged you to read', 'Read a book you picked at random'],
 };
 export type ThemeKey = keyof typeof themed;
 export const THEME_KEYS = Object.keys(themed) as ThemeKey[];
 
-export const BOSSES = [
-  { title: 'The Marathoner', text: 'Boss: read three books in a row from the same series' },
-  { title: 'The Sprinter', text: 'Boss: finish a full-length book in one day' },
-  { title: 'The Heavyweight', text: 'Boss: read a book of 500 pages or more, or 15 hours or more as an audiobook' },
-  { title: 'The Explorer', text: 'Boss: read a book by an author you have never read, in a genre you read the least' },
-  { title: 'The Completionist', text: 'Boss: finish an entire series you started' },
-  { title: 'The Time Traveler', text: 'Boss: reread a favorite, then read its newest sequel' },
+export interface BossDef { title: string; text: string; trophy?: RegExp } // trophy: the Trophy Case prompt this boss also fits, if you have that challenge (you fill it yourself)
+export const BOSSES: BossDef[] = [
+  { title: 'The Marathoner', text: 'Boss: read three books in a row from the same series', trophy: /series sprint/i },
+  { title: 'The Sprinter', text: 'Boss: finish a full-length book in one day', trophy: /1 day|one day/i },
+  { title: 'The Heavyweight', text: 'Boss: read a book of 500 pages or more, or 15 hours or more as an audiobook', trophy: /600|20\+? hour/i },
+  { title: 'The Explorer', text: 'Boss: read a book by an author you have never read, in a genre you read the least', trophy: /new author|genre explorer/i },
+  { title: 'The Completionist', text: 'Boss: finish an entire series you started', trophy: /series finale/i },
+  { title: 'The Time Traveler', text: 'Boss: reread a favorite, then read its newest sequel', trophy: /reread|re-read/i },
   { title: 'The Cartographer', text: 'Boss: read a book set in a place you have never read about, then find it on a map' },
   { title: 'The Matchmaker', text: 'Boss: read a book with a trope you love and a trope you usually avoid, in the same book' },
   { title: 'The Audiophile', text: 'Boss: listen to an audiobook with two or more narrators and a dual point of view' },
   { title: 'The Wildcard', text: 'Boss: ask a friend to pick any book from your TBR for you, and read it' },
-  { title: 'The Archaeologist', text: 'Boss: read the oldest book on your TBR' },
+  { title: 'The Archaeologist', text: 'Boss: read the oldest book on your TBR', trophy: /tbr rescue/i },
   { title: 'The Cheerleader', text: 'Boss: read a book and tell someone why they should read it' },
+  { title: 'The Page Runner', text: 'Boss: read 300 pages or more in a single day', trophy: /marathon/i },
+  { title: 'The Streak Keeper', text: 'Boss: read every day for seven days in a row', trophy: /7-day/i },
+  { title: 'The Fire Keeper', text: 'Boss: keep a reading streak going for 30 days', trophy: /30-day/i },
+  { title: 'The Comeback Kid', text: 'Boss: pick up a book you paused or gave up on, and finish it', trophy: /comeback/i },
+  { title: 'The Double Crown', text: 'Boss: read two books in a row that you rate five stars', trophy: /back to back|back-to-back/i },
+  { title: 'The Dual Wielder', text: 'Boss: read an ebook and listen to its audiobook at the same time', trophy: /listen at the same time|same time/i },
+  { title: 'The Holiday Hero', text: 'Boss: finish a book on a holiday', trophy: /holiday/i },
+  { title: 'The Fresh Start', text: 'Boss: make the first book you finish in a new year a good one', trophy: /first book of the year/i },
+  { title: 'The Traveler', text: 'Boss: read a book while you are away from home', trophy: /travel/i },
+  { title: 'The Hangover', text: 'Boss: read a book so good you need a day to recover before the next one' },
 ];
 export const QUESTS = ['Finish it in three days or fewer', 'Finish it in a single day', 'Listen to it instead of reading it', 'Read it outside', 'Add three tags to it in the journal', 'Add a note to your day log', 'Save a favorite passage',
   'Read it in one sitting', 'Read it without checking your phone', 'Pair it with a snack from the book', 'Read it in a new place', 'Read it in the bath, a park, or a café', 'Read it with a friend', 'Recommend it to someone',
   'Rate it before the next sentence of another book', 'Read it before bed every night', 'Read it on a weekend', 'Finish it before the next full moon', 'Read the epilogue first thing the next day', 'Guess the ending, then check',
   'Read it with a cup of tea or coffee', 'Pick the book up and start it within an hour of landing', 'Start it within the day', 'Read a chapter aloud', 'Send a friend a photo of your favorite line', 'Finish it without skipping ahead',
-  'Dress up as your favorite character for a chapter', 'Match it to a challenge prompt', 'Add a cover to it in the journal if it is missing one'];
+  'Dress up as your favorite character for a chapter', 'Match it to a challenge prompt', 'Mark it as a favorite if it earns it', 'Rate it 4.5 or higher', 'Write down how it made you feel', 'Note its heat level before you start', 'Log where you got it', 'Listen to a sample of the audiobook first', 'Add a cover to it in the journal if it is missing one'];
 
 export const BONUS_LINES = ['A tailwind pushes you ahead', 'A shortcut through the stacks', 'You find a secret door', 'The audiobook is on double speed', 'A friend slides you the next book', 'A lucky bookmark falls out', 'You skip a boring chapter',
   'A kind librarian points the way', 'The plot gets good right away', 'A dragon gives you a lift'];
@@ -151,6 +179,7 @@ export const boardName = (r: Rng) => `The ${pick(r, ADJ)} ${pick(r, NOUN)}`;
 export interface Extras {
   occupations?: string[]; tropes?: string[]; places?: string[];
   challenge?: { challenge: string; label: string }[]; yours?: string[];
+  slots?: SlotInfo[]; // every open challenge prompt, with its category, so spaces can be made from them and one book can fill several
 }
 
 const dedupe = (xs: string[]) => [...new Set(xs.map((x) => x.trim()).filter(Boolean))];
@@ -232,7 +261,7 @@ export function makePrompt(family: Family, r: Rng, used: ReadonlySet<string>, x:
   return null;
 }
 
-export const makeBoss = (r: Rng, used: ReadonlySet<string>, x: Extras = {}): { title: string; text: string } => {
+export const makeBoss = (r: Rng, used: ReadonlySet<string>, x: Extras = {}): { title: string; text: string; trophy?: RegExp } => {
   const open = BOSSES.filter((b) => !used.has(b.text));
   if (open.length && int(r, 0, 99) < 55) return pick(r, open);
   const a = makePrompt(pick(r, ['trope', 'character'] as const), r, used, x)!.text.replace(/^Read a book (with|where|about|that)?\s?/i, '');

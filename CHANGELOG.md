@@ -2,7 +2,20 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 r076 r077 r078 r079 r080 r081 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 r076 r077 r078 r079 r080 r081 r082 -->
+
+## 0.5.18 — 2026-11-15
+
+### New
+- [Desktop] The Board Game now draws on your open challenge prompts. Spaces can ask for a prompt from a challenge (bingo squares most often, then Authorz, Word Soup, Scavenger Hunt, 1-800-Reading and the rest), mixed with the usual prompts so the board is not all challenges. The sticker shows on the space and on the space's card when the prompt has one.
+- [Desktop] One book can fill more than one challenge prompt. When a space fits other open prompts (a title with a B, a cover colour), those show under it with a tick; finishing the space puts the linked book on every ticked prompt, and you can untick any before you finish. A book still counts for one challenge per challenge category.
+- [Desktop] Seven new Board Game zones: Mic Check, Meet Cute Cafe, Time Machine, Spice Rack, Midnight Motel, Ever After Registry and Clocked In. Each mixes challenge prompts with plain ones and ends in its own boss.
+- [Desktop] World Tour is an open ended space: read a book set in a country you have not read about yet, then add it to World Tour yourself.
+
+### Improved
+- [Desktop] Trophy Case prompts on a boss are never filled for you. The boss tells you which trophy it could earn, and you mark it on the Challenges page.
+- [Desktop] The Prompt Randomizer shows the sticker for a challenge prompt when it has one.
+- [Desktop] Putting a book on a challenge prompt now refuses a second challenge from the same category, with a message saying which challenge the book is already on.
 
 ## 0.5.17 — 2026-11-14
 

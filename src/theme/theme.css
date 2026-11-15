@@ -1424,6 +1424,11 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .bg-wild { flex-direction: column; align-items: stretch; }
 .bg-wild .btn, .bg-actions .btn { margin-bottom: 0; text-align: left; }
 .bg-choices, .bg-reads, .bg-log, .bg-hall { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.bg-fits { margin: 4px 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.bg-fits li { display: flex; gap: 10px; align-items: center; }
+.bg-sticker { width: 56px; height: 56px; object-fit: contain; flex: none; border-radius: 8px; }
+.bg-sticker.none { display: inline-block; background: var(--line, rgba(128,128,128,.25)); opacity: .5; }
+.rzsticker { width: 96px; height: 96px; object-fit: contain; border-radius: 10px; }
 .bg-reads { list-style: none; padding: 0; max-height: 220px; overflow: auto; }
 .bg-find { display: flex; flex-direction: column; gap: 8px; }
 .bg-tokens { display: flex; gap: 8px; flex-wrap: wrap; }

@@ -446,6 +446,17 @@ export async function deletePrompt(db: Db, slotId: string) {
   if ((await first<{ w: number }>(db, 'SELECT word_builder AS w FROM challenge WHERE id = ?', [s.challenge_id]))?.w) await refreshBonusWords(db, s.challenge_id);
 }
 
+// A book counts for one challenge per category of the Challenges page: a book on Midnight Motel cannot also be on Spellbound Inn when both sit in the same category.
+// Challenges in no category are not limited. A book already on this challenge may move to another prompt in it.
+export async function refuseSameCategory(db: Db, challengeId: string, readId: string) {
+  const c = await first<{ category_id: string | null; cname: string | null }>(db, 'SELECT c.category_id AS category_id, (SELECT name FROM challenge_category WHERE id = c.category_id) AS cname FROM challenge c WHERE c.id = ?', [challengeId]);
+  if (!c?.category_id) return;
+  const clash = await first<{ name: string }>(db,
+    `SELECT c2.name AS name FROM challenge_completion k JOIN challenge c2 ON c2.id = k.challenge_id AND c2.deleted_at IS NULL
+     WHERE k.deleted_at IS NULL AND k.read_id = ? AND c2.category_id = ? AND c2.id <> ? LIMIT 1`, [readId, c.category_id, challengeId]);
+  if (clash) throw new Error(`This book is already on ${clash.name}, in the same category (${c.cname ?? 'this category'}). A book counts for one challenge per category.`);
+}
+
 // ---------- placing books ----------
 // Puts a read on a prompt. The read leaves any other prompt in the same challenge (a read fills one slot per challenge); a book already on this prompt is replaced.
 export async function fillSlot(db: Db, slotId: string, readId: string, rng: () => number = Math.random) {
@@ -460,6 +471,7 @@ export async function fillSlot(db: Db, slotId: string, readId: string, rng: () =
   if (lim && lim.req !== null && !lim.allow && !lim.optional && !lim.here && lim.done >= lim.req) throw new Error(`This challenge is complete (${lim.req} of ${lim.req}). Turn on bonus prompts in Edit to keep going.`);
   const r = await first<{ id: string }>(db, 'SELECT id FROM read WHERE id = ? AND deleted_at IS NULL', [readId]);
   if (!r) throw new Error('That read no longer exists.');
+  await refuseSameCategory(db, s.challenge_id, readId);
   const same = await first<{ note: string | null }>(db, 'SELECT note FROM challenge_completion WHERE deleted_at IS NULL AND challenge_id = ? AND slot_id = ? AND read_id = ?', [s.challenge_id, slotId, readId]); // choosing the same book again keeps its note
   await db.execute(`UPDATE challenge_completion SET deleted_at = ${NOW} WHERE deleted_at IS NULL AND challenge_id = ? AND (slot_id = ? OR read_id = ?)`, [s.challenge_id, slotId, readId]);
   await db.execute('INSERT INTO challenge_completion (id, read_id, challenge_id, slot_id, note) VALUES (?, ?, ?, ?, ?)', [newId(), readId, s.challenge_id, slotId, same?.note ?? null]);

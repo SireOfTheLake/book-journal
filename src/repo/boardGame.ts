@@ -1,5 +1,6 @@
 import type { Db } from '../db/adapter';
-import { BINGO_OUT_OF_WINDOW_SQL } from './challenges';
+import { BINGO_OUT_OF_WINDOW_SQL, fillSlot } from './challenges';
+import type { Fit, SlotInfo } from '../domain/boardGame/challengePrompts';
 import type { Extras } from '../domain/boardGame/prompts';
 import type { Board, Pick, Pools } from '../domain/boardGame/board';
 
@@ -22,17 +23,58 @@ const localToday = () => { const d = new Date(); return `${d.getFullYear()}-${St
 /** The things in your own journal that boards draw on: tags, jobs and places you use, unfinished challenge prompts, and the prompts you saved. */
 export async function loadExtras(db: Db, year: number): Promise<Extras> {
   const names = async (sql: string, params: (string | number)[] = []) => (await db.select<{ n: string }>(sql, params)).map((r) => r.n);
-  const [occupations, tropes, places, yours, slots] = await Promise.all([
+  const [occupations, tropes, places, yours, rows, tours] = await Promise.all([
     names(`SELECT o.name AS n FROM character_occupation co JOIN occupation o ON o.id = co.occupation_id WHERE co.deleted_at IS NULL AND o.deleted_at IS NULL GROUP BY o.name HAVING count(*) >= 2 ORDER BY count(*) DESC LIMIT 80`),
     names('SELECT name AS n FROM trope WHERE deleted_at IS NULL'),
     names(`SELECT DISTINCT country AS n FROM place WHERE deleted_at IS NULL AND country IS NOT NULL AND country <> '' LIMIT 60`),
     names('SELECT text AS n FROM randomizer_prompt WHERE deleted_at IS NULL'),
-    db.select<{ challenge: string; label: string; kind: string }>(
-      `SELECT c.name AS challenge, s.label AS label, c.kind AS kind FROM challenge_slot s JOIN challenge c ON c.id = s.challenge_id JOIN journal_year y ON y.id = c.journal_year_id
-       WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL AND s.deleted_at IS NULL AND lower(s.label) NOT LIKE 'bonus%' AND NOT ${BINGO_OUT_OF_WINDOW_SQL}
-         AND NOT EXISTS (SELECT 1 FROM challenge_completion cc WHERE cc.slot_id = s.id AND cc.deleted_at IS NULL)`, [year, localToday(), localToday()]),
+    // Every open prompt of a published challenge: not filled, not a bonus or free square, and a bingo only while its dates are on.
+    db.select<{ challengeId: string; slotId: string; challenge: string; label: string; kind: string; categoryId: string | null; categoryName: string | null; grp: string | null; optional: number; sticker: number }>(
+      `SELECT c.id AS challengeId, s.id AS slotId, c.name AS challenge, s.label AS label, c.kind AS kind, c.category_id AS categoryId, cat.name AS categoryName,
+         (SELECT g.name FROM challenge_group g WHERE g.id = s.group_id AND g.deleted_at IS NULL) AS grp, COALESCE(s.is_optional, 0) AS optional, (s.art_image_id IS NOT NULL) AS sticker
+       FROM challenge_slot s JOIN challenge c ON c.id = s.challenge_id JOIN journal_year y ON y.id = c.journal_year_id
+         LEFT JOIN challenge_category cat ON cat.id = c.category_id AND cat.deleted_at IS NULL
+       WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL AND c.published = 1 AND s.deleted_at IS NULL AND s.is_free = 0 AND COALESCE(s.is_bonus, 0) = 0 AND lower(s.label) NOT LIKE 'bonus%' AND NOT ${BINGO_OUT_OF_WINDOW_SQL}
+         AND NOT EXISTS (SELECT 1 FROM challenge_completion cc WHERE cc.slot_id = s.id AND cc.deleted_at IS NULL)
+       ORDER BY c.sort_order, s.position`, [year, localToday(), localToday()]),
+    // A World Tour: a Word Builder of countries has no prompts to list, but a space can say "read a book from a new country, then add it".
+    db.select<{ challengeId: string; challenge: string; categoryId: string | null; categoryName: string | null }>(
+      `SELECT c.id AS challengeId, c.name AS challenge, c.category_id AS categoryId, cat.name AS categoryName FROM challenge c JOIN journal_year y ON y.id = c.journal_year_id
+         LEFT JOIN challenge_category cat ON cat.id = c.category_id AND cat.deleted_at IS NULL
+       WHERE y.year = ? AND y.deleted_at IS NULL AND c.deleted_at IS NULL AND c.published = 1 AND c.word_builder = 1 AND (lower(COALESCE(c.word_theme, '')) LIKE '%countr%' OR lower(c.name) LIKE '%world tour%')
+         AND (c.word_target IS NULL OR c.allow_bonus = 1 OR (SELECT count(*) FROM challenge_slot x WHERE x.challenge_id = c.id AND x.deleted_at IS NULL AND x.is_free = 0) < c.word_target)`, [year]),
   ]);
-  return { occupations, tropes, places, yours, challenge: slots.map((s) => ({ challenge: s.challenge, label: s.label })) };
+  const slots: SlotInfo[] = [
+    ...rows.map((r) => ({ challengeId: r.challengeId, slotId: r.slotId, challenge: r.challenge, label: r.label, group: r.grp, kind: r.kind, categoryId: r.categoryId, categoryName: r.categoryName, optional: !!r.optional, sticker: !!r.sticker })),
+    ...tours.map((r) => ({ challengeId: r.challengeId, slotId: null, challenge: r.challenge, label: 'a new country', group: null, kind: 'sticker', categoryId: r.categoryId, categoryName: r.categoryName, word: true })),
+  ];
+  return { occupations, tropes, places, yours, slots, challenge: rows.map((s) => ({ challenge: s.challenge, label: s.label })) };
+}
+
+/** The sticker pictures of some prompts (slot id to picture), for showing next to a prompt. Only the ones asked for are read, since stickers are large. */
+export async function getStickers(db: Db, slotIds: string[]): Promise<Record<string, string>> {
+  const ids = [...new Set(slotIds.filter(Boolean))];
+  if (!ids.length) return {};
+  const rows = await db.select<{ id: string; art: string }>(
+    `SELECT s.id AS id, im.file_path AS art FROM challenge_slot s JOIN image im ON im.id = s.art_image_id AND im.deleted_at IS NULL WHERE s.id IN (${ids.map(() => '?').join(',')}) AND im.file_path <> ''`, ids);
+  return Object.fromEntries(rows.map((r) => [r.id, r.art]));
+}
+
+export interface FitResult { added: string[]; skipped: string[] }
+/** Puts a book on every challenge prompt a space also fills. A prompt that already holds another book, or sits in a category the book is already in, is left alone and reported. */
+export async function applyFits(db: Db, fits: Fit[], readId: string): Promise<FitResult> {
+  const out: FitResult = { added: [], skipped: [] };
+  for (const f of fits) {
+    if (!f.auto || !f.slotId) continue;
+    const name = `${f.challenge}: ${f.label}`;
+    try {
+      const [taken] = await db.select<{ n: number }>('SELECT count(*) AS n FROM challenge_completion WHERE slot_id = ? AND deleted_at IS NULL AND read_id <> ?', [f.slotId, readId]);
+      if (Number(taken?.n)) { out.skipped.push(`${name} (already has a book)`); continue; }
+      await fillSlot(db, f.slotId, readId);
+      out.added.push(name);
+    } catch (e) { out.skipped.push(`${name} (${e instanceof Error ? e.message.replace(/^This book is already on /, 'already on ').replace(/\. A book counts.*$/, '') : 'could not be added'})`); }
+  }
+  return out;
 }
 
 interface SeriesBook { id: string; title: string; position: number | null; series: string; finished: number; active: number }

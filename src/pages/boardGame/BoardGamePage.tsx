@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDb } from '../../db/DbContext';
-import { chooseWild, completeTile, finishIndex, generateBoard, linkedReadIds, needsChoice, progressOf, promptOf, rerollTile, zoneAbout, rollDice, SIZES, takeTurn, TOKEN_LABEL, toggleQuest, type Board, type Pools, type StretchLevel, type TokenName } from '../../domain/boardGame/board';
+import { chooseWild, completeTile, logNote, finishIndex, generateBoard, linkedReadIds, needsChoice, progressOf, promptOf, rerollTile, zoneAbout, rollDice, SIZES, takeTurn, TOKEN_LABEL, toggleQuest, type Board, type Pools, type StretchLevel, type TokenName } from '../../domain/boardGame/board';
 import { FAMILY_LABEL, promptCapacity, type Extras } from '../../domain/boardGame/prompts';
 import { newSeed, seeded } from '../../domain/boardGame/rng';
-import { deleteBoard, findReads, listBoards, loadExtras, loadPools, saveBoard, type ReadChoice } from '../../repo/boardGame';
+import { applyFits, deleteBoard, findReads, listBoards, loadExtras, loadPools, saveBoard, type ReadChoice } from '../../repo/boardGame';
 import { useJournalYear } from '../../ui/Shell';
 import BoardMap, { TYPE_NAME } from './BoardMap';
 import Die from './Dice';
+import FitList, { fitKey } from './FitList';
 
 const STRETCH: { id: StretchLevel; label: string; note: string }[] = [
   { id: 'gentle', label: 'Gentle', note: 'About 1 in 10 prompts steps outside your usual' },
@@ -173,6 +174,7 @@ function BoardView({ board, extras, pools, selected, setSelected, update, roll, 
             <span className="lbl2">Space {shown.i}: {TYPE_NAME[shown.type]}</span>
             <p>{shown.chosen ?? shown.text}</p>
             {shown.note && <span className="muted small">{shown.note}</span>}
+            {shown.fits && <FitList fits={shown.fits} />}
             {shown.choices && !shown.chosen && <ul className="bg-choices">{shown.choices.map((c) => <li key={c}>{c}</li>)}</ul>}
             {shown.picks && <ul className="bg-choices">{shown.picks.map((c) => <li key={c.title}>{c.title}{c.detail ? <span className="muted small"> · {c.detail}</span> : null}</li>)}</ul>}
             {shown.quest && <span className="muted small">Side quest: {shown.quest.text}{shown.quest.done ? ' (done)' : ''}</span>}
@@ -214,6 +216,8 @@ function PlayTurn({ board, tile, extras, pools, update }: { board: Board; tile: 
   const [finding, setFinding] = useState(false);
   const [query, setQuery] = useState('');
   const [found, setFound] = useState<ReadChoice[]>([]);
+  const [off, setOff] = useState<ReadonlySet<string>>(new Set());
+  const toggleFit = (k: string) => setOff((cur) => { const n = new Set(cur); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const used = useMemo(() => linkedReadIds(board), [board]);
   useEffect(() => {
     if (!finding) return;
@@ -230,11 +234,24 @@ function PlayTurn({ board, tile, extras, pools, update }: { board: Board; tile: 
       </div>
     );
   }
-  const done = (link: { readId: string | null; title: string | null }) => { setFinding(false); setQuery(''); void update(completeTile(board, link)); };
+  const done = async (link: { readId: string | null; title: string | null }) => {
+    setFinding(false); setQuery('');
+    let next = completeTile(board, link);
+    const fits = (tile.fits ?? []).filter((f) => f.auto && !off.has(fitKey(f)));
+    if (link.readId && fits.length) {
+      try {
+        const res = await applyFits(db, fits, link.readId);
+        const bits = [res.added.length ? `Put on ${res.added.join(', ')}` : '', res.skipped.length ? `Left out: ${res.skipped.join('; ')}` : ''].filter(Boolean);
+        if (bits.length) next = logNote(next, `${link.title ?? 'The book'}: ${bits.join('. ')}.`);
+      } catch (e) { next = logNote(next, `Could not put the book on its challenges: ${e instanceof Error ? e.message : String(e)}`); }
+    }
+    await update(next);
+  };
   return (
     <div className="bg-prompt">
       <p className="bg-text">{promptOf(tile)}</p>
       {tile.note && <span className="muted small">{tile.note}</span>}
+      {tile.fits && <><FitList fits={tile.fits} off={off} toggle={toggleFit} />{tile.fits.some((f) => f.auto) && <span className="muted small">The ticked prompts are filled when you link the book.</span>}</>}
       {tile.picks && <ul className="bg-choices">{tile.picks.map((c) => <li key={c.title}><button type="button" className="quiet" onClick={() => { setFinding(true); setQuery(c.title); }}>{c.title}</button>{c.detail ? <span className="muted small"> · {c.detail}</span> : null}</li>)}</ul>}
       {tile.quest && (
         <label className="inline"><input type="checkbox" className="toggle" role="switch" checked={tile.quest.done} onChange={() => void update(toggleQuest(board, tile.i))} /><span>Side quest: {tile.quest.text} <span className="muted small">(earns a reroll)</span></span></label>
@@ -249,10 +266,10 @@ function PlayTurn({ board, tile, extras, pools, update }: { board: Board; tile: 
         <div className="bg-find">
           <input className="field" placeholder="Find a book you read" aria-label="Find a book" value={query} onChange={(e) => setQuery(e.target.value)} autoFocus />
           <ul className="bg-reads">
-            {found.map((r) => <li key={r.readId}><button type="button" className="quiet" onClick={() => done({ readId: r.readId, title: r.title })}><b>{r.title}</b><span className="muted small"> {r.authors ?? ''}{r.date ? ` · ${r.date}` : ''}{r.status === 'reading' ? ' · reading now' : ''}</span></button></li>)}
+            {found.map((r) => <li key={r.readId}><button type="button" className="quiet" onClick={() => void done({ readId: r.readId, title: r.title })}><b>{r.title}</b><span className="muted small"> {r.authors ?? ''}{r.date ? ` · ${r.date}` : ''}{r.status === 'reading' ? ' · reading now' : ''}</span></button></li>)}
             {found.length === 0 && <li className="muted small">{query ? 'No book by that name.' : 'Nothing finished since this board began. Type a title to find any book.'}</li>}
           </ul>
-          <div className="bg-actions"><button type="button" className="mini" onClick={() => done({ readId: null, title: null })}>Done without linking a book</button><button type="button" className="mini" onClick={() => setFinding(false)}>Back</button></div>
+          <div className="bg-actions"><button type="button" className="mini" onClick={() => void done({ readId: null, title: null })}>Done without linking a book</button><button type="button" className="mini" onClick={() => setFinding(false)}>Back</button></div>
         </div>
       )}
     </div>

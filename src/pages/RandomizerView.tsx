@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useStickers } from './boardGame/FitList';
 import { Link } from 'react-router-dom';
 import { allCategories, challengeKey, RANDOM_KEY, spin, spinTarget, TREAT_KEY, TRICK_KEY, wheelCategories, type Pick, type Rng } from '../domain/randomizer';
 import type { LibBook, SeriesPool } from '../domain/randomBook';
@@ -66,6 +67,7 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
   const [rotation, setRotation] = useState(0);
   const [spinning, setSpinning] = useState(false);
   const [result, setResult] = useState<Pick | null>(null);
+  const sticker = useStickers([result?.kind === 'challenge' ? result.slotId : null])[result?.slotId ?? ''];
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
@@ -169,6 +171,7 @@ export default function RandomizerView({ data, drafts, year, act, rng = Math.ran
             {result && result.kind !== 'random' && (
               <>
                 <span className="lbl2">{result.categoryLabel}</span>
+                {sticker && <img className="rzsticker" src={sticker} alt={`${result.categoryLabel} sticker: ${result.prompt}`} />}
                 <b className="rzprompt">{result.prompt}</b>
                 {result.bonus && <span className="bonuschip">Bonus Prompt</span>}
                 {result.kind === 'challenge' && !result.slotId && !result.place && <span className="muted small">Choose the word on the Book Log once the book is chosen.</span>}

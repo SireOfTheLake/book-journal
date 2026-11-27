@@ -121,15 +121,30 @@ function SeriesAuthors({ page, lists, act }: { page: SeriesPage; lists: SeriesLi
   );
 }
 
-function ExistingBook({ lists, act }: { lists: SeriesLists; act: SeriesActions }) {
-  const [open, setOpen] = useState(false);
-  const [position, setPosition] = useState('');
-  if (!open) return <button type="button" className="mini addchar" onClick={() => setOpen(true)}>+ Add a book you already have</button>;
+/** The next whole position after the books already in the series and the rows still open. */
+export const nextPosition = (positions: (number | null)[]) => Math.floor(Math.max(0, ...positions.filter((p): p is number => p !== null))) + 1;
+
+// "+ Add a book you already have": each click opens another row with the next position filled in and a search for the book. A subtle x closes a row.
+function ExistingBook({ page, lists, act }: { page: SeriesPage; lists: SeriesLists; act: SeriesActions }) {
+  const [rows, setRows] = useState<{ key: number; position: string }[]>([]);
+  const [seq, setSeq] = useState(0);
+  const open = () => {
+    const next = nextPosition([...page.books.map((b) => b.position), ...rows.map((r) => (r.position.trim() === '' ? null : Number(r.position)))]);
+    setRows((cur) => [...cur, { key: seq, position: String(next) }]); setSeq(seq + 1);
+  };
+  const edit = (key: number, position: string) => setRows((cur) => cur.map((r) => (r.key === key ? { ...r, position } : r)));
+  const close = (key: number) => setRows((cur) => cur.filter((r) => r.key !== key));
   return (
-    <div className="addrel">
-      <input className="field" type="number" step="0.5" placeholder="Position (0.5 for a novella)" aria-label="Position in the series" value={position} onChange={(e) => setPosition(e.target.value)} />
-      <Combo autoFocus label="Search your books" placeholder="Search your books by title" onClose={() => setOpen(false)} options={lists.books.map((b) => ({ key: b.id, label: b.name, sub: b.authors }))}
-        onPick={(id) => { act.addExistingBook(id, position.trim() === '' ? null : Number(position)); setPosition(''); }} />
+    <div className="stack">
+      {rows.map((r) => (
+        <div key={r.key} className="addrel existing">
+          <input className="field posfield" type="number" step="0.5" aria-label="Position in the series" title="Position (0.5 for a novella)" value={r.position} onChange={(e) => edit(r.key, e.target.value)} />
+          <Combo autoFocus label="Search your books" placeholder="Search your books by title" options={lists.books.map((b) => ({ key: b.id, label: b.name, sub: b.authors }))}
+            onPick={(id) => { act.addExistingBook(id, r.position.trim() === '' ? null : Number(r.position)); close(r.key); }} />
+          <button type="button" className="rowx" aria-label="Close this row" title="Close" onClick={() => close(r.key)}>&times;</button>
+        </div>
+      ))}
+      <button type="button" className="mini addchar" onClick={open}>+ Add a book you already have</button>
     </div>
   );
 }
@@ -178,7 +193,7 @@ export default function SeriesView({ page, lists, act }: { page: SeriesPage; lis
         <input className="field grow" placeholder="+ Add a book to this series (goes on your TBR)" aria-label="Add a book to this series" value={title} onChange={(e) => setTitle(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && add()} />
         <button type="button" className="mini" onClick={add}>Add book</button>
       </div>
-      <ExistingBook lists={lists} act={act} />
+      <ExistingBook page={page} lists={lists} act={act} />
       <div className="bookgrid" style={printing ? ({ '--cols': cols } as React.CSSProperties) : undefined}>
         {page.books.map((b) => <BookCard key={b.id} b={b} act={act} />)}
         {page.books.length === 0 && <span className="muted">No books in this series yet.</span>}

@@ -59,3 +59,22 @@ export async function listBookTags(db: Db): Promise<Record<string, string[]>> {
   }
   return out;
 }
+
+// What advanced search needs to know about every book, in one go. Loaded when the advanced panel is opened.
+const SEP = '\u001f';
+export async function listBookFacts(db: Db): Promise<import('../domain/advancedSearch').BookFacts[]> {
+  const join = (sql: string) => `(SELECT group_concat(x.n, char(31)) FROM (${sql}) x)`;
+  const rows = await db.select<{ id: string; title: string; position: number | null; pages: number | null; rating: number | null; series: string | null; authors: string | null; characters: string | null; narrators: string | null; genres: string | null; tropes: string | null; themes: string | null }>(
+    `SELECT b.id AS id, b.title AS title, b.series_position AS position, b.page_count AS pages,
+       (SELECT v.avg_stars FROM v_book_rating v WHERE v.book_id = b.id) AS rating,
+       (SELECT s.title FROM series s WHERE s.id = b.series_id AND s.deleted_at IS NULL) AS series,
+       ${join(`SELECT au.name AS n FROM book_author ba JOIN author au ON au.id = ba.author_id WHERE ba.book_id = b.id AND ba.deleted_at IS NULL AND au.deleted_at IS NULL ORDER BY ba.sort_order`)} AS authors,
+       ${join(`SELECT c.name AS n FROM book_character bc JOIN character c ON c.id = bc.character_id WHERE bc.book_id = b.id AND bc.deleted_at IS NULL AND c.deleted_at IS NULL`)} AS characters,
+       ${join(`SELECT DISTINCT n.name AS n FROM read_narrator rn JOIN read r ON r.id = rn.read_id JOIN narrator n ON n.id = rn.narrator_id WHERE r.book_id = b.id AND rn.deleted_at IS NULL AND r.deleted_at IS NULL AND n.deleted_at IS NULL`)} AS narrators,
+       ${join(`SELECT g.name AS n FROM ${BOOK_GENRE_ROLLUP} j JOIN genre g ON g.id = j.genre_id AND g.deleted_at IS NULL WHERE j.book_id = b.id AND j.deleted_at IS NULL`)} AS genres,
+       ${join(`SELECT t.name AS n FROM book_trope j JOIN trope t ON t.id = j.trope_id AND t.deleted_at IS NULL WHERE j.book_id = b.id AND j.deleted_at IS NULL`)} AS tropes,
+       ${join(`SELECT t.name AS n FROM book_theme j JOIN theme t ON t.id = j.theme_id AND t.deleted_at IS NULL WHERE j.book_id = b.id AND j.deleted_at IS NULL`)} AS themes
+     FROM book b WHERE b.deleted_at IS NULL`);
+  const list = (s: string | null) => (s ? s.split(SEP) : []);
+  return rows.map((r) => ({ id: r.id, title: r.title, position: r.position, pages: r.pages, rating: r.rating, series: r.series, authors: list(r.authors), characters: list(r.characters), narrators: list(r.narrators), genres: list(r.genres), tropes: list(r.tropes), themes: list(r.themes) }));
+}

@@ -241,6 +241,12 @@ a.btn { text-decoration: none; color: var(--on-accent); }
 .relline { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 5px 0; border-bottom: 1px solid var(--line); }
 .addrel { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
 .addrel .field { width: auto; flex: 1; min-width: 130px; }
+.addrel.existing { flex-wrap: nowrap; }
+.addrel.existing .combo { flex: 1; min-width: 0; }
+.addrel.existing .combo .field { width: 100%; }
+.addrel .field.posfield { flex: none; width: 64px; min-width: 0; text-align: center; }
+.rowx { font: inherit; font-size: 18px; line-height: 1; background: none; border: 0; padding: 2px 6px; color: var(--muted); cursor: pointer; opacity: .55; }
+.rowx:hover, .rowx:focus-visible { opacity: 1; }
 .siderow { display: flex; align-items: center; gap: 12px; padding: 3px 12px; opacity: .72; font-size: 13px; }
 .big2 { font-size: 17px; font-weight: 700; }
 .inl { display: inline; margin-right: 8px; }
@@ -1554,3 +1560,27 @@ a.mention { color: var(--accent); font-weight: 600; text-decoration: none; } a.m
 .chalcatname { margin: 0; font-size: 1.05rem; } .chalcathead .grow { flex: 1 1 auto; }
 .chalempty { margin: 0; padding: 14px; border: 1px dashed var(--line); border-radius: 8px; text-align: center; }
 .chaldropend { padding: 14px; text-align: center; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); }
+
+.advpanel { display: flex; flex-direction: column; gap: 10px; }
+.advrows { display: flex; flex-direction: column; gap: 6px; }
+.advrow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.advrow .field { min-width: 160px; }
+
+.searchbtn { display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; color: var(--muted); cursor: pointer; font-size: 14px; }
+.searchbtn kbd, .qsfoot kbd { font: inherit; font-size: 11px; padding: 1px 6px; border: 1px solid var(--line2); border-radius: 4px; background: var(--panel2); color: var(--text); }
+.qsoverlay { padding-top: 12vh; z-index: 80; }
+.qswin { width: min(680px, calc(100vw - 32px)); max-height: 76vh; display: flex; flex-direction: column; gap: 10px; background: var(--panel); border: 1px solid var(--line2); border-radius: 10px; box-shadow: 0 16px 48px rgba(0,0,0,.55); padding: 16px; }
+.qstitle { font-weight: 600; text-align: center; }
+.qsinput { width: 100%; box-sizing: border-box; font: inherit; font-size: 18px; padding: 14px 16px; background: var(--field); color: var(--text); border: 1px solid var(--line2); border-radius: 8px; }
+.qsinput:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.qslist { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.qshead { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); padding: 6px 8px 2px; }
+.qsrow { display: flex; align-items: baseline; gap: 10px; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; color: var(--text); font: inherit; font-size: 15px; padding: 8px 10px; cursor: pointer; }
+.qsrow.cur { background: var(--panel2); }
+.qskind { flex: none; min-width: 72px; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.qslabel { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qssub { flex: none; max-width: 40%; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.qsfoot { font-size: 12px; padding-top: 6px; border-top: 1px solid var(--line2); }
+.qsfoot kbd { margin-right: 3px; }
+.qstip { color: var(--accent); }
+.qsnote { padding: 0 4px; }

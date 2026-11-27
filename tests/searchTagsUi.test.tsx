@@ -32,7 +32,8 @@ async function seed() {
 
 describe('header search', () => {
   const box = (onAdd = vi.fn()) => render(<DbContext.Provider value={db}><MemoryRouter><SearchBox onAddBook={onAdd} /><Routes><Route path="*" element={<Where />} /></Routes></MemoryRouter></DbContext.Provider>);
-  const type = (v: string) => { const i = screen.getByLabelText('Search'); fireEvent.focus(i); fireEvent.change(i, { target: { value: v } }); return i; };
+  const open = () => fireEvent.click(screen.getByLabelText('Search'));
+  const type = (v: string) => { if (!screen.queryByLabelText('Search everything')) open(); const i = screen.getByLabelText('Search everything'); fireEvent.change(i, { target: { value: v } }); return i; };
 
   it('forgets a deleted book without a refresh', async () => {
     const { a } = await seed();
@@ -41,8 +42,8 @@ describe('header search', () => {
     expect(await screen.findByText('Moonlit Bargain')).toBeTruthy();
     const { deleteBook } = await import('../src/repo/bookLog');
     await deleteBook(db, a);
-    const i = screen.getByLabelText('Search');
-    fireEvent.blur(i); fireEvent.focus(i);
+    fireEvent.keyDown(screen.getByLabelText('Search everything'), { key: 'Escape' }); // closing and opening again reads the library afresh
+    type('moon');
     await waitFor(() => expect(screen.queryByText('Moonlit Bargain')).toBeNull());
     expect(screen.getByText('Moon Garden')).toBeTruthy();
   });
@@ -52,8 +53,8 @@ describe('header search', () => {
     box();
     type('moon');
     await waitFor(() => expect(screen.getByText('Moon Garden')).toBeTruthy());
-    const heads = [...document.querySelectorAll('.shead')].map((e) => e.textContent);
-    expect(heads).toEqual(['Books']);
+    const heads = [...document.querySelectorAll('.qshead')].map((e) => e.textContent);
+    expect(heads).toEqual(['Books', 'More']);
     const opts = screen.getAllByRole('option');
     expect(opts[opts.length - 1].textContent).toContain('+ Add new book');
     fireEvent.click(screen.getByText('Moonlit Bargain'));
@@ -74,13 +75,34 @@ describe('header search', () => {
     box(add);
     const i = type('Brand New');
     await waitFor(() => expect(screen.getByText('No matches.')).toBeTruthy());
+    fireEvent.keyDown(i, { key: 'ArrowDown' }); fireEvent.keyDown(i, { key: 'ArrowDown' }); // past the two advanced searches
     fireEvent.keyDown(i, { key: 'Enter' });
     expect(add).toHaveBeenCalledWith('Brand New');
   });
-  it('focuses with Ctrl+K', async () => {
+  it('opens the quick search window with Ctrl+K and closes it with Escape', async () => {
     box();
     fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
-    expect(document.activeElement).toBe(screen.getByLabelText('Search'));
+    const i = await screen.findByLabelText('Search everything');
+    expect(document.activeElement).toBe(i);
+    fireEvent.keyDown(i, { key: 'Escape' });
+    expect(screen.queryByLabelText('Search everything')).toBeNull();
+  });
+  it('offers an advanced search that opens the library with the typed words in a Title row', async () => {
+    await seed();
+    box();
+    type('moon');
+    await waitFor(() => expect(screen.getByText('Moon Garden')).toBeTruthy());
+    fireEvent.click(screen.getByText(/Advanced search in All Books/));
+    expect(screen.getByTestId('where').textContent).toBe('/library?adv=1&q=moon');
+  });
+  it('narrows to one kind with a prefix', async () => {
+    await seed();
+    box();
+    type('!moon');
+    await waitFor(() => expect(screen.getByText('Moon Garden')).toBeTruthy());
+    expect([...document.querySelectorAll('.qshead')].map((e) => e.textContent)).toEqual(['Books', 'More']);
+    type('#moon');
+    await waitFor(() => expect(screen.queryByText('Moon Garden')).toBeNull());
   });
   it('fills the New book dialog with the typed title', () => {
     render(<DbContext.Provider value={db}><MemoryRouter><QuickAdd initialTitle="Typed Title" onClose={() => undefined} /></MemoryRouter></DbContext.Provider>);

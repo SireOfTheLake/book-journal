@@ -5,6 +5,8 @@ import type { TagOption } from '../repo/search';
 import type { LibraryBook } from '../repo/library';
 import type { Status } from '../repo/bookLog';
 import { StarRow } from './bookLog/parts';
+import AdvancedSearch, { AdvancedButton, useAdvanced } from '../ui/AdvancedSearch';
+import type { Advanced } from '../domain/advancedSearch';
 import BulkEditDialog, { type BulkApi, type BulkOptions } from './BulkEditDialog';
 import type { BulkResult } from '../repo/bulkEdit';
 
@@ -35,7 +37,8 @@ function Cover({ b, src }: { b: LibraryBook; src?: string }) {
 const NextFlag = () => <span className="libnext" title="The next book in a series you have started">Next in series</span>;
 const Badge = ({ b }: { b: LibraryBook }) => <span className={`libstatus st-${b.status ?? 'none'}`}>{STATUS_LABEL[b.status ?? 'none']}</span>;
 
-export default function LibraryView({ books, covers, requestCovers, act, pageSize = 60, tagOptions = [], bookTags = {}, initialTags = [], initialQuery = '' }: { books: LibraryBook[]; covers: Record<string, string>; requestCovers: (ids: string[]) => void; act: LibraryActions; pageSize?: number; tagOptions?: TagOption[]; bookTags?: Record<string, string[]>; initialTags?: string[]; initialQuery?: string }) {
+export default function LibraryView({ books, covers, requestCovers, act, pageSize = 60, tagOptions = [], bookTags = {}, initialTags = [], initialQuery = '', initialAdvanced }: { books: LibraryBook[]; covers: Record<string, string>; requestCovers: (ids: string[]) => void; act: LibraryActions; pageSize?: number; tagOptions?: TagOption[]; bookTags?: Record<string, string[]>; initialTags?: string[]; initialQuery?: string; initialAdvanced?: Advanced }) {
+  const adv = useAdvanced(initialAdvanced, !!initialAdvanced);
   const [query, setQuery] = useState(initialQuery);
   const [tags, setTags] = useState<string[]>(initialTags);
   const [tagMode, setTagMode] = useState<TagMode>('all');
@@ -59,12 +62,14 @@ export default function LibraryView({ books, covers, requestCovers, act, pageSiz
   const [bulkError, setBulkError] = useState<string | null>(null);
 
   const upNext = useMemo(() => nextInSeries(books), [books]);
-  const list = useMemo(() => sortLibrary(filterLibrary(books, { query, status, favorites, noCover, tags, tagMode, bookTags }), sort), [books, query, status, favorites, noCover, sort, tags, tagMode, bookTags]);
+  const advSort = adv.adv.sort;
+  const list = useMemo(() => adv.apply(sortLibrary(filterLibrary(books, { query, status, favorites, noCover, tags, tagMode, bookTags }), sort)), // eslint-disable-line react-hooks/exhaustive-deps
+    [books, query, status, favorites, noCover, sort, tags, tagMode, bookTags, adv.ids, advSort]);
   const visible = list.slice(0, shown);
   const missing = books.filter((b) => b.has_cover === 0 && !b.placeholder_permanent).length;
 
   // Whenever the filters or sort change, start again from the first page.
-  useEffect(() => setShown(pageSize), [query, status, favorites, noCover, sort, pageSize, tags, tagMode]);
+  useEffect(() => setShown(pageSize), [query, status, favorites, noCover, sort, pageSize, tags, tagMode, adv.ids]);
   // Covers are big, so only the ones on screen are loaded.
   const need = visible.filter((b) => b.has_cover === 1 && !covers[b.id]).map((b) => b.id);
   const needKey = need.join(',');
@@ -117,6 +122,7 @@ export default function LibraryView({ books, covers, requestCovers, act, pageSiz
         <button type="button" className={`mini ${favorites ? 'activebtn' : ''}`} aria-pressed={favorites} onClick={() => setFavorites(!favorites)}>Favorites</button>
         <button type="button" className={`mini ${noCover ? 'activebtn' : ''}`} aria-pressed={noCover} onClick={() => setNoCover(!noCover)}>No cover</button>
         <button type="button" className={`mini ${tags.length ? 'activebtn' : ''}`} aria-expanded={tagPanel} onClick={() => setTagPanel(!tagPanel)}>{tags.length ? `Tags (${tags.length})` : 'Tags'}</button>
+        <AdvancedButton s={adv} />
         <span className="grow" />
         {act.bulk && <button type="button" className={`mini ${selecting ? 'activebtn' : ''}`} aria-pressed={selecting} onClick={() => (selecting ? stopSelecting() : (setSelecting(true), setNote(null)))}>Select</button>}
         <div className="seg" role="group" aria-label="View">
@@ -125,6 +131,7 @@ export default function LibraryView({ books, covers, requestCovers, act, pageSiz
         </div>
         <span className="muted">{`${list.length} of ${books.length} books`}</span>
       </div>
+      {adv.open && <AdvancedSearch s={adv} shown={list.length} total={books.length} />}
       {tagPanel && (
         <div className="bcard tagpanel" aria-label="Filter by tags">
           <div className="bltools">

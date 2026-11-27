@@ -2,7 +2,17 @@
 
 Every release, newest first. Notes for the next release are written in changelog/unreleased and filed here by "npm run release".
 
-<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 r076 r077 r078 r079 r080 r081 r082 -->
+<!-- merged: r001 r002 r003 r004 r005 r006 r007 r008 r009 r010 r011 r012 r013 r014 r015 r016 r017 r018 r019 r020 r021 r022 r023 r024 r025 r026 r027 r028 r029 r030 r031 r032 r033 r034 r035 r036 r037 r038 r039 r040 r041 r042 r043 r044 r045 r046 r047 r048 r049 r050 r051 r052 r053 r054 r055 r056 r057 r058 r059 r060 r061 r062 r063 r064 r065 r066 r067 r068 r069 r070 r071 r072 r073 r074 r075 r076 r077 r078 r079 r080 r081 r082 r083 -->
+
+## 0.5.19 — 2026-11-27
+
+### New
+- [Desktop] Advanced search on All Books. Add as many conditions as you like (title, author, character, series, narrator, genre, trope, theme, pages, rating), each with contains, starts with, is, does not contain or is not, joined by all or any, and sort the results by page count, title, author, series or rating in either direction.
+- [Desktop] The same Advanced search on TBR & Up Next, applied to both shelves.
+- [Desktop] Ctrl+K, or a click on the search box at the top, opens a quick search window. Results are grouped (books, series, people, characters, tags, pages), recent picks show when it is empty, and start a search with @ (people), # (series), ! (books) or * (tags) to narrow it. Choose Advanced search in it to open All Books or TBR & Up Next with your words already in a Title row.
+
+### Fixed
+- [Desktop] "Add a book you already have" now opens: the position box can be clicked, is filled in with the next position and is much narrower, and the book search is wider. A subtle x closes a row, and clicking the button again opens another row so you can add several books.
 
 ## 0.5.18 — 2026-11-15
 

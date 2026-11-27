@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { emptyAdvanced, newCondition, type Advanced } from '../domain/advancedSearch';
 import { useDb } from '../db/DbContext';
 import { getCovers } from '../repo/library';
 import { addToShelf, applyMove, listShelf, moveOnShelf, moveToShelf, removeFromShelf, startFromShelf, type ShelfBook } from '../repo/shelf';
@@ -8,6 +9,8 @@ import ShelfView, { type ShelfActions } from './ShelfView';
 export default function ShelfPage() {
   const db = useDb();
   const nav = useNavigate();
+  const [params] = useSearchParams();
+  const initialAdvanced = useMemo<Advanced | undefined>(() => params.get('adv') ? { ...emptyAdvanced(), conds: [{ ...newCondition(1), value: params.get('q')?.trim() ?? '' }] } : undefined, [params]);
   const [books, setBooks] = useState<ShelfBook[] | null>(null);
   const [covers, setCovers] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -43,7 +46,7 @@ export default function ShelfPage() {
     <section>
       <h1 className="pagetitle">TBR &amp; UP NEXT <span className="muted small">What you plan to read</span></h1>
       {error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}
-      {books ? <ShelfView books={books} covers={covers} requestCovers={requestCovers} act={act} /> : <p className="muted">Loading...</p>}
+      {books ? <ShelfView key={params.toString()} initialAdvanced={initialAdvanced} books={books} covers={covers} requestCovers={requestCovers} act={act} /> : <p className="muted">Loading...</p>}
     </section>
   );
 }

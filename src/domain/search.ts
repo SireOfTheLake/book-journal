@@ -50,3 +50,25 @@ export function searchAll(items: SearchItem[], query: string, perGroup = 6): Sea
     return hits.length ? [{ kind, title, items: hits }] : [];
   });
 }
+
+/** A search that starts with @ # ! or * only looks in one kind of thing: @ people, # series and universes, ! books, * genres, tropes and themes. */
+export const PREFIXES: { key: string; title: string; kinds: SearchKind[] }[] = [
+  { key: '@', title: 'People and characters', kinds: ['author', 'narrator', 'character'] },
+  { key: '#', title: 'Series and universes', kinds: ['series', 'universe'] },
+  { key: '!', title: 'Books', kinds: ['book'] },
+  { key: '*', title: 'Genres, tropes and themes', kinds: ['genre', 'trope', 'theme'] },
+];
+export function narrowQuery(q: string): { kinds: SearchKind[] | null; text: string; prefix: string | null } {
+  const p = PREFIXES.find((x) => q.trimStart().startsWith(x.key));
+  return p ? { kinds: p.kinds, text: q.trimStart().slice(1).trim(), prefix: p.key } : { kinds: null, text: q.trim(), prefix: null };
+}
+
+/** The places in the app, so the quick search can also jump to a page. */
+export const PAGES: { label: string; path: string }[] = [
+  { label: 'All Books', path: '/library' }, { label: 'TBR & Up Next', path: '/shelf' }, { label: 'Book list', path: '/journal/book-list' },
+  { label: 'Calendar', path: '/journal/calendar' }, { label: 'Month chart', path: '/journal/month-chart' }, { label: 'Book bracket', path: '/journal/bracket' },
+  { label: 'Trackers', path: '/journal/tracker' }, { label: 'Overview and goals', path: '/journal/overview' }, { label: 'Dashboard', path: '/journal/dashboard' },
+  { label: 'Challenges', path: '/journal/challenges' }, { label: 'Prompt randomizer', path: '/journal/randomizer' }, { label: 'Board game', path: '/journal/board-game' },
+  { label: 'Import', path: '/import' }, { label: 'Settings and themes', path: '/settings' },
+];
+export const searchPages = (q: string, limit = 4) => { const w = fold(q).split(/\s+/).filter(Boolean); return w.length ? PAGES.filter((p) => w.every((x) => fold(p.label).includes(x))).slice(0, limit) : []; };

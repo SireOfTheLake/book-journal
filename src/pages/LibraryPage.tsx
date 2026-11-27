@@ -6,6 +6,7 @@ import { listEntries } from '../repo/lists';
 import { applyBulk, deleteBooks, describeBulk } from '../repo/bulkEdit';
 import { getCovers, listLibrary, type LibraryBook } from '../repo/library';
 import { listBookTags, listTagOptions, type TagOption } from '../repo/search';
+import { emptyAdvanced, newCondition, type Advanced } from '../domain/advancedSearch';
 import LibraryView, { type LibraryActions } from './LibraryView';
 
 export default function LibraryPage() {
@@ -16,6 +17,12 @@ export default function LibraryPage() {
   const [tagOptions, setTagOptions] = useState<TagOption[]>([]);
   const [bookTags, setBookTags] = useState<Record<string, string[]>>({});
   const [params] = useSearchParams();
+  // The quick search window can open the library with the advanced panel ready, the typed words already in a Title row.
+  const initialAdvanced = useMemo<Advanced | undefined>(() => {
+    if (!params.get('adv')) return undefined;
+    const q = params.get('q')?.trim();
+    return { ...emptyAdvanced(), conds: [{ ...newCondition(1), value: q ?? '' }] };
+  }, [params]);
   const asked = useRef(new Set<string>());
 
   const reload = useCallback(async () => setBooks(await listLibrary(db)), [db]);
@@ -55,7 +62,7 @@ export default function LibraryPage() {
     <section>
       <h1 className="pagetitle">LIBRARY <span className="muted small">Every book you have added</span></h1>
       {error && <div className="bcard warn" role="alert">{error} <button type="button" className="mini" onClick={() => setError(null)}>Dismiss</button></div>}
-      {books ? <LibraryView key={params.toString()} initialTags={params.getAll('tag')} initialQuery={params.get('q') ?? ''} tagOptions={tagOptions} bookTags={bookTags} books={books} covers={covers} requestCovers={requestCovers} act={act} /> : <p className="muted">Loading...</p>}
+      {books ? <LibraryView key={params.toString()} initialTags={params.getAll('tag')} initialQuery={params.get('adv') ? '' : params.get('q') ?? ''} initialAdvanced={initialAdvanced} tagOptions={tagOptions} bookTags={bookTags} books={books} covers={covers} requestCovers={requestCovers} act={act} /> : <p className="muted">Loading...</p>}
     </section>
   );
 }

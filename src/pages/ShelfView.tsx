@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import AdvancedSearch, { AdvancedButton, useAdvanced } from '../ui/AdvancedSearch';
+import type { Advanced } from '../domain/advancedSearch';
 import { useFeatures } from '../features/FeaturesContext';
 import { filterByOwnership, QUICK_MAX_PAGES, quickReads, quickReason, type FormatFilter, type Move, type OwnFilter, type Shelf, type ShelfBook } from '../repo/shelf';
 
@@ -107,7 +109,7 @@ function Section({ title, hint, books, covers, requestCovers, ordered, act, empt
   );
 }
 
-export default function ShelfView({ books, covers, requestCovers, act }: { books: ShelfBook[]; covers: Record<string, string>; requestCovers(ids: string[]): void; act: ShelfActions }) {
+export default function ShelfView({ books, covers, requestCovers, act, initialAdvanced }: { books: ShelfBook[]; covers: Record<string, string>; requestCovers(ids: string[]): void; act: ShelfActions; initialAdvanced?: Advanced }) {
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('priority');
   const [title, setTitle] = useState('');
@@ -118,16 +120,18 @@ export default function ShelfView({ books, covers, requestCovers, act }: { books
   const [own, setOwn] = useState<OwnFilter>('all');
   const [format, setFormat] = useState<FormatFilter>('any');
   const [quick, setQuick] = useState(false);
+  const adv = useAdvanced(initialAdvanced, !!initialAdvanced);
 
   const q = query.trim().toLowerCase();
   const filtered = useMemo(() => {
     const byText = q ? books.filter((b) => `${b.title} ${b.authors ?? ''} ${b.series ?? ''}`.toLowerCase().includes(q)) : books;
     return flags.owned ? filterByOwnership(byText, own, format) : byText;
   }, [books, q, flags.owned, own, format]);
-  const upNext = useMemo(() => { const l = sortBooks(filtered.filter((b) => b.shelf === 'up_next'), sort); return quick ? quickReads(l) : l; }, [filtered, sort, quick]);
-  const tbr = useMemo(() => { const l = sortBooks(filtered.filter((b) => b.shelf === 'tbr'), sort); return quick ? quickReads(l) : l; }, [filtered, sort, quick]);
+  const advSort = adv.adv.sort;
+  const upNext = useMemo(() => { const l = sortBooks(filtered.filter((b) => b.shelf === 'up_next'), sort); return adv.apply(quick ? quickReads(l) : l); }, [filtered, sort, quick, adv.ids, advSort]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tbr = useMemo(() => { const l = sortBooks(filtered.filter((b) => b.shelf === 'tbr'), sort); return adv.apply(quick ? quickReads(l) : l); }, [filtered, sort, quick, adv.ids, advSort]); // eslint-disable-line react-hooks/exhaustive-deps
   // The arrows only make sense when the list is in your own order and nothing is hidden by the search.
-  const ordered = sort === 'priority' && !q && !(flags.owned && (own !== 'all')) && !quick;
+  const ordered = sort === 'priority' && !q && !(flags.owned && (own !== 'all')) && !quick && !adv.active;
 
   async function add() {
     if (!title.trim() || busy) return;
@@ -151,7 +155,9 @@ export default function ShelfView({ books, covers, requestCovers, act }: { books
           </>
         )}
         <button type="button" className={`mini toolbtn ${quick ? 'on' : ''}`} aria-pressed={quick} title={`Books under ${QUICK_MAX_PAGES} pages`} onClick={() => setQuick(!quick)}>Quick reads</button>
+        <AdvancedButton s={adv} className="mini toolbtn" />
       </div>
+      {adv.open && <AdvancedSearch s={adv} shown={upNext.length + tbr.length} total={books.length} />}
       {quick && <span className="muted small" role="note">{`Books under ${QUICK_MAX_PAGES} pages. Standalones first, then the first book of a series you have not started, then the next book of a series you have started, then the rest. Books with no page count are left out.`}</span>}
       <div className="bcard shelfadd">
         <span className="lbl2">Add a book</span>
@@ -164,8 +170,8 @@ export default function ShelfView({ books, covers, requestCovers, act }: { books
           <button type="button" className="btn on" disabled={busy || !title.trim()} onClick={add}>Add</button>
         </div>
       </div>
-      <Section title="Up Next" hint="The books you plan to read soon, in the order you will read them." books={upNext} covers={covers} requestCovers={requestCovers} ordered={ordered} act={act} quick={quick} empty={q ? 'No matches.' : 'Nothing is queued. Move a book here with To Up Next.'} />
-      <Section title="TBR" hint="Everything else you want to read, in your priority order." books={tbr} covers={covers} requestCovers={requestCovers} ordered={ordered} act={act} quick={quick} empty={q ? 'No matches.' : 'Your TBR is empty.'} />
+      <Section title="Up Next" hint="The books you plan to read soon, in the order you will read them." books={upNext} covers={covers} requestCovers={requestCovers} ordered={ordered} act={act} quick={quick} empty={q || adv.active ? 'No matches.' : 'Nothing is queued. Move a book here with To Up Next.'} />
+      <Section title="TBR" hint="Everything else you want to read, in your priority order." books={tbr} covers={covers} requestCovers={requestCovers} ordered={ordered} act={act} quick={quick} empty={q || adv.active ? 'No matches.' : 'Your TBR is empty.'} />
     </div>
   );
 }
